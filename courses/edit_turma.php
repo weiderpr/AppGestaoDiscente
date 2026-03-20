@@ -31,6 +31,16 @@ $stc->execute([$courseId, $instId]);
 $course = $stc->fetch();
 if (!$course) { header('Location: /courses/index.php'); exit; }
 
+// Segurança: Coordenador só edita os seus cursos
+if ($user['profile'] === 'Coordenador') {
+    $stCheck = $db->prepare('SELECT 1 FROM course_coordinators WHERE course_id=? AND user_id=? LIMIT 1');
+    $stCheck->execute([$courseId, $user['id']]);
+    if (!$stCheck->fetch()) {
+        header('Location: /courses/index.php');
+        exit;
+    }
+}
+
 // Busca a turma garantindo que pertence ao curso
 $stmt = $db->prepare('SELECT * FROM turmas WHERE id=? AND course_id=? LIMIT 1');
 $stmt->execute([$id, $courseId]);
@@ -42,6 +52,7 @@ $error   = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description     = trim($_POST['description']     ?? '');
+    $ano             = (int)($_POST['ano']            ?? date('Y'));
     $nota_maxima     = (float)str_replace(',', '.', $_POST['nota_maxima']     ?? '10');
     $media_aprovacao = (float)str_replace(',', '.', $_POST['media_aprovacao'] ?? '6');
 
@@ -57,8 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($st->fetch()) {
             $error = 'Já existe outra turma com esta descrição neste curso.';
         } else {
-            $db->prepare('UPDATE turmas SET description=?, nota_maxima=?, media_aprovacao=? WHERE id=? AND course_id=?')
-               ->execute([$description, $nota_maxima, $media_aprovacao, $id, $courseId]);
+            $db->prepare('UPDATE turmas SET description=?, ano=?, nota_maxima=?, media_aprovacao=? WHERE id=? AND course_id=?')
+               ->execute([$description, $ano, $nota_maxima, $media_aprovacao, $id, $courseId]);
             $success = 'Turma atualizada com sucesso!';
             $stmt = $db->prepare('SELECT * FROM turmas WHERE id=? LIMIT 1');
             $stmt->execute([$id]);
@@ -122,13 +133,23 @@ require_once __DIR__ . '/../includes/header.php';
                     </div>
                 </div>
 
-                <!-- Descrição -->
-                <div class="form-group">
-                    <label for="description" class="form-label">Descrição <span class="required">*</span></label>
-                    <div class="input-group">
-                        <span class="input-icon">🎓</span>
-                        <input type="text" id="description" name="description" class="form-control"
-                               value="<?= htmlspecialchars($turma['description']) ?>" required>
+                <!-- Descrição e Ano -->
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:.875rem;">
+                    <div class="form-group">
+                        <label for="description" class="form-label">Descrição <span class="required">*</span></label>
+                        <div class="input-group">
+                            <span class="input-icon">🎓</span>
+                            <input type="text" id="description" name="description" class="form-control"
+                                   value="<?= htmlspecialchars($turma['description']) ?>" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="ano" class="form-label">Ano <span class="required">*</span></label>
+                        <div class="input-group">
+                            <span class="input-icon">📅</span>
+                            <input type="number" id="ano" name="ano" class="form-control"
+                                   value="<?= $turma['ano'] ?>" min="2000" max="2100" required>
+                        </div>
                     </div>
                 </div>
 
@@ -168,6 +189,7 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="card-body" style="padding:1rem 1.5rem;">
                 <?php $rows = [
                     ['🔢', 'ID',            $turma['id']],
+                    ['📅', 'Ano',           $turma['ano']],
                     ['📅', 'Cadastrada em', date('d/m/Y H:i', strtotime($turma['created_at']))],
                     ['🔄', 'Atualizada em', date('d/m/Y H:i', strtotime($turma['updated_at']))],
                     ['🏆', 'Nota Máxima',   number_format($turma['nota_maxima'], 2, ',', '.')],

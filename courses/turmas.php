@@ -48,6 +48,7 @@ $action  = $_POST['action'] ?? '';
 // ---- CRIAR ----
 if ($action === 'create') {
     $description     = trim($_POST['description']     ?? '');
+    $ano             = (int)($_POST['ano']            ?? date('Y'));
     $nota_maxima     = (float)str_replace(',', '.', $_POST['nota_maxima']     ?? '10');
     $media_aprovacao = (float)str_replace(',', '.', $_POST['media_aprovacao'] ?? '6');
 
@@ -63,8 +64,8 @@ if ($action === 'create') {
         if ($st->fetch()) {
             $error = 'Já existe uma turma com esta descrição neste curso.';
         } else {
-            $db->prepare('INSERT INTO turmas (course_id, description, nota_maxima, media_aprovacao) VALUES (?,?,?,?)')
-               ->execute([$courseId, $description, $nota_maxima, $media_aprovacao]);
+            $db->prepare('INSERT INTO turmas (course_id, description, ano, nota_maxima, media_aprovacao) VALUES (?,?,?,?,?)')
+               ->execute([$courseId, $description, $ano, $nota_maxima, $media_aprovacao]);
             $success = "Turma «{$description}» cadastrada com sucesso!";
         }
     }
@@ -86,16 +87,25 @@ if ($action === 'delete' && !empty($_POST['turma_id'])) {
     $success = 'Turma removida.';
 }
 
-// ---- LISTAR ----
+// ---- LISTAR TURMAS ----
 $search = trim($_GET['search'] ?? '');
-$sql    = 'SELECT * FROM turmas WHERE course_id=?';
+$sql = "
+    SELECT t.*,
+           GROUP_CONCAT(a.nome ORDER BY a.nome ASC SEPARATOR '||') as rep_names,
+           GROUP_CONCAT(COALESCE(a.photo, '') ORDER BY a.nome ASC SEPARATOR '||') as rep_photos
+    FROM turmas t
+    LEFT JOIN turma_representantes tr ON t.id = tr.turma_id
+    LEFT JOIN alunos a ON a.id = tr.aluno_id
+    WHERE t.course_id = ?
+";
 $params = [$courseId];
 if ($search) {
-    $sql    .= ' AND description LIKE ?';
+    $sql .= " AND (t.description LIKE ? OR t.ano LIKE ?)";
+    $params[] = "%$search%";
     $params[] = "%$search%";
 }
-$sql .= ' ORDER BY description ASC';
-$st   = $db->prepare($sql);
+$sql .= " GROUP BY t.id ORDER BY t.ano DESC, t.description ASC";
+$st = $db->prepare($sql);
 $st->execute($params);
 $turmas = $st->fetchAll();
 
@@ -149,6 +159,17 @@ require_once __DIR__ . '/../includes/header.php';
     display:inline-block; padding:.2rem .625rem;
     border-radius:var(--radius-full); font-size:.8125rem; font-weight:600;
 }
+/* Avatares dos Representantes */
+.rep-stack { display:flex; align-items:center; margin-top:.375rem; }
+.rep-avatar {
+    width:24px; height:24px; border-radius:50%; border:2px solid var(--bg-surface);
+    background:var(--bg-surface-2nd); margin-left:-8px; object-fit:cover;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.625rem; font-weight:700; color:var(--text-muted);
+    position:relative; cursor:help;
+}
+.rep-avatar:first-child { margin-left:0; }
+.rep-avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
 </style>
 
 <!-- Breadcrumb / Page Header -->
@@ -216,6 +237,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <tr>
                     <th>#</th>
                     <th>Descrição</th>
+                    <th>Ano</th>
                     <th>Nota Máxima</th>
                     <th>Média p/ Aprovação</th>
                     <th>Status</th>
@@ -225,14 +247,39 @@ require_once __DIR__ . '/../includes/header.php';
             </thead>
             <tbody>
                 <?php if (empty($turmas)): ?>
-                <tr><td colspan="7" style="text-align:center;padding:2.5rem;color:var(--text-muted);">
+                <tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--text-muted);">
                     Nenhuma turma cadastrada neste curso.
                 </td></tr>
                 <?php endif; ?>
                 <?php foreach ($turmas as $t): ?>
                 <tr style="<?= !$t['is_active'] ? 'opacity:.55' : '' ?>">
                     <td style="color:var(--text-muted);font-size:.8125rem;"><?= $t['id'] ?></td>
-                    <td><span style="font-weight:600;"><?= htmlspecialchars($t['description']) ?></span></td>
+                    <td>
+                        <span style="font-weight:600;"><?= htmlspecialchars($t['description']) ?></span>
+                        <?php if (!empty($t['rep_names'])): ?>
+                            <div class="rep-stack">
+                                <?php 
+                                $names  = explode('||', $t['rep_names']);
+                                $photos = explode('||', $t['rep_photos']);
+                                foreach ($names as $idx => $name): 
+                                    if ($idx >= 5) { // Limite visual
+                                        echo '<div class="rep-avatar" title="E mais ' . (count($names)-$idx) . '...">+' . (count($names)-$idx) . '</div>';
+                                        break;
+                                    }
+                                    $photo = $photos[$idx] ?? '';
+                                ?>
+                                    <div class="rep-avatar" title="Representante: <?= htmlspecialchars($name) ?>">
+                                        <?php if ($photo): ?>
+                                            <img src="/<?= htmlspecialchars($photo) ?>" alt="<?= htmlspecialchars($name) ?>">
+                                        <?php else: ?>
+                                            <?= mb_substr($name, 0, 1) ?>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </td>
+                    <td><span class="badge-profile badge-Outro"><?= $t['ano'] ?></span></td>
                     <td>
                         <span class="nota-pill" style="background:rgba(79,70,229,.1);color:var(--color-primary);">
                             <?= number_format($t['nota_maxima'], 2, ',', '.') ?>
@@ -253,6 +300,12 @@ require_once __DIR__ . '/../includes/header.php';
                     </td>
                     <td>
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
+                            <a href="/courses/disciplinas_turma.php?turma_id=<?= $t['id'] ?>"
+                               class="action-btn" title="Gerenciar Disciplinas">📖</a>
+                            <a href="/courses/representantes.php?turma_id=<?= $t['id'] ?>"
+                               class="action-btn" title="Relacionar Representantes">👥</a>
+                            <a href="/courses/alunos.php?turma_id=<?= $t['id'] ?>"
+                               class="action-btn" title="Gerenciar Alunos">👤</a>
                             <a href="/courses/etapas.php?turma_id=<?= $t['id'] ?>"
                                class="action-btn" title="Gerenciar Etapas">📋</a>
                             <a href="/courses/edit_turma.php?id=<?= $t['id'] ?>&course_id=<?= $courseId ?>"
@@ -296,12 +349,22 @@ require_once __DIR__ . '/../includes/header.php';
                     📚 Curso: <strong><?= htmlspecialchars($course['name']) ?></strong>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Descrição da Turma <span class="required">*</span></label>
-                    <div class="input-group">
-                        <span class="input-icon">🎓</span>
-                        <input type="text" name="description" class="form-control"
-                               placeholder="Ex: 1º Ano — 2024/2" required autofocus>
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:.875rem;">
+                    <div class="form-group">
+                        <label class="form-label">Descrição da Turma <span class="required">*</span></label>
+                        <div class="input-group">
+                            <span class="input-icon">🎓</span>
+                            <input type="text" name="description" class="form-control"
+                                   placeholder="Ex: 1º Ano" required autofocus>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ano <span class="required">*</span></label>
+                        <div class="input-group">
+                            <span class="input-icon">📅</span>
+                            <input type="number" name="ano" class="form-control"
+                                   value="<?= date('Y') ?>" min="2000" max="2100" required>
+                        </div>
                     </div>
                 </div>
 

@@ -84,19 +84,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                          'Disponível para esta etapa: ' . number_format($disponivel, 2, ',', '.') . '.';
             }
         } else {
-            // Verifica duplicidade (exceto o próprio)
             $st = $db->prepare('SELECT id FROM etapas WHERE description=? AND turma_id=? AND id!=? LIMIT 1');
             $st->execute([$description, $turmaId, $id]);
-        if ($st->fetch()) {
-            $error = 'Já existe outra etapa com esta descrição nesta turma.';
-        } else {
-            $db->prepare('UPDATE etapas SET description=?, nota_maxima=?, media_nota=? WHERE id=? AND turma_id=?')
-               ->execute([$description, $nota_maxima, $media_nota, $id, $turmaId]);
-            $success = 'Etapa atualizada com sucesso!';
-            $stmt = $db->prepare('SELECT * FROM etapas WHERE id=? LIMIT 1');
-            $stmt->execute([$id]);
-            $etapa = $stmt->fetch();
-        }
+            if ($st->fetch()) {
+                $error = 'Já existe outra etapa com esta descrição nesta turma.';
+            } else {
+                $db->prepare('UPDATE etapas SET description=?, nota_maxima=?, media_nota=? WHERE id=? AND turma_id=?')
+                   ->execute([$description, $nota_maxima, $media_nota, $id, $turmaId]);
+                $success = 'Etapa atualizada com sucesso!';
+                $stmt = $db->prepare('SELECT * FROM etapas WHERE id=? LIMIT 1');
+                $stmt->execute([$id]);
+                $etapa = $stmt->fetch();
+            }
         }
     }
 }

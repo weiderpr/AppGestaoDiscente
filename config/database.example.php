@@ -3,6 +3,8 @@
  * Vértice Acadêmico — Configuração do Banco de Dados
  */
 
+date_default_timezone_set('America/Sao_Paulo');
+
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'vertice_academico');
 define('DB_USER', 'dev');

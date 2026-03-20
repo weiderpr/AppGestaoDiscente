@@ -85,6 +85,10 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                class="nav-link <?= $currentPage === 'index' && strpos($_SERVER['PHP_SELF'], '/courses/') !== false ? 'active' : '' ?>">
                 📚 Cursos
             </a>
+            <a href="/subjects/index.php"
+               class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/subjects/') !== false ? 'active' : '' ?>">
+                📖 Disciplinas
+            </a>
             <?php endif; ?>
             <!-- Novos itens de menu serão adicionados aqui conforme o sistema cresce -->
         </nav>
@@ -146,8 +150,8 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                                 <span style="font-size:.875rem;">🏫</span>
                             <?php endif; ?>
                         </div>
-                        <div style="display:flex;flex-direction:column;min-width:0;">
-                            <span style="font-size:.8125rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?= $curInst['name'] ? htmlspecialchars($curInst['name']) : 'Selecionar Instituição' ?></span>
+                        <div style="display:flex;flex-direction:column;min-width:0;max-width:160px;">
+                            <span style="font-size:.8125rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?= htmlspecialchars($curInst['name'] ?? '') ?>"><?= $curInst['name'] ? htmlspecialchars($curInst['name']) : 'Selecionar Instituição' ?></span>
                             <span style="font-size:.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.02em;">Trocar instituição ↗</span>
                         </div>
                     </a>
@@ -160,14 +164,18 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                                 <span style="font-size:.875rem;">🏫</span>
                             <?php endif; ?>
                         </div>
-                        <span style="font-size:.8125rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?= $curInst['name'] ? htmlspecialchars($curInst['name']) : 'Carregando...' ?></span>
+                        <div style="display:flex;flex-direction:column;min-width:0;max-width:160px;">
+                            <span style="font-size:.8125rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?= htmlspecialchars($curInst['name'] ?? '') ?>"><?= $curInst['name'] ? htmlspecialchars($curInst['name']) : 'Carregando...' ?></span>
+                        </div>
                     </div>
                     <?php endif; ?>
                     <?php endif; ?>
 
+                    <?php if ($user && $user['profile'] === 'Administrador'): ?>
                     <a href="/settings.php" class="dropdown-item" role="menuitem">
                         ⚙️ Configurações
                     </a>
+                    <?php endif; ?>
 
                     <div class="dropdown-divider"></div>
 

@@ -80,14 +80,14 @@ if ($action === 'create') {
             }
         } else {
             $st = $db->prepare('SELECT id FROM etapas WHERE description=? AND turma_id=? LIMIT 1');
-        $st->execute([$description, $turmaId]);
-        if ($st->fetch()) {
-            $error = 'Já existe uma etapa com esta descrição nesta turma.';
-        } else {
-            $db->prepare('INSERT INTO etapas (turma_id, description, nota_maxima, media_nota) VALUES (?,?,?,?)')
-               ->execute([$turmaId, $description, $nota_maxima, $media_nota]);
-            $success = "Etapa «{$description}» cadastrada com sucesso!";
-        }
+            $st->execute([$description, $turmaId]);
+            if ($st->fetch()) {
+                $error = 'Já existe uma etapa com esta descrição nesta turma.';
+            } else {
+                $db->prepare('INSERT INTO etapas (turma_id, description, nota_maxima, media_nota) VALUES (?,?,?,?)')
+                   ->execute([$turmaId, $description, $nota_maxima, $media_nota]);
+                $success = "Etapa «{$description}» cadastrada com sucesso!";
+            }
         }
     }
 }

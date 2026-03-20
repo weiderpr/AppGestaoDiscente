@@ -1,0 +1,26 @@
+# Arquivos e pastas do sistema operacional / IDEs
+.DS_Store
+.idea/
+.vscode/
+
+# Configurações sensíveis e de banco de dados (específicas de cada servidor)
+config/database.php
+
+# Arquivos de log e sessão temporários
+*.log
+*.pid
+cookie.txt
+cookies.txt
+tmp.sql
+test_urls.sh
+restore_ui.sql
+fix_schema.sql
+
+# Arquivos de upload e mídias geradas por usuários
+# Usamos o .gitkeep para mandar a pasta, mas ignoramos seu conteúdo
+assets/uploads/avatars/*
+!assets/uploads/avatars/.gitkeep
+assets/uploads/institutions/*
+!assets/uploads/institutions/.gitkeep
+assets/uploads/alunos/*
+!assets/uploads/alunos/.gitkeep

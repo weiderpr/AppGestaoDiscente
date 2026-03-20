@@ -60,26 +60,36 @@ function toggleTheme() {
    DROPDOWN DO USUÁRIO
    ============================================= */
 
-function initUserMenu() {
-    const userMenu = document.getElementById('userMenu');
-    if (!userMenu) return;
+function initDropdowns() {
+    // Seletor para todos os containers de dropdown
+    const containers = document.querySelectorAll('.user-menu, .nav-menu-item');
+    
+    containers.forEach(container => {
+        const btn = container.querySelector('button');
+        if (!btn) return;
 
-    const btn = userMenu.querySelector('.user-avatar-btn');
-    if (!btn) return;
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            // Fecha outros abertos
+            containers.forEach(c => {
+                if (c !== container) c.classList.remove('open');
+            });
 
-    btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        userMenu.classList.toggle('open');
+            container.classList.toggle('open');
+        });
     });
 
     document.addEventListener('click', (e) => {
-        if (!userMenu.contains(e.target)) {
-            userMenu.classList.remove('open');
-        }
+        containers.forEach(c => {
+            if (!c.contains(e.target)) c.classList.remove('open');
+        });
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') userMenu.classList.remove('open');
+        if (e.key === 'Escape') {
+            containers.forEach(c => c.classList.remove('open'));
+        }
     });
 }
 
@@ -258,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', toggleTheme);
     });
 
-    initUserMenu();
+    initDropdowns();
     initPasswordToggle();
     initPasswordStrength();
     initAvatarPreview();
