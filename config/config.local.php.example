@@ -1,0 +1,12 @@
+<?php
+/**
+ * Arquivo de EXEMPLO de configuração do banco (É versionado no Git)
+ * Ao baixar em uma nova máquina, copie este arquivo para config.local.php
+ * e preencha com as credenciais locais do banco daquela máquina.
+ */
+
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'nome_do_banco');
+define('DB_USER', 'seu_usuario_local');
+define('DB_PASS', 'sua_senha_local');
+define('DB_CHARSET', 'utf8mb4');

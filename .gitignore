@@ -1,0 +1,20 @@
+# Ambiente Local e Configurações
+config/config.local.php
+
+# IDEs e Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema Operacional
+.DS_Store
+Thumbs.db
+
+# Logs
+error_log
+*.log
+
+# Uploads de Usuários (ignorar conteúdo mas manter a pasta)
+assets/uploads/avatars/*
+!assets/uploads/avatars/.gitkeep
