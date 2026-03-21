@@ -17,4 +17,8 @@ error_log
 
 # Uploads de Usuários (ignorar conteúdo mas manter a pasta)
 assets/uploads/avatars/*
+assets/uploads/alunos/*
+assets/uploads/institutions/*
 !assets/uploads/avatars/.gitkeep
+!assets/uploads/alunos/.gitkeep
+!assets/uploads/institutions/.gitkeep
