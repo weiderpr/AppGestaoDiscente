@@ -6,7 +6,7 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $user = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador'];
+$allowed = ['Administrador', 'Coordenador', 'Professor'];
 if (!$user || !in_array($user['profile'], $allowed)) {
     header('Location: /dashboard.php');
     exit;
@@ -91,6 +91,15 @@ $where  = "WHERE c.institution_id=?";
 
 if ($user['profile'] === 'Coordenador') {
     $where .= " AND c.id IN (SELECT course_id FROM course_coordinators WHERE user_id = ?)";
+    $params[] = $user['id'];
+} elseif ($user['profile'] === 'Professor') {
+    $where .= " AND c.id IN (
+        SELECT DISTINCT t.course_id 
+        FROM turmas t
+        JOIN turma_disciplinas td ON t.id = td.turma_id
+        JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
+        WHERE tdp.professor_id = ?
+    )";
     $params[] = $user['id'];
 }
 
@@ -282,10 +291,12 @@ require_once __DIR__ . '/../includes/header.php';
                             <?php endif; ?>
                             <a href="/courses/turmas.php?course_id=<?= $c['id'] ?>"
                                class="action-btn" title="Gerenciar Turmas">🎓</a>
+                            <?php if ($user['profile'] !== 'Professor'): ?>
                             <button type="button" class="action-btn" title="Importar Notas (CSV)"
                                     onclick='openImportGradesModal(<?= $c['id'] ?>, <?= json_encode($c['name']) ?>)'>
                                 📊
                             </button>
+                            <?php endif; ?>
                             <?php if ($user['profile'] === 'Administrador'): ?>
                                 <a href="/courses/edit.php?id=<?= $c['id'] ?>" class="action-btn" title="Editar">✏️</a>
                                 <form method="POST" style="display:inline;">

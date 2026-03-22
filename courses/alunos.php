@@ -6,7 +6,8 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $user    = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador'];
+$allowed = ['Administrador', 'Coordenador', 'Professor'];
+$isProfessor = $user && $user['profile'] === 'Professor';
 if (!$user || !in_array($user['profile'], $allowed)) {
     header('Location: /dashboard.php');
     exit;
@@ -74,6 +75,23 @@ $courseId = $turma['course_id'];
 if ($user['profile'] === 'Coordenador') {
     $stCheck = $db->prepare('SELECT 1 FROM course_coordinators WHERE course_id=? AND user_id=? LIMIT 1');
     $stCheck->execute([$courseId, $user['id']]);
+    if (!$stCheck->fetch()) {
+        header('Location: /courses/index.php');
+        exit;
+    }
+}
+
+// Segurança: Professor só vê turmas que leciona
+if ($isProfessor) {
+    $stCheck = $db->prepare('
+        SELECT 1 
+        FROM turmas t
+        JOIN turma_disciplinas td ON t.id = td.turma_id
+        JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
+        WHERE t.id = ? AND tdp.professor_id = ? 
+        LIMIT 1
+    ');
+    $stCheck->execute([$turmaId, $user['id']]);
     if (!$stCheck->fetch()) {
         header('Location: /courses/index.php');
         exit;
@@ -350,12 +368,18 @@ require_once __DIR__ . '/../includes/header.php';
         <h1 class="page-title">👤 Alunos da Turma</h1>
         <p class="page-subtitle">Turma: <strong><?= htmlspecialchars($turma['description']) ?> (<?= $turma['ano'] ?>)</strong></p>
     </div>
+    <?php if (!$isProfessor): ?>
     <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
         <a href="/courses/turmas.php?course_id=<?= $courseId ?>" class="btn btn-secondary">← Voltar</a>
         <button class="btn btn-secondary" onclick="openModal('importFileModal')">📊 Importar Excel/CSV</button>
         <button class="btn btn-secondary" onclick="openModal('importModal')">📥 Importar de Turma</button>
         <button class="btn btn-primary" onclick="openModal('alunoModal')">➕ Novo Aluno</button>
     </div>
+    <?php else: ?>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
+        <a href="/courses/turmas.php?course_id=<?= $courseId ?>" class="btn btn-secondary">← Voltar para Turmas</a>
+    </div>
+    <?php endif; ?>
 </div>
 
 <?php if ($success): ?>
@@ -394,16 +418,20 @@ require_once __DIR__ . '/../includes/header.php';
         <table class="alunos-table">
             <thead>
                 <tr>
-                    <th style="width:60px;">Foto</th>
+                    <th style="width:70px;">Foto</th>
                     <th>Matrícula</th>
-                    <th>Nome</th>
+                    <th>Nome Completo</th>
+                    <?php if ($isProfessor): ?>
+                    <th style="text-align:center;">Ações</th>
+                    <?php else: ?>
                     <th>Contato</th>
                     <th style="text-align:center;">Ações</th>
+                    <?php endif; ?>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($alunos)): ?>
-                <tr><td colspan="5" style="text-align:center;padding:3rem;color:var(--text-muted);">Nenhum aluno vinculado a esta turma.</td></tr>
+                <tr><td colspan="<?= $isProfessor ? '4' : '5' ?>" style="text-align:center;padding:3rem;color:var(--text-muted);">Nenhum aluno vinculado a esta turma.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($alunos as $a): ?>
                 <tr>
@@ -415,6 +443,14 @@ require_once __DIR__ . '/../includes/header.php';
                         <?php endif; ?>
                     </td>
                     <td style="font-weight:600;color:var(--color-primary);"><?= htmlspecialchars($a['matricula']) ?></td>
+                    <?php if ($isProfessor): ?>
+                    <td style="font-weight:600;"><?= htmlspecialchars($a['nome']) ?></td>
+                    <td style="text-align:center;">
+                        <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
+                            <button type="button" class="action-btn" title="Adicionar Comentário" onclick='openCommentModal(<?= json_encode(["id" => $a["id"], "nome" => $a["nome"], "photo" => $a["photo"], "photo_url" => ($a["photo"] && file_exists(__DIR__."/../".$a["photo"]) ? "/".$a["photo"] : null)]) ?>)'>💬</button>
+                        </div>
+                    </td>
+                    <?php else: ?>
                     <td>
                         <div style="font-weight:600;"><?= htmlspecialchars($a['nome']) ?></div>
                         <div style="font-size:.75rem;color:var(--text-muted);"><?= htmlspecialchars($a['email']) ?></div>
@@ -431,6 +467,7 @@ require_once __DIR__ . '/../includes/header.php';
                             </form>
                         </div>
                     </td>
+                    <?php endif; ?>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -720,6 +757,87 @@ function openEditModal(aluno) {
     
     openModal('editAlunoModal');
 }
+
+function openCommentModal(aluno) {
+    document.getElementById('comment_aluno_id').value = aluno.id;
+    document.getElementById('comment_aluno_name').textContent = aluno.nome;
+    document.getElementById('comment_text').value = '';
+    document.getElementById('comment_preview').innerHTML = '<span style="font-size:.75rem;color:var(--text-muted);">Carregando comentários...</span>';
+    
+    const photoDiv = document.getElementById('comment_aluno_photo');
+    if (aluno.photo && aluno.photo_url) {
+        photoDiv.innerHTML = `<img src="${aluno.photo_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`;
+    } else {
+        const initial = aluno.nome.charAt(0).toUpperCase();
+        photoDiv.textContent = initial;
+    }
+    
+    loadComments(aluno.id);
+    openModal('commentModal');
+}
+
+async function loadComments(alunoId) {
+    try {
+        const resp = await fetch(`/api/comments.php?aluno_id=${alunoId}&turma_id=<?= $turmaId ?>`);
+        const data = await resp.json();
+        
+        const container = document.getElementById('comment_preview');
+        if (data.length === 0) {
+            container.innerHTML = '<span style="font-size:.75rem;color:var(--text-muted);">Nenhum comentário ainda.</span>';
+        } else {
+            container.innerHTML = data.map(c => `
+                <div style="padding:.75rem; background:var(--bg-surface-2nd); border-radius:var(--radius-md); margin-bottom:.5rem;">
+                    <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:.25rem;">
+                        ${c.professor_name} • ${c.created_at}
+                    </div>
+                    <div style="font-size:.875rem;line-height:1.5;">${escapeHtml(c.comment)}</div>
+                </div>
+            `).join('');
+        }
+    } catch (e) {
+        document.getElementById('comment_preview').innerHTML = '<span style="font-size:.75rem;color:var(--color-danger);">Erro ao carregar comentários.</span>';
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 </script>
+
+<?php if ($isProfessor): ?>
+<div class="modal-backdrop" id="commentModal" role="dialog">
+    <div class="modal">
+        <div class="modal-header">
+            <div style="display:flex;align-items:center;gap:.75rem;">
+                <div id="comment_aluno_photo" style="width:40px;height:40px;border-radius:50%;background:var(--gradient-brand);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:1rem;"></div>
+                <div>
+                    <div id="comment_aluno_name" style="font-size:1rem;font-weight:700;color:var(--text-primary);"></div>
+                    <div style="font-size:.75rem;color:var(--text-muted);">💬 Comentários</div>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeModal('commentModal')">✕</button>
+        </div>
+        <form method="POST" onsubmit="return submitComment(event)">
+            <input type="hidden" name="action" value="add_comment">
+            <input type="hidden" name="aluno_id" id="comment_aluno_id">
+            <div class="modal-body">
+                <div class="form-group" style="margin-bottom:.5rem;">
+                    <label class="form-label">Novo Comentário</label>
+                    <textarea name="comment" id="comment_text" class="form-control" rows="3" placeholder="Digite seu comentário sobre este aluno..." required style="resize:vertical;"></textarea>
+                </div>
+                <div id="comment_preview" style="margin-top:1rem;">
+                    <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);margin-bottom:.5rem;">Comentários Anteriores:</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('commentModal')">Fechar</button>
+                <button type="submit" class="btn btn-primary">💾 Salvar Comentário</button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

@@ -6,7 +6,7 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $user    = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador'];
+$allowed = ['Administrador', 'Coordenador', 'Professor'];
 if (!$user || !in_array($user['profile'], $allowed)) {
     header('Location: /dashboard.php');
     exit;
@@ -102,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'remov
 }
 
 // ---- LISTAR DISCIPLINAS DA TURMA ----
-$stDisciplinas = $db->prepare('
+$sqlDisciplinas = "
     SELECT td.id as td_id, td.created_at as td_created_at,
            d.codigo as disciplina_codigo, d.descricao, d.observacoes,
            dc.nome as categoria_nome
@@ -110,9 +110,20 @@ $stDisciplinas = $db->prepare('
     JOIN disciplinas d ON d.codigo = td.disciplina_codigo
     JOIN disciplina_categorias dc ON dc.id = d.categoria_id
     WHERE td.turma_id = ?
-    ORDER BY dc.nome, d.descricao
-');
-$stDisciplinas->execute([$turmaId]);
+";
+
+if ($user['profile'] === 'Professor') {
+    $sqlDisciplinas .= " AND td.id IN (SELECT turma_disciplina_id FROM turma_disciplina_professores WHERE professor_id = ?)";
+}
+
+$sqlDisciplinas .= " ORDER BY dc.nome, d.descricao";
+$stDisciplinas = $db->prepare($sqlDisciplinas);
+
+$paramsDisciplinas = [$turmaId];
+if ($user['profile'] === 'Professor') {
+    $paramsDisciplinas[] = $user['id'];
+}
+$stDisciplinas->execute($paramsDisciplinas);
 $turmaDisciplinas = $stDisciplinas->fetchAll();
 
 // Carregar professores de cada relação
@@ -232,7 +243,9 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <div style="display:flex;gap:.75rem;">
             <a href="/courses/turmas.php?course_id=<?= $turma['course_id'] ?>" class="btn btn-secondary">← Voltar</a>
+            <?php if ($user['profile'] !== 'Professor'): ?>
             <button class="btn btn-primary" onclick="openAddDisciplinaModal()">➕ Adicionar Disciplina</button>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -327,6 +340,7 @@ require_once __DIR__ . '/../includes/header.php';
                     </td>
                     <td>
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
+                            <?php if ($user['profile'] !== 'Professor'): ?>
                             <button class="action-btn" 
                                     onclick='openProfessorModal(<?= $td['td_id'] ?>, <?= json_encode($td['descricao']) ?>)'
                                     title="Gerenciar Professores">
@@ -337,6 +351,9 @@ require_once __DIR__ . '/../includes/header.php';
                                 <input type="hidden" name="turma_disciplina_id" value="<?= $td['td_id'] ?>">
                                 <button type="submit" class="action-btn danger" title="Remover Disciplina">🗑</button>
                             </form>
+                            <?php else: ?>
+                            <span style="font-size:.8125rem;color:var(--text-muted);">Somente leitura</span>
+                            <?php endif; ?>
                         </div>
                     </td>
                 </tr>

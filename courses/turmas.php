@@ -6,7 +6,7 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $user    = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador'];
+$allowed = ['Administrador', 'Coordenador', 'Professor'];
 if (!$user || !in_array($user['profile'], $allowed)) {
     header('Location: /dashboard.php');
     exit;
@@ -34,6 +34,20 @@ if (!$course) { header('Location: /courses/index.php'); exit; }
 // Segurança: Coordenador só vê os seus cursos
 if ($user['profile'] === 'Coordenador') {
     $stCheck = $db->prepare('SELECT 1 FROM course_coordinators WHERE course_id=? AND user_id=? LIMIT 1');
+    $stCheck->execute([$courseId, $user['id']]);
+    if (!$stCheck->fetch()) {
+        header('Location: /courses/index.php');
+        exit;
+    }
+} elseif ($user['profile'] === 'Professor') {
+    $stCheck = $db->prepare('
+        SELECT 1 
+        FROM turmas t
+        JOIN turma_disciplinas td ON t.id = td.turma_id
+        JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
+        WHERE t.course_id = ? AND tdp.professor_id = ? 
+        LIMIT 1
+    ');
     $stCheck->execute([$courseId, $user['id']]);
     if (!$stCheck->fetch()) {
         header('Location: /courses/index.php');
@@ -99,6 +113,17 @@ $sql = "
     WHERE t.course_id = ?
 ";
 $params = [$courseId];
+
+if ($user['profile'] === 'Professor') {
+    $sql .= " AND t.id IN (
+        SELECT DISTINCT t2.id
+        FROM turmas t2
+        JOIN turma_disciplinas td ON t2.id = td.turma_id
+        JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
+        WHERE tdp.professor_id = ?
+    )";
+    $params[] = $user['id'];
+}
 if ($search) {
     $sql .= " AND (t.description LIKE ? OR t.ano LIKE ?)";
     $params[] = "%$search%";
@@ -187,7 +212,9 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
     <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
         <a href="/courses/index.php" class="btn btn-secondary">← Voltar</a>
+        <?php if ($user['profile'] !== 'Professor'): ?>
         <button class="btn btn-primary" onclick="openModal()">➕ Nova Turma</button>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -300,14 +327,17 @@ require_once __DIR__ . '/../includes/header.php';
                     </td>
                     <td>
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
+                            <?php if ($user['profile'] !== 'Professor'): ?>
                             <a href="/courses/disciplinas_turma.php?turma_id=<?= $t['id'] ?>"
                                class="action-btn" title="Gerenciar Disciplinas">📖</a>
                             <a href="/courses/representantes.php?turma_id=<?= $t['id'] ?>"
                                class="action-btn" title="Relacionar Representantes">👥</a>
+                            <?php endif; ?>
                             <a href="/courses/alunos.php?turma_id=<?= $t['id'] ?>"
-                               class="action-btn" title="Gerenciar Alunos">👤</a>
+                               class="action-btn" title="Visualizar Alunos">👤</a>
                             <a href="/courses/etapas.php?turma_id=<?= $t['id'] ?>"
-                               class="action-btn" title="Gerenciar Etapas">📋</a>
+                               class="action-btn" title="Lançar Notas/Faltas">📋</a>
+                            <?php if ($user['profile'] !== 'Professor'): ?>
                             <a href="/courses/edit_turma.php?id=<?= $t['id'] ?>&course_id=<?= $courseId ?>"
                                class="action-btn" title="Editar">✏️</a>
                             <form method="POST" style="display:inline;">
@@ -325,6 +355,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <button type="submit" class="action-btn danger" title="Excluir"
                                         onclick="return confirm('Excluir permanentemente «<?= htmlspecialchars($t['description']) ?>»?')">🗑</button>
                             </form>
+                            <?php endif; ?>
                         </div>
                     </td>
                 </tr>

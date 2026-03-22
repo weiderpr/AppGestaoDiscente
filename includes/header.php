@@ -80,7 +80,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                 🏫 Instituições
             </a>
             <?php endif; ?>
-            <?php if ($user && in_array($user['profile'], ['Administrador', 'Coordenador']) && !empty($curInst['id'])): ?>
+            <?php if ($user && in_array($user['profile'], ['Administrador', 'Coordenador', 'Professor']) && !empty($curInst['id'])): ?>
             <a href="/courses/index.php"
                class="nav-link <?= $currentPage === 'index' && strpos($_SERVER['PHP_SELF'], '/courses/') !== false ? 'active' : '' ?>">
                 📚 Cursos
