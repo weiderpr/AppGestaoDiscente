@@ -227,6 +227,25 @@ CREATE TABLE turma_alunos (
 CREATE INDEX idx_ta_aluno ON turma_alunos (aluno_id);
 
 -- =======================================================
+-- Tabela: comentarios_professores (comentários dos professores sobre alunos)
+-- =======================================================
+CREATE TABLE comentarios_professores (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    professor_id INT UNSIGNED NOT NULL,
+    aluno_id    INT UNSIGNED NOT NULL,
+    turma_id    INT UNSIGNED NOT NULL,
+    conteudo    TEXT NOT NULL,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_cp_professor FOREIGN KEY (professor_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_cp_aluno FOREIGN KEY (aluno_id) REFERENCES alunos(id) ON DELETE CASCADE,
+    CONSTRAINT fk_cp_turma FOREIGN KEY (turma_id) REFERENCES turmas(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_cp_aluno ON comentarios_professores (aluno_id);
+CREATE INDEX idx_cp_turma ON comentarios_professores (turma_id);
+
+-- =======================================================
 -- Tabela: disciplina_categorias
 -- =======================================================
 CREATE TABLE disciplina_categorias (

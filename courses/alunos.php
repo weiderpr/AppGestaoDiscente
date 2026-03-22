@@ -758,11 +758,15 @@ function openEditModal(aluno) {
     openModal('editAlunoModal');
 }
 
+let currentAlunoId = null;
+
 function openCommentModal(aluno) {
+    currentAlunoId = aluno.id;
     document.getElementById('comment_aluno_id').value = aluno.id;
     document.getElementById('comment_aluno_name').textContent = aluno.nome;
-    document.getElementById('comment_text').value = '';
-    document.getElementById('comment_preview').innerHTML = '<span style="font-size:.75rem;color:var(--text-muted);">Carregando comentários...</span>';
+    document.getElementById('comment_text').innerHTML = ''; // Limpa o contenteditable
+    document.getElementById('comment_history_meu').innerHTML = '<div style="padding:1rem;text-align:center;"><span style="font-size:.875rem;color:var(--text-muted);">Carregando...</span></div>';
+    document.getElementById('comment_history_outros').innerHTML = '';
     
     const photoDiv = document.getElementById('comment_aluno_photo');
     if (aluno.photo && aluno.photo_url) {
@@ -781,34 +785,200 @@ async function loadComments(alunoId) {
         const resp = await fetch(`/api/comments.php?aluno_id=${alunoId}&turma_id=<?= $turmaId ?>`);
         const data = await resp.json();
         
-        const container = document.getElementById('comment_preview');
-        if (data.length === 0) {
-            container.innerHTML = '<span style="font-size:.75rem;color:var(--text-muted);">Nenhum comentário ainda.</span>';
-        } else {
-            container.innerHTML = data.map(c => `
-                <div style="padding:.75rem; background:var(--bg-surface-2nd); border-radius:var(--radius-md); margin-bottom:.5rem;">
-                    <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:.25rem;">
-                        ${c.professor_name} • ${c.created_at}
-                    </div>
-                    <div style="font-size:.875rem;line-height:1.5;">${escapeHtml(c.comment)}</div>
-                </div>
-            `).join('');
+        if (data.error) {
+            const preview = document.getElementById('comment_preview');
+            if (preview) preview.innerHTML = `<span style="font-size:.75rem;color:var(--color-danger);">${data.error}</span>`;
+            else alert(data.error);
+            return;
         }
+        
+        // Renderiza Meus Comentários Agrupados
+        let htmlMeu = '';
+        if (data.meus_comentarios && data.meus_comentarios.length > 0) {
+            const c0 = data.meus_comentarios[0];
+            const initial = (c0.professor_nome || 'P').charAt(0);
+            const photoHtml = c0.professor_photo 
+                ? `<img src="/${c0.professor_photo}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">`
+                : `<div style="width:28px;height:28px;border-radius:50%;background:var(--gradient-brand);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:.75rem;text-transform:uppercase;">${initial}</div>`;
+
+            htmlMeu += `
+                <div style="margin-bottom:1.5rem;padding:1rem;background:var(--bg-surface-2nd);border-radius:var(--radius-md);border-left:3px solid var(--color-primary);">
+                    <div style="display:flex;align-items:center;gap:.625rem;margin-bottom:.75rem;">
+                        ${photoHtml}
+                        <div style="font-size:.875rem;font-weight:700;color:var(--text-primary);">Eu</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:.75rem;">
+                        ${data.meus_comentarios.map(c => `
+                            <div style="background:var(--bg-surface);padding:.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.375rem;">
+                                    <span style="font-size:.6875rem;color:var(--text-muted);">${formatDate(c.created_at)}</span>
+                                    <button type="button" class="action-btn danger" style="width:24px;height:24px;font-size:.75rem;" onclick="deleteComment(${c.id})" title="Excluir">🗑</button>
+                                </div>
+                                <div style="font-size:.875rem;line-height:1.5;color:var(--text-primary);">${c.conteudo}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            htmlMeu += `<span style="font-size:.75rem;color:var(--text-muted);display:block;margin-bottom:1rem;">Você ainda não comentou sobre este aluno.</span>`;
+        }
+        document.getElementById('comment_history_meu').innerHTML = htmlMeu;
+        
+        // Renderiza Comentários de Outros Agrupados por Professor
+        let htmlOutros = '';
+        if (data.outros_comentarios && data.outros_comentarios.length > 0) {
+            // Agrupar por professor_nome
+            const groups = {};
+            data.outros_comentarios.forEach(c => {
+                if (!groups[c.professor_nome]) {
+                    groups[c.professor_nome] = {
+                        name: c.professor_nome,
+                        photo: c.professor_photo,
+                        list: []
+                    };
+                }
+                groups[c.professor_nome].list.push(c);
+            });
+
+            Object.values(groups).forEach(g => {
+                const initial = (g.name || 'P').charAt(0);
+                const photoHtml = g.photo 
+                    ? `<img src="/${g.photo}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">`
+                    : `<div style="width:28px;height:28px;border-radius:50%;background:var(--gradient-brand);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:.75rem;text-transform:uppercase;">${initial}</div>`;
+                
+                htmlOutros += `
+                    <div style="margin-bottom:1.5rem;padding:1rem;background:var(--bg-surface-2nd);border-radius:var(--radius-md);">
+                        <div style="display:flex;align-items:center;gap:.625rem;margin-bottom:.75rem;">
+                            ${photoHtml}
+                            <div style="font-size:.875rem;font-weight:700;color:var(--text-primary);">${escapeHtml(g.name)}</div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:.625rem;">
+                            ${g.list.map(c => `
+                                <div style="background:var(--bg-surface);padding:.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);">
+                                    <div style="font-size:.6875rem;color:var(--text-muted);margin-bottom:.25rem;">${formatDate(c.created_at)}</div>
+                                    <div style="font-size:.875rem;line-height:1.5;color:var(--text-secondary);">${c.conteudo}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            htmlOutros += `<span style="font-size:.75rem;color:var(--text-muted);">Nenhum comentário de outros professores.</span>`;
+        }
+        
+        document.getElementById('comment_history_outros').innerHTML = htmlOutros;
     } catch (e) {
-        document.getElementById('comment_preview').innerHTML = '<span style="font-size:.75rem;color:var(--color-danger);">Erro ao carregar comentários.</span>';
+        const preview = document.getElementById('comment_preview');
+        const msg = `Houve um erro ao carregar os comentários: ${e.message}`;
+        if (preview) preview.innerHTML = `<span style="font-size:.75rem;color:var(--color-danger);">${msg}</span>`;
+        console.error('Erro ao carregar comentários:', e);
     }
 }
 
+function formatDate(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+async function saveComment(event) {
+    event.preventDefault();
+    const btn = event.target.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    
+    // Pega o HTML formatado da div contenteditable
+    const conteudo = document.getElementById('comment_text').innerHTML.trim();
+    if (!conteudo || conteudo === '<br>') {
+        alert('Por favor, digite um comentário.');
+        return;
+    }
+    
+    btn.innerHTML = '⏳ Salvando...';
+    btn.disabled = true;
+    
+    try {
+        const formData = new FormData();
+        formData.append('action', 'save_comment');
+        formData.append('aluno_id', document.getElementById('comment_aluno_id').value);
+        formData.append('turma_id', <?= $turmaId ?>);
+        formData.append('conteudo', conteudo);
+        
+        const resp = await fetch('/api/comments.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        
+        showToast('Comentário publicado com sucesso!', 'success');
+        
+        // Limpa o campo e recarrega os comentários
+        document.getElementById('comment_text').innerHTML = '';
+        loadComments(document.getElementById('comment_aluno_id').value);
+        
+    } catch (e) {
+        showToast(e.message || 'Erro ao salvar comentário', 'error');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+async function deleteComment(id) {
+    if (!confirm('Deseja realmente excluir este comentário?')) return;
+    
+    try {
+        const formData = new FormData();
+        formData.append('action', 'delete_comment');
+        formData.append('comment_id', id);
+        
+        const resp = await fetch('/api/comments.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        
+        loadComments(document.getElementById('comment_aluno_id').value);
+        
+    } catch (e) {
+        alert(e.message || 'Erro ao excluir comentário');
+    }
+}
+
+// Comandos de Rich Text Simplificados
+function formatText(command) {
+    document.execCommand(command, false, null);
+    document.getElementById('comment_text').focus();
+}
+
 function escapeHtml(text) {
+    if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
+
+
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.style.cssText = `position:fixed;bottom:2rem;right:2rem;padding:1rem 1.5rem;border-radius:var(--radius-lg);font-size:.875rem;font-weight:500;z-index:9999;animation:slideIn .3s ease;background:${type === 'success' ? 'var(--color-success)' : 'var(--color-danger)'};color:white;box-shadow:0 4px 12px rgba(0,0,0,.15);`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
 </script>
+
+<style>
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+</style>
 
 <?php if ($isProfessor): ?>
 <div class="modal-backdrop" id="commentModal" role="dialog">
-    <div class="modal">
+    <div class="modal" style="max-width:560px;">
         <div class="modal-header">
             <div style="display:flex;align-items:center;gap:.75rem;">
                 <div id="comment_aluno_photo" style="width:40px;height:40px;border-radius:50%;background:var(--gradient-brand);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:1rem;"></div>
@@ -819,21 +989,36 @@ function escapeHtml(text) {
             </div>
             <button class="modal-close" onclick="closeModal('commentModal')">✕</button>
         </div>
-        <form method="POST" onsubmit="return submitComment(event)">
-            <input type="hidden" name="action" value="add_comment">
+        <form id="commentForm" onsubmit="saveComment(event); return false;">
+            <input type="hidden" name="action" value="save_comment">
             <input type="hidden" name="aluno_id" id="comment_aluno_id">
-            <div class="modal-body">
-                <div class="form-group" style="margin-bottom:.5rem;">
-                    <label class="form-label">Novo Comentário</label>
-                    <textarea name="comment" id="comment_text" class="form-control" rows="3" placeholder="Digite seu comentário sobre este aluno..." required style="resize:vertical;"></textarea>
+            
+            <div class="modal-body" style="padding:1.25rem 1.5rem;">
+                
+                <!-- Rich Text Editor -->
+                <div class="form-group" style="margin-bottom:1rem;">
+                    <label class="form-label" style="display:flex;justify-content:space-between;align-items:center;">
+                        <span>Novo Comentário</span>
+                        <div style="display:flex;gap:.25rem;background:var(--bg-surface-2nd);padding:.25rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);">
+                            <button type="button" class="action-btn" style="width:28px;height:28px;" onclick="formatText('bold')" title="Negrito"><b>B</b></button>
+                            <button type="button" class="action-btn" style="width:28px;height:28px;" onclick="formatText('italic')" title="Itálico"><i>I</i></button>
+                            <button type="button" class="action-btn" style="width:28px;height:28px;" onclick="formatText('insertUnorderedList')" title="Lista">📋</button>
+                        </div>
+                    </label>
+                    <div id="comment_text" class="form-control" contenteditable="true" style="min-height:100px;max-height:200px;overflow-y:auto;background:var(--bg-surface);padding:.75rem;" placeholder="Digite seu comentário sobre este aluno..."></div>
+                    <div id="comment_preview"></div>
+                    <div style="text-align:right;margin-top:.5rem;">
+                        <button type="submit" class="btn btn-primary btn-sm">💾 Publicar Comentário</button>
+                    </div>
                 </div>
-                <div id="comment_preview" style="margin-top:1rem;">
-                    <div style="font-size:.75rem;font-weight:600;color:var(--text-muted);margin-bottom:.5rem;">Comentários Anteriores:</div>
-                </div>
+
+                <!-- Histórico de Comentários -->
+                <div id="comment_history_meu"></div>
+                <div id="comment_history_outros" style="margin-top:0.5rem;"></div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('commentModal')">Fechar</button>
-                <button type="submit" class="btn btn-primary">💾 Salvar Comentário</button>
+            
+            <div class="modal-footer" style="padding:1rem 1.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('commentModal')" style="width:100%;">Fechar Janela</button>
             </div>
         </form>
     </div>
