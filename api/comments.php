@@ -3,10 +3,11 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $user = getCurrentUser();
-if (!$user || $user['profile'] !== 'Professor') {
+$allowedProfiles = ['Professor', 'Coordenador', 'Administrador'];
+if (!$user || !in_array($user['profile'], $allowedProfiles)) {
     http_response_code(403);
     header('Content-Type: application/json');
-    echo json_encode(['error' => 'Acesso negado']);
+    echo json_encode(['error' => 'Acesso negado: Perfil sem permissão.']);
     exit;
 }
 
@@ -25,18 +26,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
     
     try {
-        // Verifica se o professor leciona nessa turma
-        $stCheck = $db->prepare('
-            SELECT 1 
-            FROM turma_disciplinas td
-            JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
-            WHERE td.turma_id = ? AND tdp.professor_id = ?
-            LIMIT 1
-        ');
-        $stCheck->execute([$turmaId, $professorId]);
-        if (!$stCheck->fetch()) {
-            echo json_encode(['error' => 'Sem permissão para esta turma']);
-            exit;
+        // Controle de Acesso por Perfil
+        $isProfessor = ($user['profile'] === 'Professor');
+        $isCoord = ($user['profile'] === 'Coordenador');
+        $isAdmin = ($user['profile'] === 'Administrador');
+
+        if ($isProfessor) {
+            $stCheck = $db->prepare('
+                SELECT 1 FROM turma_disciplinas td
+                JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
+                WHERE td.turma_id = ? AND tdp.professor_id = ? LIMIT 1
+            ');
+            $stCheck->execute([$turmaId, $professorId]);
+            if (!$stCheck->fetch()) {
+                echo json_encode(['error' => 'Acesso negado: Você não leciona nesta turma']);
+                exit;
+            }
+        } else if ($isCoord) {
+            $stCheckCoord = $db->prepare('
+                SELECT 1 FROM course_coordinators cc
+                JOIN courses c ON c.id = cc.course_id
+                JOIN turmas t ON t.course_id = c.id
+                WHERE t.id = ? AND cc.user_id = ? LIMIT 1
+            ');
+            $stCheckCoord->execute([$turmaId, $professorId]);
+            if (!$stCheckCoord->fetch()) {
+                echo json_encode(['error' => 'Acesso negado: Você não coordena o curso desta turma']);
+                exit;
+            }
         }
         
         $st = $db->prepare('
@@ -87,19 +104,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         
-        // Verifica se o professor leciona nessa turma
-        $stCheck = $db->prepare('
-            SELECT 1 
-            FROM turma_disciplinas td
-            JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
-            WHERE td.turma_id = ? AND tdp.professor_id = ?
-            LIMIT 1
-        ');
-        $stCheck->execute([$turmaId, $professorId]);
-        if (!$stCheck->fetch()) {
-            header('Content-Type: application/json');
-            echo json_encode(['error' => 'Sem permissão']);
-            exit;
+        // Controle de Acesso por Perfil
+        $isProfessor = ($user['profile'] === 'Professor');
+        $isCoord = ($user['profile'] === 'Coordenador');
+        $isAdmin = ($user['profile'] === 'Administrador');
+
+        if ($isProfessor) {
+            $stCheck = $db->prepare('
+                SELECT 1 FROM turma_disciplinas td
+                JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
+                WHERE td.turma_id = ? AND tdp.professor_id = ? LIMIT 1
+            ');
+            $stCheck->execute([$turmaId, $professorId]);
+            if (!$stCheck->fetch()) {
+                echo json_encode(['error' => 'Acesso negado: Você não leciona nesta turma']);
+                exit;
+            }
+        } else if ($isCoord) {
+            $stCheckCoord = $db->prepare('
+                SELECT 1 FROM course_coordinators cc
+                JOIN courses c ON c.id = cc.course_id
+                JOIN turmas t ON t.course_id = c.id
+                WHERE t.id = ? AND cc.user_id = ? LIMIT 1
+            ');
+            $stCheckCoord->execute([$turmaId, $professorId]);
+            if (!$stCheckCoord->fetch()) {
+                echo json_encode(['error' => 'Acesso negado: Você não coordena o curso desta turma']);
+                exit;
+            }
         }
         
         try {
@@ -126,9 +158,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         
-        // Verifica se o comentário pertence ao professor logado
-        $stDel = $db->prepare('DELETE FROM comentarios_professores WHERE id = ? AND professor_id = ?');
-        $stDel->execute([$commentId, $professorId]);
+        // Verifica permissão para excluir
+        if ($user['profile'] === 'Administrador') {
+            // Admins podem excluir qualquer comentário
+            $stDel = $db->prepare('DELETE FROM comentarios_professores WHERE id = ?');
+            $stDel->execute([$commentId]);
+        } else {
+            // Outros perfis só excluem os próprios comentários
+            $stDel = $db->prepare('DELETE FROM comentarios_professores WHERE id = ? AND professor_id = ?');
+            $stDel->execute([$commentId, $professorId]);
+        }
         
         header('Content-Type: application/json');
         echo json_encode(['success' => $stDel->rowCount() > 0]);

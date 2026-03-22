@@ -8,6 +8,9 @@ requireLogin();
 $user    = getCurrentUser();
 $allowed = ['Administrador', 'Coordenador', 'Professor'];
 $isProfessor = $user && $user['profile'] === 'Professor';
+$isCoord     = $user && $user['profile'] === 'Coordenador';
+$isAdmin     = $user && $user['profile'] === 'Administrador';
+$canComment  = $isProfessor || $isCoord || $isAdmin;
 if (!$user || !in_array($user['profile'], $allowed)) {
     header('Location: /dashboard.php');
     exit;
@@ -443,7 +446,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <?php endif; ?>
                     </td>
                     <td style="font-weight:600;color:var(--color-primary);"><?= htmlspecialchars($a['matricula']) ?></td>
-                    <?php if ($isProfessor): ?>
+                    <?php if ($canComment): ?>
                     <td style="font-weight:600;"><?= htmlspecialchars($a['nome']) ?></td>
                     <td style="text-align:center;">
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
@@ -976,7 +979,7 @@ function showToast(message, type) {
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 </style>
 
-<?php if ($isProfessor): ?>
+<?php if ($canComment): ?>
 <div class="modal-backdrop" id="commentModal" role="dialog">
     <div class="modal" style="max-width:560px;">
         <div class="modal-header">
