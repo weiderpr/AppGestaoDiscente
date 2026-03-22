@@ -79,9 +79,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $stMeu->execute([$alunoId, $turmaId, $professorId]);
         $meusComentarios = $stMeu->fetchAll(PDO::FETCH_ASSOC);
         
+        // Busca TODOS os comentários do aluno (para nuvem de palavras) sem filtro de turma
+        $stAll = $db->prepare('
+            SELECT cp.conteudo, cp.created_at
+            FROM comentarios_professores cp
+            WHERE cp.aluno_id = ?
+            ORDER BY cp.created_at DESC
+        ');
+        $stAll->execute([$alunoId]);
+        $todosComentarios = $stAll->fetchAll(PDO::FETCH_ASSOC);
+        
         echo json_encode([
             'meus_comentarios' => $meusComentarios,
-            'outros_comentarios' => $outrosComentarios
+            'outros_comentarios' => $outrosComentarios,
+            'todos_comentarios' => $todosComentarios
         ], JSON_UNESCAPED_UNICODE);
     } catch (Exception $e) {
         echo json_encode(['error' => 'Erro interno: ' . $e->getMessage()]);

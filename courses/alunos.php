@@ -762,11 +762,21 @@ let currentAlunoId = null;
 
 function openCommentModal(aluno) {
     currentAlunoId = aluno.id;
+    currentCommentAlunoId = aluno.id;
+    
     document.getElementById('comment_aluno_id').value = aluno.id;
     document.getElementById('comment_aluno_name').textContent = aluno.nome;
-    document.getElementById('comment_text').innerHTML = ''; // Limpa o contenteditable
+    document.getElementById('comment_text').innerHTML = '';
     document.getElementById('comment_history_meu').innerHTML = '<div style="padding:1rem;text-align:center;"><span style="font-size:.875rem;color:var(--text-muted);">Carregando...</span></div>';
     document.getElementById('comment_history_outros').innerHTML = '';
+    
+    document.querySelectorAll('.comment-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === 'comments');
+    });
+    document.querySelectorAll('.comment-tab-content').forEach(content => {
+        content.style.display = 'none';
+    });
+    document.getElementById('tab-comments').style.display = 'block';
     
     const photoDiv = document.getElementById('comment_aluno_photo');
     if (aluno.photo && aluno.photo_url) {
@@ -781,6 +791,8 @@ function openCommentModal(aluno) {
 }
 
 async function loadComments(alunoId) {
+    currentCommentAlunoId = alunoId;
+    
     try {
         const resp = await fetch(`/api/comments.php?aluno_id=${alunoId}&turma_id=<?= $turmaId ?>`);
         const data = await resp.json();
@@ -970,57 +982,671 @@ function showToast(message, type) {
     document.body.appendChild(toast);
     setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
 }
+
+let currentCommentAlunoId = null;
+
+function switchCommentTab(tabName) {
+    const alunoId = currentCommentAlunoId || document.getElementById('comment_aluno_id')?.value;
+    if (!alunoId) return;
+    
+    document.querySelectorAll('.comment-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+    });
+    document.querySelectorAll('.comment-tab-content').forEach(content => {
+        content.style.display = 'none';
+    });
+    document.getElementById('tab-' + tabName).style.display = 'block';
+    
+    if (tabName === 'wordcloud' && typeof generateWordCloud === 'function') {
+        generateWordCloud(alunoId);
+    }
+    if (tabName === 'summary' && typeof generateSummary === 'function') {
+        generateSummary(alunoId);
+    }
+    if (tabName === 'trend' && typeof generateTrend === 'function') {
+        generateTrend(alunoId);
+    }
+}
+
+async function generateWordCloud(alunoId) {
+    const loading = document.getElementById('wordcloud_loading');
+    const canvas = document.getElementById('wordcloud_canvas');
+    const empty = document.getElementById('wordcloud_empty');
+    const info = document.getElementById('wordcloud_info');
+    
+    loading.style.display = 'block';
+    canvas.style.display = 'none';
+    empty.style.display = 'none';
+    info.style.display = 'none';
+    
+    try {
+        const resp = await fetch(`/api/comments.php?aluno_id=${alunoId}&turma_id=<?= $turmaId ?>`);
+        const data = await resp.json();
+        
+        if (!data.todos_comentarios || data.todos_comentarios.length === 0) {
+            loading.style.display = 'none';
+            empty.style.display = 'block';
+            return;
+        }
+        
+const stopWords = new Set(['0','1','2','3','4','5','6','7','8','9','a','e','i','o','v','x','à','é','af','ah','ao','as','aí','da','de','do','eh','em','eu','há','ii','iv','ix','já','me','na','no','né','oh','ok','os','ou','pq','se','só','tb','te','tu','tá','um','vc','vi','xi','xv','às',' cá',' lá',' né','agr','ali','aos','até','bem','com','das','dos','ela','ele','era','foi','for','fui','hei','hão','iii','lhe','mas','meu','msm','nas','nem','nos','num','não','por','pra','pro','que','sem','ser','seu','sou','sua','são','tbm','tem','ter','teu','tlg','tua','tém','têm','uma','vai','vcs','vcê','vii','vos','vou','vão','xii','xiv','como','dela','dele','elas','eles','eram','essa','esse','esta','este','está','fora','haja','isso','isto','lhes','logo','mais','meus','numa','para','pela','pelo','pode','pois','qual','quem','seja','será','seus','suas','terá','teus','teve','tive','tuas','viii','você','xiii','ainda','aluna','aluno','assim','delas','deles','entre','então','essas','esses','estas','estes','estou','estão','fomos','foram','forem','fosse','hajam','houve','mesmo','minha','muito','nossa','nosso','pelas','pelos','poder','porém','sejam','serei','seria','serão','somos','temos','tenha','tenho','terei','teria','terão','tinha','tiver','vamos','visto','vocês','alunas','alunos','aquela','aquele','aquilo','depois','estava','esteja','esteve','estive','formos','fossem','houver','minhas','nossas','nossos','porque','quando','seriam','também','tenham','teriam','tinham','tivera','éramos','aquelas','aqueles','contudo','estamos','estavam','estejam','estiver','fôramos','hajamos','havemos','houvera','houverá','sejamos','seremos','teremos','tivemos','tiveram','tiverem','tivesse','todavia','estivera','fôssemos','houvemos','houveram','houverei','houverem','houveria','houverão','houvesse','seríamos','tenhamos','teríamos','tivermos','tivessem','tínhamos','estejamos','estivemos','estiveram','estiverem','estivesse','estávamos','houveriam','houvermos','houvessem','tivéramos','estivermos','estivessem','houveremos','houvéramos','tivéssemos','estivéramos','houveríamos','houvéssemos','estivéssemos']);
+        
+        const wordCounts = {};
+        let totalWords = 0;
+        
+        data.todos_comentarios.forEach(comment => {
+            const text = comment.conteudo.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
+            const words = text.toLowerCase().match(/\b[a-záàâãéèêíìîóòôõúùûç]+/g) || [];
+            
+            words.forEach(word => {
+                if (word.length > 2 && !stopWords.has(word)) {
+                    wordCounts[word] = (wordCounts[word] || 0) + 1;
+                    totalWords++;
+                }
+            });
+        });
+        
+        const wordList = Object.entries(wordCounts)
+            .map(([word, count]) => [word, count])
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 50);
+        
+        if (wordList.length === 0) {
+            loading.style.display = 'none';
+            empty.style.display = 'block';
+            return;
+        }
+        
+        document.getElementById('wordcloud_word_count').textContent = totalWords;
+        document.getElementById('wordcloud_comment_count').textContent = data.todos_comentarios.length;
+        
+        if (typeof WordCloud === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js';
+            script.onload = () => drawWordCloud(wordList, canvas);
+            document.head.appendChild(script);
+        } else {
+            drawWordCloud(wordList, canvas);
+        }
+        
+        loading.style.display = 'none';
+        canvas.style.display = 'block';
+        info.style.display = 'block';
+        
+    } catch (e) {
+        console.error('Erro ao gerar nuvem de palavras:', e);
+        loading.style.display = 'none';
+        empty.style.display = 'block';
+    }
+}
+
+function drawWordCloud(wordList, canvas) {
+    const maxCount = Math.max(...wordList.map(w => w[1]));
+    const minCount = Math.min(...wordList.map(w => w[1]));
+    const countRange = maxCount - minCount || 1;
+    
+    const getColor = () => {
+        const colors = ['#4f46e5','#7c3aed','#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+        return colors[Math.floor(Math.random() * colors.length)];
+    };
+    
+    const options = {
+        list: wordList.map(([word, count]) => {
+            const weight = 12 + ((count - minCount) / countRange) * 40;
+            return [word, Math.round(weight)];
+        }),
+        gridSize: 8,
+        weightFactor: 1,
+        fontFamily: 'Inter, sans-serif',
+        color: getColor,
+        rotateRatio: 0.3,
+        rotationSteps: 2,
+        backgroundColor: 'transparent',
+        drawOutOfBound: false,
+        shrinkToFit: true,
+        wait: 10,
+        abortThreshold: 100
+    };
+    
+    WordCloud(canvas, options);
+}
+
+async function generateSummary(alunoId) {
+    const loading = document.getElementById('summary_loading');
+    const content = document.getElementById('summary_content');
+    const empty = document.getElementById('summary_empty');
+    
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    empty.style.display = 'none';
+    
+    try {
+        const resp = await fetch(`/api/comments.php?aluno_id=${alunoId}&turma_id=<?= $turmaId ?>`);
+        const data = await resp.json();
+        
+        if (!data.todos_comentarios || data.todos_comentarios.length === 0) {
+            loading.style.display = 'none';
+            empty.style.display = 'block';
+            return;
+        }
+        
+        const criticalPositivePhrases = ['parabéns','parabens','parabéns!','parabens!','muito bem','muito bem!','excelente trabalho','trabalho excelente','superou expectativas','acima da média','acima da media','nota máxima','nota maxima','nota 10','nota dez','melhor da turma','destaque da turma','referência','referencia','modelo','exemplo'];
+        const strongPositiveWords = ['ótimo','otimo','excelente','maravilhoso','fantástico','fantastico','incrível','incrivel','perfeito','perfeita','extraordinário','extraordinaria','excepcional','brilhante','genial','notável','notavel','impressionante','extraordinário','destacado','destaque','esforçado','esforçada','dedicado','dedicada','exemplar','admirá vel','admiravel'];
+        const moderatePositiveWords = ['bom','boa','bom demais','muito bom','muito boa','legal','legal demais','gostei','gostei muito','positivamente','surpreendeu','surpreendente','satisfatório','satisfatoria','gratificante','animador','encorajador','motivado','motivada','comprometido','comprometida','responsável','responsavel','disciplinado','disciplinada','atento','atenta','participativo','participativa','engajado','engajada','proativo','proativa','iniciativa','criativo','criativa','inteligente','espert','espirituoso','rápido','rapida','aprende','aprendeu','progresso','evoluiu','melhor','melhorou','cresceu','adiantado','adiantada'];
+        const mildPositiveWords = ['aprovado','aprovada','aprovação','aprovacao','nota','notas','progresso','participa','participou','participação','ativo','ativa','interessado','interessada','curioso','criativo','engajado','engajada','interessante','interessada','bem','bem comporta','boa postura','boa attitude','responde','respondeu','entrega','entregou'];
+        
+        const criticalNegativePhrases = ['não','não consegue','não pode','não sabe','não entende','não faz','não executa','não executa atividades','não participam','reprovou','reprovada','reprovado','desistente','desistiu','abandonou','abandono','comportamento ruim','comportamento péssimo','comportamento terrível','comportamento muito ruim','problema','problemas','crítico','crítica','grave','sério','séria','muito ruim','péssimo comportamento','indisciplina grave','reincidente','zero esforço','sem esforço'];
+        const strongNegativeWords = ['fraco','fraca','fracos','fracas','péssimo','péssima','terrível','horrível','pior','zero','nenhum','nenhuma','reprovado','reprovada','desistente','abandono','problemático','problemática','incompatível','incapaz','inadequado','inadequada','inaceitável','insuportável','indisciplinado','indisciplinada','impossível','faltas','faltou','faltaram','dificuldade','difícil','reprovação','abaixo','insuficiente','insuficientes','preocupa','preocupante','desatento','desatenta','bagunça','bagunceiro','bagunceira','atrasado','atrasada','demora','lento','lenta','esquece','esquecido','esquecida','negligente','desorganizado','desorganizada','nunca','jamais','ruim'];
+        const moderateNegativeWords = ['precisa melhorar','necessita','deveria','seria melhor','poderia','difícil','complicado','complexo','confuso','desmotivado','desmotivada','desinteressado','desinteressada','passivo','passiva','apático','apática','inconstante','irregular','instável','hesitante','desconfiado','desconfiada','reticente','reservado','reservada','agitado','agitada','nervoso','nervosa','ansioso','ansiosa','preocupado','preocupada','cansado','cansada','desanimado','desanimada','triste','abatido','abatida','desconfortável','constrangido','constrangida'];
+        const mildNegativeWords = ['atenção','cuidado','monitorar','acompanhar','observar','verificar','checar','avaliar','questionável','incerto','incerta','variável','algumas vezes','às vezes','ocasionalmente','raramente','pouco','pouca','quase','quase nunca','falta'];
+        
+        const categoryKeywords = {
+            '📚 Estudo': ['estuda','estudo','estudou','aula','aulas','prova','provas','teste','testes','exame','exercício','exercícios','tarefa','tarefas','lição','lições','matéria','matérias','conteúdo','conteúdos','aprender','aprendeu','aprenderam','leitura','leu','ler'],
+            '👥 Comportamento': ['comportamento','comporta','comportou','conduta','educado','educada','educados','educadas','respeito','respeto','respeita','respeitou','atitude','atitudes','postura','civilizado','civilizada','educação','cidadão','cidadã'],
+            '🎯 Desempenho': ['desempenho','nota','notas','pontuação','resultado','resultados','média','aprovado','aprovada','reprovado','reprovada','conceito','conceitos','rendimento','performance','produtividade','conquistas','conquista','progresso','evoluiu','evolução'],
+            '🤝 Participação': ['participa','participou','participação','ativo','ativa','engajado','engajada','interage','interagiu','interação','colabora','colaborou','colaboração','contribui','contribuiu','contribuição','opinião','opiniões','ideia','ideias','questiona','questionou','pergunta','perguntas'],
+            '⚡ Entrega': ['entrega','entregou','entregam','atraso','atrasado','atrasada','pontual','pontualidade',' prazo','prazos','devolveu','devolver','submeteu','submeter','completou','completar','finalizou','finalizar']
+        };
+        
+        const stats = {
+            total: data.todos_comentarios.length,
+            positive: 0,
+            negative: 0,
+            neutral: 0,
+            categories: {},
+            topPositive: [],
+            topNegative: [],
+            recentComments: []
+        };
+        
+        data.todos_comentarios.forEach(comment => {
+            const text = comment.conteudo.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').toLowerCase();
+            const words = text.match(/\b[a-záàâãéèêíìîóòôõúùûç]+\b/g) || [];
+            const wordSet = new Set(words);
+            
+            let sentimentScore = 0;
+            
+            criticalPositivePhrases.forEach(phrase => { if (text.includes(phrase)) sentimentScore += 5; });
+            strongPositiveWords.forEach(w => { if (wordSet.has(w)) sentimentScore += 3; });
+            moderatePositiveWords.forEach(w => { if (wordSet.has(w)) sentimentScore += 2; });
+            mildPositiveWords.forEach(w => { if (wordSet.has(w)) sentimentScore += 1; });
+            
+            criticalNegativePhrases.forEach(phrase => { if (text.includes(phrase)) sentimentScore -= 5; });
+            strongNegativeWords.forEach(w => { if (wordSet.has(w)) sentimentScore -= 3; });
+            moderateNegativeWords.forEach(w => { if (text.includes(w)) sentimentScore -= 2; });
+            mildNegativeWords.forEach(w => { if (text.includes(w)) sentimentScore -= 1; });
+            
+            let sentiment = 'neutral';
+            if (sentimentScore >= 1) sentiment = 'positive';
+            else if (sentimentScore <= -1) sentiment = 'negative';
+            
+            if (sentiment === 'positive') stats.positive++;
+            else if (sentiment === 'negative') stats.negative++;
+            else stats.neutral++;
+            
+            Object.entries(categoryKeywords).forEach(([cat, keywords]) => {
+                keywords.forEach(kw => {
+                    if (wordSet.has(kw)) {
+                        stats.categories[cat] = (stats.categories[cat] || 0) + 1;
+                    }
+                });
+            });
+            
+            const date = new Date(comment.created_at);
+            stats.recentComments.push({
+                text: comment.conteudo.replace(/<[^>]*>/g, ' ').substring(0, 150) + (comment.conteudo.length > 150 ? '...' : ''),
+                date: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+                sentiment: sentiment
+            });
+        });
+        
+        Object.entries(categoryKeywords).forEach(([cat, keywords]) => {
+            let catPositive = 0, catNegative = 0;
+            const allPositiveWords = [...criticalPositivePhrases, ...strongPositiveWords, ...moderatePositiveWords, ...mildPositiveWords];
+            const allNegativeWords = [...criticalNegativePhrases, ...strongNegativeWords, ...moderateNegativeWords, ...mildNegativeWords];
+            data.todos_comentarios.forEach(comment => {
+                const text = comment.conteudo.replace(/<[^>]*>/g, ' ').toLowerCase();
+                keywords.forEach(kw => {
+                    if (text.includes(kw)) {
+                        if (allPositiveWords.some(pw => text.includes(pw))) catPositive++;
+                        if (allNegativeWords.some(nw => text.includes(nw))) catNegative++;
+                    }
+                });
+            });
+            if (stats.categories[cat]) {
+                stats.topPositive.push({ cat, count: catPositive });
+                stats.topNegative.push({ cat, count: catNegative });
+            }
+        });
+        
+        const sentimentPercent = {
+            positive: Math.round((stats.positive / stats.total) * 100),
+            negative: Math.round((stats.negative / stats.total) * 100),
+            neutral: Math.round((stats.neutral / stats.total) * 100)
+        };
+        
+        const sortedCategories = Object.entries(stats.categories)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+        
+        let html = '';
+        
+        html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1.25rem;">';
+        html += '<div style="background:var(--bg-surface-2nd);padding:1rem;border-radius:var(--radius-md);text-align:center;">';
+        html += '<div style="font-size:1.5rem;font-weight:700;color:var(--color-success);">✓ ' + stats.positive + '</div>';
+        html += '<div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Positivos</div>';
+        html += '</div>';
+        html += '<div style="background:var(--bg-surface-2nd);padding:1rem;border-radius:var(--radius-md);text-align:center;">';
+        html += '<div style="font-size:1.5rem;font-weight:700;color:var(--color-warning);">○ ' + stats.neutral + '</div>';
+        html += '<div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Neutros</div>';
+        html += '</div>';
+        html += '<div style="background:var(--bg-surface-2nd);padding:1rem;border-radius:var(--radius-md);text-align:center;">';
+        html += '<div style="font-size:1.5rem;font-weight:700;color:var(--color-danger);">✗ ' + stats.negative + '</div>';
+        html += '<div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Negativos</div>';
+        html += '</div>';
+        html += '</div>';
+        
+        html += '<div style="margin-bottom:1.25rem;">';
+        html += '<div style="font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.05em;">📈 Visão Geral dos Comentários</div>';
+        html += '<div style="background:var(--bg-surface-2nd);border-radius:var(--radius-md);padding:0.75rem;display:flex;gap:0.5rem;height:12px;">';
+        if (sentimentPercent.positive > 0) html += '<div style="background:var(--color-success);border-radius:var(--radius-sm);width:' + sentimentPercent.positive + '%;" title="Positivos: ' + sentimentPercent.positive + '%"></div>';
+        if (sentimentPercent.neutral > 0) html += '<div style="background:var(--color-warning);border-radius:var(--radius-sm);width:' + sentimentPercent.neutral + '%;" title="Neutros: ' + sentimentPercent.neutral + '%"></div>';
+        if (sentimentPercent.negative > 0) html += '<div style="background:var(--color-danger);border-radius:var(--radius-sm);width:' + sentimentPercent.negative + '%;" title="Negativos: ' + sentimentPercent.negative + '%"></div>';
+        html += '</div>';
+        html += '<div style="display:flex;gap:1rem;margin-top:0.5rem;font-size:0.75rem;color:var(--text-muted);">';
+        html += '<span style="display:flex;align-items:center;gap:0.25rem;"><span style="width:8px;height:8px;border-radius:50%;background:var(--color-success);"></span> Positivos ' + sentimentPercent.positive + '%</span>';
+        html += '<span style="display:flex;align-items:center;gap:0.25rem;"><span style="width:8px;height:8px;border-radius:50%;background:var(--color-warning);"></span> Neutros ' + sentimentPercent.neutral + '%</span>';
+        html += '<span style="display:flex;align-items:center;gap:0.25rem;"><span style="width:8px;height:8px;border-radius:50%;background:var(--color-danger);"></span> Negativos ' + sentimentPercent.negative + '%</span>';
+        html += '</div>';
+        html += '</div>';
+        
+        if (sortedCategories.length > 0) {
+            html += '<div style="margin-bottom:1.25rem;">';
+            html += '<div style="font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">🏷️ Temas Mais Mencionados</div>';
+            html += '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;">';
+            sortedCategories.forEach(([cat, count]) => {
+                const size = Math.max(0.75, Math.min(1, 0.75 + (count / stats.total) * 0.5));
+                html += '<span style="background:var(--bg-surface-2nd);padding:0.375rem 0.75rem;border-radius:var(--radius-lg);font-size:' + size + 'rem;font-weight:600;color:var(--color-primary);border:1px solid var(--border-color);">' + cat + ' <span style="opacity:0.6;">(' + count + ')</span></span>';
+            });
+            html += '</div>';
+            html += '</div>';
+        }
+        
+        const overall = sentimentPercent.positive > sentimentPercent.negative ? 'positivo' : (sentimentPercent.negative > sentimentPercent.positive ? 'negativo' : 'neutro');
+        const overallColor = overall === 'positivo' ? 'var(--color-success)' : (overall === 'negativo' ? 'var(--color-danger)' : 'var(--color-warning)');
+        html += '<div style="background:var(--bg-surface-2nd);padding:1rem;border-radius:var(--radius-md);margin-bottom:1rem;">';
+        html += '<div style="font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:0.5rem;">📋 Síntese Geral</div>';
+        html += '<div style="font-size:0.875rem;color:var(--text-secondary);line-height:1.6;">';
+        html += 'Este aluno possui <strong style="color:' + overallColor + ';">' + stats.total + ' comentário(s)</strong> registrados. ';
+        if (overall === 'positivo') {
+            html += 'A maioria dos comentários destaca aspectos <strong style="color:var(--color-success);">positivos</strong> sobre o desempenho e comportamento do aluno. ';
+            if (sortedCategories.length > 0) {
+                html += 'Os temas mais recorrentes são: <strong>' + sortedCategories.slice(0, 3).map(c => c[0]).join(', ') + '</strong>.';
+            }
+        } else if (overall === 'negativo') {
+            html += 'Há的关注 sobre áreas que necessitam de <strong style="color:var(--color-danger);">melhoria</strong>. ';
+            if (sortedCategories.length > 0) {
+                html += 'Os temas que requerem atenção são: <strong>' + sortedCategories.slice(0, 3).map(c => c[0]).join(', ') + '</strong>.';
+            }
+        } else {
+            html += 'Os comentários são predominantemente <strong>descritivos</strong>, sem tendências claras de aspecto positivo ou negativo.';
+        }
+        html += '</div>';
+        html += '</div>';
+        
+        html += '<div>';
+        html += '<div style="font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:0.75rem;text-transform:uppercase;letter-spacing:0.05em;">💬 Comentários Recentes</div>';
+        html += '<div style="display:flex;flex-direction:column;gap:0.5rem;max-height:180px;overflow-y:auto;">';
+        stats.recentComments.slice(0, 5).forEach(c => {
+            const sentColor = c.sentiment === 'positive' ? 'var(--color-success)' : (c.sentiment === 'negative' ? 'var(--color-danger)' : 'var(--color-warning)');
+            const sentIcon = c.sentiment === 'positive' ? '✓' : (c.sentiment === 'negative' ? '✗' : '○');
+            html += '<div style="background:var(--bg-surface);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.25rem;">';
+            html += '<span style="font-size:0.6875rem;color:var(--text-muted);">' + c.date + '</span>';
+            html += '<span style="font-size:0.6875rem;color:' + sentColor + ';font-weight:600;">' + sentIcon + '</span>';
+            html += '</div>';
+            html += '<div style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.4;">' + c.text + '</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+        html += '</div>';
+        
+        content.innerHTML = html;
+        loading.style.display = 'none';
+        content.style.display = 'block';
+        
+    } catch (e) {
+        console.error('Erro ao gerar resumo:', e);
+        loading.style.display = 'none';
+        empty.style.display = 'block';
+    }
+}
+
+async function generateTrend(alunoId) {
+    const loading = document.getElementById('trend_loading');
+    const content = document.getElementById('trend_content');
+    const empty = document.getElementById('trend_empty');
+    
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    empty.style.display = 'none';
+    
+    try {
+        const resp = await fetch(`/api/comments.php?aluno_id=${alunoId}&turma_id=<?= $turmaId ?>`);
+        const data = await resp.json();
+        
+        if (!data.todos_comentarios || data.todos_comentarios.length < 2) {
+            loading.style.display = 'none';
+            empty.style.display = 'block';
+            return;
+        }
+        
+        const criticalPositivePhrases = ['parabéns','parabens','muito bem','excelente trabalho','superou expectativas','acima da média','nota máxima','nota 10','melhor da turma'];
+        const strongPositiveWords = ['ótimo','otimo','excelente','maravilhoso','fantástico','fantastico','incrível','perfeito','perfeita','brilhante','excepcional','destacado','esforçado','esforçada','dedicado','dedicada','exemplar'];
+        const moderatePositiveWords = ['bom','boa','legal','gostei','positivamente','surpreendeu','satisfatório','motivado','motivada','comprometido','responsável','disciplinado','participativo','engajado','proativo','criativo','inteligente','aprende','progresso','melhor','melhorou'];
+        const mildPositiveWords = ['aprovado','aprovada','nota','notas','participa','ativo','ativa','interessado','interessada','engajado','bem','responde','entrega','entregou'];
+        
+        const criticalNegativePhrases = ['não','não consegue','não pode','não sabe','não entende','não faz','não executa','não participam','reprovou','reprovada','reprovado','desistente','desistiu','abandonou','abandono','comportamento ruim','comportamento péssimo','comportamento terrível','problema','problemas','grave','sério','séria','muito ruim','péssimo comportamento','indisciplina grave','reincidente','zero esforço','sem esforço'];
+        const strongNegativeWords = ['fraco','fraca','péssimo','péssima','terrível','horrível','pior','reprovado','reprovada','problemático','problemática','indisciplinado','indisciplinada','faltas','faltou','faltaram','dificuldade','difícil','insuficiente','insuficientes','preocupa','preocupante','desatento','desatenta','bagunça','bagunceiro','bagunceira','atrasado','atrasada','lento','lenta','esquece','esquecido','negligente','desorganizado','desorganizada','nunca','jamais','ruim','péssima','incompatível','incapaz','inadequado','inadequada','impossível'];
+        const moderateNegativeWords = ['precisa melhorar','necessita','deveria','seria melhor','poderia','difícil','complicado','complexo','confuso','desmotivado','desmotivada','desinteressado','desinteressada','passivo','passiva','apático','apática','irregular','instável','agitado','agitada','nervoso','nervosa','ansioso','ansiosa','preocupado','preocupada','cansado','cansada','desanimado','desanimada','triste','reservado','reservada','quieto','quieta'];
+        const mildNegativeWords = ['atenção','cuidado','monitorar','acompanhar','observar','falta','verificar','avaliar','questionável','pouco','pouca','raramente'];
+        
+        const commentsWithScores = data.todos_comentarios
+            .map(c => {
+                const text = c.conteudo.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').toLowerCase();
+                const words = text.match(/\b[a-záàâãéèêíìîóòôõúùûç]+\b/g) || [];
+                const wordSet = new Set(words);
+                
+                let score = 0;
+                criticalPositivePhrases.forEach(p => { if (text.includes(p)) score += 5; });
+                strongPositiveWords.forEach(w => { if (wordSet.has(w)) score += 3; });
+                moderatePositiveWords.forEach(w => { if (wordSet.has(w)) score += 2; });
+                mildPositiveWords.forEach(w => { if (wordSet.has(w)) score += 1; });
+                criticalNegativePhrases.forEach(p => { if (text.includes(p)) score -= 5; });
+                strongNegativeWords.forEach(w => { if (wordSet.has(w)) score -= 3; });
+                moderateNegativeWords.forEach(w => { if (text.includes(w)) score -= 2; });
+                mildNegativeWords.forEach(w => { if (text.includes(w)) score -= 1; });
+                
+                return {
+                    date: new Date(c.created_at),
+                    score: score,
+                    content: c.conteudo.replace(/<[^>]*>/g, ' ').substring(0, 100),
+                    label: score >= 1 ? 'positive' : (score <= -1 ? 'negative' : 'neutral')
+                };
+            })
+            .sort((a, b) => a.date - b.date);
+        
+        const firstHalf = commentsWithScores.slice(0, Math.ceil(commentsWithScores.length / 2));
+        const secondHalf = commentsWithScores.slice(Math.ceil(commentsWithScores.length / 2));
+        
+        const avgFirst = firstHalf.reduce((sum, c) => sum + c.score, 0) / firstHalf.length;
+        const avgSecond = secondHalf.reduce((sum, c) => sum + c.score, 0) / secondHalf.length;
+        const avgOverall = commentsWithScores.reduce((sum, c) => sum + c.score, 0) / commentsWithScores.length;
+        
+        const diff = avgSecond - avgFirst;
+        let trend = 'stable';
+        let trendLabel = 'Estável';
+        let trendColor = 'var(--color-warning)';
+        let trendIcon = '→';
+        
+        if (diff >= 1) {
+            trend = 'improving';
+            trendLabel = 'Em Melhora';
+            trendColor = 'var(--color-success)';
+            trendIcon = '↗';
+        } else if (diff <= -1) {
+            trend = 'declining';
+            trendLabel = 'Em Piora';
+            trendColor = 'var(--color-danger)';
+            trendIcon = '↘';
+        }
+        
+        const firstDate = commentsWithScores[0].date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        const lastDate = commentsWithScores[commentsWithScores.length - 1].date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        
+        let html = '';
+        
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;">';
+        html += '<div style="background:var(--bg-surface-2nd);padding:1.25rem;border-radius:var(--radius-md);text-align:center;">';
+        html += '<div style="font-size:2.5rem;margin-bottom:0.25rem;">' + trendIcon + '</div>';
+        html += '<div style="font-size:1.125rem;font-weight:700;color:' + trendColor + ';">' + trendLabel + '</div>';
+        html += '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;">Tendência Geral</div>';
+        html += '</div>';
+        
+        const posCount = commentsWithScores.filter(c => c.label === 'positive').length;
+        const negCount = commentsWithScores.filter(c => c.label === 'negative').length;
+        const neuCount = commentsWithScores.filter(c => c.label === 'neutral').length;
+        
+        html += '<div style="background:var(--bg-surface-2nd);padding:1.25rem;border-radius:var(--radius-md);">';
+        html += '<div style="font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:0.75rem;">📊 Distribuição</div>';
+        html += '<div style="display:flex;flex-direction:column;gap:0.375rem;">';
+        html += '<div style="display:flex;align-items:center;gap:0.5rem;"><span style="width:8px;height:8px;border-radius:50%;background:var(--color-success);"></span><span style="font-size:0.8125rem;color:var(--text-secondary);flex:1;">Positivos</span><span style="font-size:0.8125rem;font-weight:600;color:var(--color-success);">' + posCount + '</span></div>';
+        html += '<div style="display:flex;align-items:center;gap:0.5rem;"><span style="width:8px;height:8px;border-radius:50%;background:var(--color-warning);"></span><span style="font-size:0.8125rem;color:var(--text-secondary);flex:1;">Neutros</span><span style="font-size:0.8125rem;font-weight:600;color:var(--color-warning);">' + neuCount + '</span></div>';
+        html += '<div style="display:flex;align-items:center;gap:0.5rem;"><span style="width:8px;height:8px;border-radius:50%;background:var(--color-danger);"></span><span style="font-size:0.8125rem;color:var(--text-secondary);flex:1;">Negativos</span><span style="font-size:0.8125rem;font-weight:600;color:var(--color-danger);">' + negCount + '</span></div>';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+        
+        html += '<div style="background:var(--bg-surface-2nd);padding:1rem;border-radius:var(--radius-md);margin-bottom:1.25rem;">';
+        html += '<div style="font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:1rem;">📈 Evolução dos Comentários</div>';
+        html += '<div style="display:flex;align-items:flex-end;gap:4px;height:100px;padding:0 0.5rem;">';
+        commentsWithScores.forEach((c, i) => {
+            const height = Math.max(10, 50 + c.score * 8);
+            const color = c.label === 'positive' ? 'var(--color-success)' : (c.label === 'negative' ? 'var(--color-danger)' : 'var(--color-warning)');
+            const firstInGroup = (i === 0 || i === Math.floor(commentsWithScores.length / 2));
+            const label = firstInGroup ? (i === 0 ? firstDate : lastDate) : '';
+            html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:0.25rem;">';
+            html += '<div style="width:100%;height:' + height + 'px;background:' + color + ';border-radius:3px 3px 0 0;opacity:0.8;"></div>';
+            if (label) html += '<span style="font-size:0.625rem;color:var(--text-muted);">' + label + '</span>';
+            html += '</div>';
+        });
+        html += '</div>';
+        html += '<div style="display:flex;justify-content:space-between;margin-top:0.5rem;padding:0 0.5rem;">';
+        html += '<div style="text-align:center;"><div style="font-size:0.6875rem;color:var(--text-muted);">Início</div><div style="font-size:0.75rem;font-weight:600;color:var(--text-primary);">' + avgFirst.toFixed(1) + '</div></div>';
+        html += '<div style="text-align:center;"><div style="font-size:0.6875rem;color:var(--text-muted);">Média Geral</div><div style="font-size:0.75rem;font-weight:600;color:var(--text-primary);">' + avgOverall.toFixed(1) + '</div></div>';
+        html += '<div style="text-align:center;"><div style="font-size:0.6875rem;color:var(--text-muted);">Atual</div><div style="font-size:0.75rem;font-weight:600;color:var(--text-primary);">' + avgSecond.toFixed(1) + '</div></div>';
+        html += '</div>';
+        html += '</div>';
+        
+        html += '<div style="background:var(--bg-surface-2nd);padding:1rem;border-radius:var(--radius-md);margin-bottom:1rem;">';
+        html += '<div style="font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:0.75rem;">📋 Análise Comparativa</div>';
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">';
+        html += '<div style="text-align:center;padding:0.75rem;background:var(--bg-surface);border-radius:var(--radius-sm);">';
+        html += '<div style="font-size:0.6875rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">1ª Metade</div>';
+        html += '<div style="font-size:1.25rem;font-weight:700;color:var(--text-primary);">' + avgFirst.toFixed(1) + '</div>';
+        html += '<div style="font-size:0.6875rem;color:var(--text-muted);">' + firstHalf.length + ' comentário(s)</div>';
+        html += '</div>';
+        html += '<div style="text-align:center;padding:0.75rem;background:var(--bg-surface);border-radius:var(--radius-sm);">';
+        html += '<div style="font-size:0.6875rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">2ª Metade</div>';
+        html += '<div style="font-size:1.25rem;font-weight:700;color:var(--text-primary);">' + avgSecond.toFixed(1) + '</div>';
+        html += '<div style="font-size:0.6875rem;color:var(--text-muted);">' + secondHalf.length + ' comentário(s)</div>';
+        html += '</div>';
+        html += '</div>';
+        html += '<div style="margin-top:0.75rem;text-align:center;font-size:0.8125rem;color:var(--text-secondary);">';
+        const variation = Math.abs(diff).toFixed(1);
+        const variationPercent = avgFirst !== 0 ? Math.round((diff / Math.abs(avgFirst)) * 100) : 0;
+        if (trend === 'improving') {
+            html += '<span style="color:var(--color-success);font-weight:600;">+' + variation + ' (' + (variationPercent > 0 ? '+' : '') + variationPercent + '%)</span> em relação ao início';
+        } else if (trend === 'declining') {
+            html += '<span style="color:var(--color-danger);font-weight:600;">' + variation + ' (' + variationPercent + '%)</span> em relação ao início';
+        } else {
+            html += '<span style="color:var(--color-warning);font-weight:600;">Variação de ' + variation + '</span> - desempenho consistente';
+        }
+        html += '</div>';
+        html += '</div>';
+        
+        if (commentsWithScores.length <= 10) {
+            html += '<div style="background:var(--bg-surface-2nd);padding:1rem;border-radius:var(--radius-md);">';
+            html += '<div style="font-size:0.8125rem;font-weight:700;color:var(--text-primary);margin-bottom:0.75rem;">💬 Comentários por Data</div>';
+            html += '<div style="display:flex;flex-direction:column;gap:0.5rem;max-height:150px;overflow-y:auto;">';
+            commentsWithScores.forEach(c => {
+                const sentColor = c.label === 'positive' ? 'var(--color-success)' : (c.label === 'negative' ? 'var(--color-danger)' : 'var(--color-warning)');
+                const sentIcon = c.label === 'positive' ? '✓' : (c.label === 'negative' ? '✗' : '○');
+                const dateStr = c.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                html += '<div style="display:flex;align-items:flex-start;gap:0.5rem;padding:0.5rem;background:var(--bg-surface);border-radius:var(--radius-sm);">';
+                html += '<span style="color:' + sentColor + ';font-weight:700;flex-shrink:0;">' + sentIcon + '</span>';
+                html += '<div style="flex:1;min-width:0;">';
+                html += '<div style="font-size:0.6875rem;color:var(--text-muted);margin-bottom:0.125rem;">' + dateStr + ' · score: ' + c.score + '</div>';
+                html += '<div style="font-size:0.75rem;color:var(--text-secondary);line-height:1.3;">' + c.content + '...</div>';
+                html += '</div>';
+                html += '</div>';
+            });
+            html += '</div>';
+            html += '</div>';
+        }
+        
+        content.innerHTML = html;
+        loading.style.display = 'none';
+        content.style.display = 'block';
+        
+    } catch (e) {
+        console.error('Erro ao gerar tendência:', e);
+        loading.style.display = 'none';
+        empty.style.display = 'block';
+    }
+}
 </script>
 
 <style>
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.comment-tabs-card { overflow:hidden; }
+.comment-tabs-header { padding:0.75rem 1.25rem; background:var(--bg-surface-2nd); border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:0.5rem; }
+.comment-tabs-label { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); }
+.comment-tabs-container { display:flex; overflow-x:auto; background:var(--bg-surface); scrollbar-width:none; -ms-overflow-style:none; border-top:1px solid var(--border-color); border-bottom:1px solid var(--border-color); }
+.comment-tabs-container::-webkit-scrollbar { display:none; }
+.comment-tab-btn {
+    display:flex; align-items:center; gap:0.625rem; padding:1rem 1.5rem;
+    color:var(--text-secondary); font-weight:600; text-decoration:none;
+    border-bottom:3px solid transparent; transition:all var(--transition-fast);
+    white-space:nowrap; font-size:0.875rem; border:none; background:none;
+    cursor:pointer;
+}
+.comment-tab-btn:hover { background:var(--bg-hover); color:var(--color-primary); }
+.comment-tab-btn.active { color:var(--color-primary); border-bottom-color:var(--color-primary); background:var(--color-primary-light); }
+.comment-tab-icon { font-size:1.1rem; opacity:0.7; }
+.comment-tab-btn.active .comment-tab-icon { opacity:1; }
+.comment-tab-content { height:420px; overflow-y:auto; display:flex; flex-direction:column; }
+.comment-tab-content > div { flex:1; }
+#wordcloud_container canvas { border-radius:var(--radius-md); background:var(--bg-surface-2nd); }
+#wordcloud_canvas { max-width:100%; height:auto; }
 </style>
 
 <?php if ($canComment): ?>
 <div class="modal-backdrop" id="commentModal" role="dialog">
-    <div class="modal" style="max-width:560px;">
+    <div class="modal" style="max-width:720px;">
         <div class="modal-header">
             <div style="display:flex;align-items:center;gap:.75rem;">
                 <div id="comment_aluno_photo" style="width:40px;height:40px;border-radius:50%;background:var(--gradient-brand);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:1rem;"></div>
                 <div>
                     <div id="comment_aluno_name" style="font-size:1rem;font-weight:700;color:var(--text-primary);"></div>
-                    <div style="font-size:.75rem;color:var(--text-muted);">💬 Comentários</div>
+                    <div style="font-size:.75rem;color:var(--text-muted);">Análise e Comentários</div>
                 </div>
             </div>
             <button class="modal-close" onclick="closeModal('commentModal')">✕</button>
         </div>
-        <form id="commentForm" onsubmit="saveComment(event); return false;">
-            <input type="hidden" name="action" value="save_comment">
-            <input type="hidden" name="aluno_id" id="comment_aluno_id">
-            
-            <div class="modal-body" style="padding:1.25rem 1.5rem;">
-                
-                <!-- Rich Text Editor -->
-                <div class="form-group" style="margin-bottom:1rem;">
-                    <label class="form-label" style="display:flex;justify-content:space-between;align-items:center;">
-                        <span>Novo Comentário</span>
-                        <div style="display:flex;gap:.25rem;background:var(--bg-surface-2nd);padding:.25rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);">
-                            <button type="button" class="action-btn" style="width:28px;height:28px;" onclick="formatText('bold')" title="Negrito"><b>B</b></button>
-                            <button type="button" class="action-btn" style="width:28px;height:28px;" onclick="formatText('italic')" title="Itálico"><i>I</i></button>
-                            <button type="button" class="action-btn" style="width:28px;height:28px;" onclick="formatText('insertUnorderedList')" title="Lista">📋</button>
+        
+        <div class="comment-tabs-card">
+            <div class="comment-tabs-container">
+                <button class="comment-tab-btn active" data-tab="comments" onclick="switchCommentTab('comments')">
+                    <span class="comment-tab-icon">💬</span>
+                    <span>Comentários</span>
+                </button>
+                <button class="comment-tab-btn" data-tab="wordcloud" onclick="switchCommentTab('wordcloud')">
+                    <span class="comment-tab-icon">☁️</span>
+                    <span>Nuvem de Palavras</span>
+                </button>
+                <button class="comment-tab-btn" data-tab="summary" onclick="switchCommentTab('summary')">
+                    <span class="comment-tab-icon">📊</span>
+                    <span>Resumo</span>
+                </button>
+                <button class="comment-tab-btn" data-tab="trend" onclick="switchCommentTab('trend')">
+                    <span class="comment-tab-icon">📈</span>
+                    <span>Tendência</span>
+                </button>
+            </div>
+        </div>
+        
+        <div id="commentTabContent" class="modal-body" style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;">
+            <div id="tab-comments" class="comment-tab-content" style="height:420px;">
+                <div style="flex:1;overflow-y:auto;">
+                    <form id="commentForm" onsubmit="saveComment(event); return false;">
+                        <input type="hidden" name="action" value="save_comment">
+                        <input type="hidden" name="aluno_id" id="comment_aluno_id">
+                        
+                        <div class="form-group" style="margin-bottom:1rem;">
+                            <label class="form-label" style="display:flex;justify-content:space-between;align-items:center;">
+                                <span>Novo Comentário</span>
+                                <div style="display:flex;gap:.25rem;background:var(--bg-surface-2nd);padding:.25rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);">
+                                    <button type="button" class="action-btn" style="width:28px;height:28px;" onclick="formatText('bold')" title="Negrito"><b>B</b></button>
+                                    <button type="button" class="action-btn" style="width:28px;height:28px;" onclick="formatText('italic')" title="Itálico"><i>I</i></button>
+                                    <button type="button" class="action-btn" style="width:28px;height:28px;" onclick="formatText('insertUnorderedList')" title="Lista">📋</button>
+                                </div>
+                            </label>
+                            <div id="comment_text" class="form-control" contenteditable="true" style="min-height:80px;max-height:120px;overflow-y:auto;background:var(--bg-surface);padding:.75rem;" placeholder="Digite seu comentário sobre este aluno..."></div>
+                            <div id="comment_preview"></div>
+                            <div style="text-align:right;margin-top:.5rem;">
+                                <button type="submit" class="btn btn-primary btn-sm">💾 Publicar</button>
+                            </div>
                         </div>
-                    </label>
-                    <div id="comment_text" class="form-control" contenteditable="true" style="min-height:100px;max-height:200px;overflow-y:auto;background:var(--bg-surface);padding:.75rem;" placeholder="Digite seu comentário sobre este aluno..."></div>
-                    <div id="comment_preview"></div>
-                    <div style="text-align:right;margin-top:.5rem;">
-                        <button type="submit" class="btn btn-primary btn-sm">💾 Publicar Comentário</button>
+                    </form>
+
+                    <div id="comment_history_meu"></div>
+                    <div id="comment_history_outros" style="margin-top:0.5rem;"></div>
+                </div>
+            </div>
+            
+            <div id="tab-wordcloud" class="comment-tab-content" style="display:none;height:420px;">
+                <div id="wordcloud_container" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                    <div id="wordcloud_loading" style="text-align:center;color:var(--text-muted);">
+                        <div style="font-size:2rem;margin-bottom:0.5rem;">☁️</div>
+                        <div style="font-size:.875rem;">Carregando nuvem de palavras...</div>
+                    </div>
+                    <canvas id="wordcloud_canvas" width="660" height="280" style="display:none;"></canvas>
+                    <div id="wordcloud_empty" style="display:none;text-align:center;color:var(--text-muted);">
+                        <div style="font-size:3rem;margin-bottom:0.75rem;">📝</div>
+                        <div style="font-size:.9375rem;font-weight:600;margin-bottom:0.25rem;">Nenhum comentário registrado</div>
+                        <div style="font-size:.8125rem;">Adicione comentários para gerar a nuvem de palavras.</div>
                     </div>
                 </div>
-
-                <!-- Histórico de Comentários -->
-                <div id="comment_history_meu"></div>
-                <div id="comment_history_outros" style="margin-top:0.5rem;"></div>
+                <div id="wordcloud_info" style="padding:0.5rem;background:var(--bg-surface-2nd);border-radius:var(--radius-sm);font-size:.75rem;color:var(--text-muted);text-align:center;display:none;flex-shrink:0;">
+                    <span id="wordcloud_word_count">0</span> palavras analisadas de <span id="wordcloud_comment_count">0</span> comentário(s)
+                </div>
             </div>
             
-            <div class="modal-footer" style="padding:1rem 1.5rem;">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('commentModal')" style="width:100%;">Fechar Janela</button>
+            <div id="tab-summary" class="comment-tab-content" style="display:none;height:420px;">
+                <div id="summary_container" style="flex:1;overflow-y:auto;">
+                    <div id="summary_loading" style="text-align:center;color:var(--text-muted);padding:2rem;">
+                        <div style="font-size:2rem;margin-bottom:0.5rem;">📊</div>
+                        <div style="font-size:.875rem;">Gerando resumo dos comentários...</div>
+                    </div>
+                    <div id="summary_content" style="display:none;"></div>
+                    <div id="summary_empty" style="display:none;text-align:center;color:var(--text-muted);padding:2rem;">
+                        <div style="font-size:3rem;margin-bottom:0.75rem;">📝</div>
+                        <div style="font-size:.9375rem;font-weight:600;margin-bottom:0.25rem;">Nenhum comentário para analisar</div>
+                        <div style="font-size:.8125rem;">Adicione comentários para gerar o resumo.</div>
+                    </div>
+                </div>
             </div>
-        </form>
+            
+            <div id="tab-trend" class="comment-tab-content" style="display:none;height:420px;">
+                <div id="trend_container" style="flex:1;overflow-y:auto;">
+                    <div id="trend_loading" style="text-align:center;color:var(--text-muted);padding:2rem;">
+                        <div style="font-size:2rem;margin-bottom:0.5rem;">📈</div>
+                        <div style="font-size:.875rem;">Analisando tendência...</div>
+                    </div>
+                    <div id="trend_content" style="display:none;"></div>
+                    <div id="trend_empty" style="display:none;text-align:center;color:var(--text-muted);padding:2rem;">
+                        <div style="font-size:3rem;margin-bottom:0.75rem;">📝</div>
+                        <div style="font-size:.9375rem;font-weight:600;margin-bottom:0.25rem;">Comentários insuficientes</div>
+                        <div style="font-size:.8125rem;">São necessários pelo menos 2 comentários para analisar a tendência.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal-footer" style="padding:1rem 1.5rem;">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('commentModal')" style="width:100%;">Fechar Janela</button>
+        </div>
     </div>
 </div>
 <?php endif; ?>
