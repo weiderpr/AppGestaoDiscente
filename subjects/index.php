@@ -28,36 +28,41 @@ $action = $_GET['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'add' || $action === 'edit') {
-        $id          = (int)($_POST['id'] ?? 0);
+        $old_codigo  = trim($_POST['old_codigo'] ?? '');
+        $codigo      = trim($_POST['codigo'] ?? '');
         $descricao   = trim($_POST['descricao'] ?? '');
         $categoriaId = (int)($_POST['categoria_id'] ?? 0);
         $obs         = trim($_POST['observacoes'] ?? '');
 
-        if ($descricao && $categoriaId) {
+        if ($codigo && $descricao && $categoriaId) {
             try {
                 if ($action === 'add') {
-                    $st = $db->prepare("INSERT INTO disciplinas (institution_id, categoria_id, descricao, observacoes) VALUES (?, ?, ?, ?)");
-                    $st->execute([$instId, $categoriaId, $descricao, $obs]);
+                    $st = $db->prepare("INSERT INTO disciplinas (codigo, institution_id, categoria_id, descricao, observacoes) VALUES (?, ?, ?, ?, ?)");
+                    $st->execute([$codigo, $instId, $categoriaId, $descricao, $obs]);
                     $success = 'Disciplina cadastrada com sucesso!';
                 } else {
-                    $st = $db->prepare("UPDATE disciplinas SET categoria_id=?, descricao=?, observacoes=? WHERE id=? AND institution_id=?");
-                    $st->execute([$categoriaId, $descricao, $obs, $id, $instId]);
+                    $st = $db->prepare("UPDATE disciplinas SET codigo=?, categoria_id=?, descricao=?, observacoes=? WHERE codigo=? AND institution_id=?");
+                    $st->execute([$codigo, $categoriaId, $descricao, $obs, $old_codigo, $instId]);
                     $success = 'Disciplina atualizada!';
                 }
             } catch (PDOException $e) {
-                $error = 'Erro no banco de dados: ' . $e->getMessage();
+                if ($e->getCode() == 23000) {
+                    $error = 'Já existe uma disciplina com este código.';
+                } else {
+                    $error = 'Erro no banco de dados: ' . $e->getMessage();
+                }
             }
         } else {
-            $error = 'Descrição e Categoria são obrigatórios.';
+            $error = 'Código, Descrição e Categoria são obrigatórios.';
         }
     }
 
     if ($action === 'delete') {
-        $id = (int)($_POST['id'] ?? 0);
-        if ($id) {
+        $codigo = trim($_POST['codigo'] ?? '');
+        if ($codigo) {
             try {
-                $st = $db->prepare("DELETE FROM disciplinas WHERE id=? AND institution_id=?");
-                $st->execute([$id, $instId]);
+                $st = $db->prepare("DELETE FROM disciplinas WHERE codigo=? AND institution_id=?");
+                $st->execute([$codigo, $instId]);
                 $success = 'Disciplina removida!';
             } catch (PDOException $e) {
                 $error = 'Erro ao remover: ' . $e->getMessage();
@@ -77,7 +82,8 @@ $sql = "
 $params = [$instId];
 
 if ($search) {
-    $sql .= ' AND (d.descricao LIKE ? OR c.nome LIKE ?)';
+    $sql .= ' AND (d.descricao LIKE ? OR c.nome LIKE ? OR d.codigo LIKE ?)';
+    $params[] = "%{$search}%";
     $params[] = "%{$search}%";
     $params[] = "%{$search}%";
 }
@@ -207,7 +213,7 @@ require_once __DIR__ . '/../includes/header.php';
         <table class="subjects-table">
             <thead>
                 <tr>
-                    <th>#</th>
+                    <th>Código</th>
                     <th>Descrição</th>
                     <th>Categoria</th>
                     <th>Cadastro</th>
@@ -224,7 +230,9 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php else: ?>
                     <?php foreach ($subjects as $sub): ?>
                     <tr>
-                        <td style="color:var(--text-muted);font-size:.8125rem;"><?= $sub['id'] ?></td>
+                        <td>
+                            <span class="badge-profile badge-Outro" style="font-family:monospace;"><?= htmlspecialchars($sub['codigo']) ?></span>
+                        </td>
                         <td>
                             <span style="font-weight:600;"><?= htmlspecialchars($sub['descricao']) ?></span>
                             <?php if (!empty($sub['observacoes'])): ?>
@@ -244,7 +252,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <td>
                             <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
                                 <button class="action-btn" onclick='editSubject(<?= json_encode($sub) ?>)' title="Editar">✏️</button>
-                                <button class="action-btn danger" onclick="deleteSubject(<?= $sub['id'] ?>, '<?= htmlspecialchars(addslashes($sub['descricao'])) ?>')" title="Excluir">🗑️</button>
+                                <button class="action-btn danger" onclick="deleteSubject('<?= htmlspecialchars(addslashes($sub['codigo'])) ?>', '<?= htmlspecialchars(addslashes($sub['descricao'])) ?>')" title="Excluir">🗑️</button>
                             </div>
                         </td>
                     </tr>
@@ -263,15 +271,25 @@ require_once __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeModal()">✕</button>
         </div>
         <form method="POST" id="subjectForm">
-            <input type="hidden" name="id" id="field_id">
+            <input type="hidden" name="old_codigo" id="field_old_codigo">
             <div class="modal-body">
 
-                <div class="form-group">
-                    <label class="form-label">Descrição da Disciplina <span class="required">*</span></label>
-                    <div class="input-group">
-                        <span class="input-icon">📖</span>
-                        <input type="text" name="descricao" id="field_descricao" class="form-control" 
-                               placeholder="Ex: Matemática Aplicada II" required autofocus>
+                <div style="display:grid;grid-template-columns:1fr 2fr;gap:.875rem;">
+                    <div class="form-group">
+                        <label class="form-label">Código <span class="required">*</span></label>
+                        <div class="input-group">
+                            <span class="input-icon">🔢</span>
+                            <input type="text" name="codigo" id="field_codigo" class="form-control" 
+                                   placeholder="Ex: MAT101" maxlength="15" required autofocus>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Descrição da Disciplina <span class="required">*</span></label>
+                        <div class="input-group">
+                            <span class="input-icon">📖</span>
+                            <input type="text" name="descricao" id="field_descricao" class="form-control" 
+                                   placeholder="Ex: Matemática Aplicada II" required>
+                        </div>
                     </div>
                 </div>
 
@@ -313,7 +331,8 @@ require_once __DIR__ . '/../includes/header.php';
 function openModal() {
     document.getElementById('modalTitle').textContent = '➕ Nova Disciplina';
     document.getElementById('subjectForm').action = '?action=add';
-    document.getElementById('field_id').value = '';
+    document.getElementById('field_old_codigo').value = '';
+    document.getElementById('field_codigo').value = '';
     document.getElementById('field_descricao').value = '';
     document.getElementById('field_categoria_id').value = '';
     document.getElementById('field_observacoes').value = '';
@@ -325,7 +344,8 @@ function openModal() {
 function editSubject(sub) {
     document.getElementById('modalTitle').textContent = '✏️ Editar Disciplina';
     document.getElementById('subjectForm').action = '?action=edit';
-    document.getElementById('field_id').value = sub.id;
+    document.getElementById('field_old_codigo').value = sub.codigo;
+    document.getElementById('field_codigo').value = sub.codigo;
     document.getElementById('field_descricao').value = sub.descricao;
     document.getElementById('field_categoria_id').value = sub.categoria_id;
     document.getElementById('field_observacoes').value = sub.observacoes || '';
@@ -339,15 +359,15 @@ function closeModal() {
     document.body.style.overflow = '';
 }
 
-function deleteSubject(id, name) {
+function deleteSubject(codigo, name) {
     if (confirm('Excluir permanentemente a disciplina «' + name + '»? Esta ação não pode ser desfeita.')) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '?action=delete';
         const input = document.createElement('input');
         input.type = 'hidden';
-        input.name = 'id';
-        input.value = id;
+        input.name = 'codigo';
+        input.value = codigo;
         form.appendChild(input);
         document.body.appendChild(form);
         form.submit();

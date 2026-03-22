@@ -40,14 +40,14 @@ $error   = '';
 
 // ---- ADICIONAR DISCIPLINA ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_disciplina') {
-    $disciplinaId = (int)($_POST['disciplina_id'] ?? 0);
+    $disciplinaCodigo = trim($_POST['disciplina_codigo'] ?? '');
     
-    if (!$disciplinaId) {
+    if (!$disciplinaCodigo) {
         $error = 'Selecione uma disciplina.';
     } else {
         try {
-            $st = $db->prepare('INSERT INTO turma_disciplinas (turma_id, disciplina_id) VALUES (?, ?)');
-            $st->execute([$turmaId, $disciplinaId]);
+            $st = $db->prepare('INSERT INTO turma_disciplinas (turma_id, disciplina_codigo) VALUES (?, ?)');
+            $st->execute([$turmaId, $disciplinaCodigo]);
             $success = 'Disciplina adicionada à turma!';
         } catch (PDOException $e) {
             if (strpos($e->getMessage(), 'Duplicate') !== false) {
@@ -104,10 +104,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'remov
 // ---- LISTAR DISCIPLINAS DA TURMA ----
 $stDisciplinas = $db->prepare('
     SELECT td.id as td_id, td.created_at as td_created_at,
-           d.id as disciplina_id, d.descricao, d.observacoes,
+           d.codigo as disciplina_codigo, d.descricao, d.observacoes,
            dc.nome as categoria_nome
     FROM turma_disciplinas td
-    JOIN disciplinas d ON d.id = td.disciplina_id
+    JOIN disciplinas d ON d.codigo = td.disciplina_codigo
     JOIN disciplina_categorias dc ON dc.id = d.categoria_id
     WHERE td.turma_id = ?
     ORDER BY dc.nome, d.descricao
@@ -133,11 +133,11 @@ foreach ($turmaDisciplinas as $td) {
 // ---- LISTAS PARA SELECTS ----
 // Disciplinas disponíveis (não relacionadas)
 $stDisponiveis = $db->prepare('
-    SELECT d.id, d.descricao, dc.nome as categoria_nome
+    SELECT d.codigo, d.descricao, dc.nome as categoria_nome
     FROM disciplinas d
     JOIN disciplina_categorias dc ON dc.id = d.categoria_id
     WHERE d.institution_id = ?
-      AND d.id NOT IN (SELECT disciplina_id FROM turma_disciplinas WHERE turma_id = ?)
+      AND d.codigo NOT IN (SELECT disciplina_codigo FROM turma_disciplinas WHERE turma_id = ?)
     ORDER BY dc.nome, d.descricao
 ');
 $stDisponiveis->execute([$instId, $turmaId]);
@@ -284,7 +284,9 @@ require_once __DIR__ . '/../includes/header.php';
             <tbody>
                 <?php foreach ($disciplinasComProfessores as $td): ?>
                 <tr>
-                    <td style="color:var(--text-muted);font-size:.8125rem;"><?= $td['disciplina_id'] ?></td>
+                    <td style="color:var(--text-muted);font-size:.8125rem;">
+                        <span class="badge-profile badge-Outro" style="font-family:monospace;"><?= htmlspecialchars($td['disciplina_codigo']) ?></span>
+                    </td>
                     <td>
                         <span style="font-weight:600;"><?= htmlspecialchars($td['descricao']) ?></span>
                         <?php if (!empty($td['observacoes'])): ?>
@@ -369,7 +371,7 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">Selecione a Disciplina <span class="required">*</span></label>
-                    <select name="disciplina_id" class="form-control" required autofocus>
+                    <select name="disciplina_codigo" class="form-control" required autofocus>
                         <option value="">Selecione...</option>
                         <?php 
                         $currentCat = '';
@@ -380,7 +382,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 $currentCat = $d['categoria_nome'];
                             endif;
                         ?>
-                        <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['descricao']) ?></option>
+                        <option value="<?= $d['codigo'] ?>"><?= htmlspecialchars($d['descricao']) ?></option>
                         <?php endforeach; ?>
                         <?php if ($currentCat) echo '</optgroup>'; ?>
                     </select>

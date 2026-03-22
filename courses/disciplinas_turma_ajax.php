@@ -155,6 +155,7 @@ $availableProfs = $stAvailable->fetchAll();
                 <?php else: ?>
                 <form method="POST" style="display:flex;flex-direction:column;gap:.875rem;">
                     <input type="hidden" name="action" value="add_professor">
+                    <input type="hidden" name="turma_disciplina_id" value="<?= $tdId ?>">
                     <div class="form-group" style="margin:0;">
                         <select name="professor_id" class="form-control" required>
                             <option value="">— Selecione —</option>

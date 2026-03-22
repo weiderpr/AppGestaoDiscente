@@ -69,6 +69,15 @@ if ($action === 'delete' && !empty($_POST['course_id']) && $user['profile'] === 
     $success = 'Curso removido.';
 }
 
+// ---- EXCLUIR ----
+if ($action === 'delete' && !empty($_POST['course_id']) && $user['profile'] === 'Administrador') {
+    $cid = (int)$_POST['course_id'];
+    $db->prepare('DELETE FROM courses WHERE id=? AND institution_id=?')
+       ->execute([$cid, $instId]);
+    $success = 'Curso removido.';
+}
+
+
 // ---- LISTAR ----
 $search = trim($_GET['search'] ?? '');
 $sql    = "SELECT c.*, 
@@ -273,6 +282,10 @@ require_once __DIR__ . '/../includes/header.php';
                             <?php endif; ?>
                             <a href="/courses/turmas.php?course_id=<?= $c['id'] ?>"
                                class="action-btn" title="Gerenciar Turmas">🎓</a>
+                            <button type="button" class="action-btn" title="Importar Notas (CSV)"
+                                    onclick='openImportGradesModal(<?= $c['id'] ?>, <?= json_encode($c['name']) ?>)'>
+                                📊
+                            </button>
                             <?php if ($user['profile'] === 'Administrador'): ?>
                                 <a href="/courses/edit.php?id=<?= $c['id'] ?>" class="action-btn" title="Editar">✏️</a>
                                 <form method="POST" style="display:inline;">
@@ -341,11 +354,67 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<!-- Modal: Importar Notas -->
+<div class="modal-backdrop" id="importGradesModal" role="dialog" aria-modal="true">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">📊 Importar Notas via Arquivo</span>
+            <button class="modal-close" onclick="closeImportGradesModal()">✕</button>
+        </div>
+        <form action="/courses/import_notas.php" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="course_id" id="import_grades_course_id">
+            <div class="modal-body">
+                
+                <div style="padding:.625rem .875rem;border-radius:var(--radius-md);background:var(--color-primary-light);color:var(--color-primary);font-size:.875rem;font-weight:500;margin-bottom:.5rem;">
+                    🏫 Curso: <strong id="import_grades_course_name">...</strong>
+                </div>
+
+                <div style="padding:1rem; border-radius:var(--radius-md); background:var(--bg-surface-2nd); border:1px dashed var(--border-color); margin-bottom:0.5rem;">
+                    <p style="font-size:0.875rem; font-weight:600; margin-bottom:0.5rem; color:var(--text-primary);">📝 Instruções do Arquivo:</p>
+                    <ul style="font-size:0.8125rem; color:var(--text-muted); padding-left:1.25rem;">
+                        <li>O arquivo deve ser um <strong>CSV</strong> (separador , ou ;).</li>
+                        <li>Colunas: <strong>Etapa, Matrícula, Disciplina, Nota, Faltas</strong>.</li>
+                        <li>A primeira linha (cabeçalho) será ignorada.</li>
+                        <li>Exemplo: <br><code style="background:var(--bg-surface);padding:.2rem;border-radius:4px;display:inline-block;margin-top:.25rem;">1º Bimestre;2024001;MAT-101;8.5;2</code></li>
+                    </ul>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Selecione o arquivo (.csv) <span class="required">*</span></label>
+                    <div class="input-group">
+                        <span class="input-icon">📄</span>
+                        <input type="file" name="import_file" class="form-control" accept=".csv" required style="padding-left:2.75rem;">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeImportGradesModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">🚀 Abrir Processador</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 function openModal()  { document.getElementById('courseModal').classList.add('show'); document.body.style.overflow='hidden'; }
 function closeModal() { document.getElementById('courseModal').classList.remove('show'); document.body.style.overflow=''; }
+
+function openImportGradesModal(cid, cname) {
+    document.getElementById('import_grades_course_id').value = cid;
+    document.getElementById('import_grades_course_name').innerText = cname;
+    document.getElementById('importGradesModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+function closeImportGradesModal() {
+    document.getElementById('importGradesModal').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
 document.getElementById('courseModal').addEventListener('click', e => { if(e.target===document.getElementById('courseModal')) closeModal(); });
-document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+document.getElementById('importGradesModal').addEventListener('click', function(e) { if(e.target===this) closeImportGradesModal(); });
+document.addEventListener('keydown', e => { 
+    if(e.key==='Escape') { closeModal(); closeImportGradesModal(); } 
+});
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

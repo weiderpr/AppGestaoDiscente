@@ -275,6 +275,8 @@ require_once __DIR__ . '/../includes/header.php';
                     </td>
                     <td>
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
+                            <a href="/courses/lancar_notas.php?etapa_id=<?= $e['id'] ?>"
+                               class="action-btn" title="Lançar Notas e Faltas" style="border-color:var(--color-primary);color:var(--color-primary);">📊</a>
                             <a href="/courses/edit_etapa.php?id=<?= $e['id'] ?>&turma_id=<?= $turmaId ?>"
                                class="action-btn" title="Editar">✏️</a>
                             <form method="POST" style="display:inline;">
