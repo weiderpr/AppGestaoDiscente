@@ -424,17 +424,15 @@ require_once __DIR__ . '/../includes/header.php';
                     <th style="width:70px;">Foto</th>
                     <th>Matrícula</th>
                     <th>Nome Completo</th>
-                    <?php if ($isProfessor): ?>
-                    <th style="text-align:center;">Ações</th>
-                    <?php else: ?>
+                    <?php if ($isAdmin || $isCoord): ?>
                     <th>Contato</th>
-                    <th style="text-align:center;">Ações</th>
                     <?php endif; ?>
+                    <th style="text-align:center; width:<?= ($isAdmin || $isCoord) ? '160px' : '80px' ?>;">Ações</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($alunos)): ?>
-                <tr><td colspan="<?= $isProfessor ? '4' : '5' ?>" style="text-align:center;padding:3rem;color:var(--text-muted);">Nenhum aluno vinculado a esta turma.</td></tr>
+                <tr><td colspan="<?= ($isAdmin || $isCoord) ? '5' : '4' ?>" style="text-align:center;padding:3rem;color:var(--text-muted);">Nenhum aluno vinculado a esta turma.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($alunos as $a): ?>
                 <tr>
@@ -446,21 +444,20 @@ require_once __DIR__ . '/../includes/header.php';
                         <?php endif; ?>
                     </td>
                     <td style="font-weight:600;color:var(--color-primary);"><?= htmlspecialchars($a['matricula']) ?></td>
-                    <?php if ($canComment): ?>
-                    <td style="font-weight:600;"><?= htmlspecialchars($a['nome']) ?></td>
+                    <td style="font-weight:600;">
+                        <div><?= htmlspecialchars($a['nome']) ?></div>
+                        <?php if ($isAdmin || $isCoord): ?>
+                        <div style="font-size:.75rem;color:var(--text-muted);font-weight:400;"><?= htmlspecialchars($a['email']) ?></div>
+                        <?php endif; ?>
+                    </td>
+                    <?php if ($isAdmin || $isCoord): ?>
+                    <td style="font-size:.8125rem;"><?= htmlspecialchars($a['telefone'] ?: '—') ?></td>
+                    <?php endif; ?>
                     <td style="text-align:center;">
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
                             <button type="button" class="action-btn" title="Adicionar Comentário" onclick='openCommentModal(<?= json_encode(["id" => $a["id"], "nome" => $a["nome"], "photo" => $a["photo"], "photo_url" => ($a["photo"] && file_exists(__DIR__."/../".$a["photo"]) ? "/".$a["photo"] : null)]) ?>)'>💬</button>
-                        </div>
-                    </td>
-                    <?php else: ?>
-                    <td>
-                        <div style="font-weight:600;"><?= htmlspecialchars($a['nome']) ?></div>
-                        <div style="font-size:.75rem;color:var(--text-muted);"><?= htmlspecialchars($a['email']) ?></div>
-                    </td>
-                    <td style="font-size:.8125rem;"><?= htmlspecialchars($a['telefone'] ?: '—') ?></td>
-                    <td style="text-align:center;">
-                        <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
+                            
+                            <?php if ($isAdmin || $isCoord): ?>
                             <button type="button" class="action-btn" title="Editar"
                                     onclick='openEditModal(<?= json_encode($a) ?>)'>✏️</button>
                             <form method="POST" style="display:inline;" onsubmit="return confirm('Desvincular aluno da turma?')">
@@ -468,9 +465,9 @@ require_once __DIR__ . '/../includes/header.php';
                                 <input type="hidden" name="aluno_id" value="<?= $a['id'] ?>">
                                 <button type="submit" class="action-btn danger" title="Remover da Turma">✕</button>
                             </form>
+                            <?php endif; ?>
                         </div>
                     </td>
-                    <?php endif; ?>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
