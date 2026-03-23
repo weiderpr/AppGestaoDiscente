@@ -44,11 +44,12 @@ $etapasIds = array_column($etapasConselho, 'id');
 $placeholders = implode(',', array_fill(0, count($etapasIds), '?'));
 
 $sql = "SELECT en.etapa_id, e.description as etapa_desc, e.media_nota,
-               en.disciplina_codigo, d.descricao,
+               en.disciplina_codigo, d.descricao, dc.nome as categoria_nome,
                en.nota, en.faltas
         FROM etapa_notas en
         JOIN etapas e ON en.etapa_id = e.id
         JOIN disciplinas d ON en.disciplina_codigo = d.codigo
+        LEFT JOIN disciplina_categorias dc ON d.categoria_id = dc.id
         WHERE en.aluno_id = ? AND en.etapa_id IN ($placeholders)
         ORDER BY d.descricao, e.id";
 
@@ -64,6 +65,7 @@ foreach ($notas as $nota) {
         $disciplinasAgrupadas[$discCodigo] = [
             'codigo' => $discCodigo,
             'descricao' => $nota['descricao'],
+            'categoria' => $nota['categoria_nome'] ?? 'Sem Categoria',
             'soma_nota' => 0,
             'soma_faltas' => 0,
             'etapas' => []

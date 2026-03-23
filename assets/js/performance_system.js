@@ -152,7 +152,7 @@ const VAPerformance = {
         const chartHeight = height - (padding * 2);
         
         const maxVal = 10;
-        const barWidth = Math.min(40, chartWidth / analysis.averages.length * 0.6);
+        const barWidth = Math.min(40, chartWidth / (analysis.averages.length || 1) * 0.6);
         const gap = (chartWidth - (barWidth * analysis.averages.length)) / (analysis.averages.length + 1);
 
         let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`;
@@ -178,6 +178,91 @@ const VAPerformance = {
                 </rect>
                 <text x="${x + barWidth / 2}" y="${y - 5}" font-size="10" font-weight="700" text-anchor="middle" fill="${color}">${avg.toFixed(1)}</text>
                 <text x="${x + barWidth / 2}" y="${height - padding + 15}" font-size="9" text-anchor="middle" fill="var(--text-muted)">${analysis.labels[i].substring(0, 5)}</text>
+            `;
+        });
+
+        svg += `</svg>`;
+        container.innerHTML = svg;
+    },
+
+    /**
+     * Group disciplines by category and calculate averages
+     * @param {Array} disciplines - Array of discipline objects
+     * @returns {Array} - Array of { category, average, count }
+     */
+    analyzeByCategory: function(disciplines) {
+        if (!disciplines || disciplines.length === 0) return [];
+
+        const categorySummary = {};
+        disciplines.forEach(disc => {
+            const cat = disc.categoria || 'Sem Categoria';
+            if (!categorySummary[cat]) {
+                categorySummary[cat] = { sum: 0, count: 0 };
+            }
+            
+            // Use soma_nota / number of stages that have grades
+            let gradeCount = 0;
+            let gradeSum = 0;
+            Object.values(disc.etapas).forEach(e => {
+                if (e.nota !== null) {
+                    gradeSum += e.nota;
+                    gradeCount++;
+                }
+            });
+
+            if (gradeCount > 0) {
+                categorySummary[cat].sum += (gradeSum / gradeCount);
+                categorySummary[cat].count++;
+            }
+        });
+
+        return Object.entries(categorySummary)
+            .map(([category, data]) => ({
+                category,
+                average: data.count > 0 ? data.sum / data.count : 0
+            }))
+            .sort((a, b) => b.average - a.average);
+    },
+
+    /**
+     * Render a horizontal bar chart showing performance by category
+     */
+    renderCategoryChart: function(containerId, disciplines) {
+        const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+        if (!container) return;
+
+        const data = this.analyzeByCategory(disciplines);
+        if (data.length === 0) {
+            container.innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:.8125rem;">Nenhum dado de categoria disponível</div>`;
+            return;
+        }
+
+        const width = container.offsetWidth || 280;
+        const rowHeight = 35;
+        const padding = 10;
+        const labelWidth = 100;
+        const chartWidth = width - labelWidth - (padding * 2);
+        const height = data.length * rowHeight + padding * 2;
+        
+        const maxVal = 10;
+
+        let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`;
+        
+        data.forEach((item, i) => {
+            const y = padding + i * rowHeight;
+            const barW = (item.average / maxVal) * chartWidth;
+            const color = item.average >= 6 ? 'var(--color-success)' : 'var(--color-danger)';
+            
+            // Translate long category names
+            const displayCat = item.category.length > 15 ? item.category.substring(0, 13) + '...' : item.category;
+
+            svg += `
+                <text x="${labelWidth - 10}" y="${y + 20}" font-size="11" text-anchor="end" fill="var(--text-secondary)" font-weight="500">${displayCat}</text>
+                <rect x="${labelWidth}" y="${y + 8}" width="${chartWidth}" height="18" fill="var(--bg-surface-2nd)" rx="9" />
+                <rect x="${labelWidth}" y="${y + 8}" width="${barW}" height="18" fill="${color}" rx="9" opacity="0.8">
+                    <animate attributeName="width" from="0" to="${barW}" dur="0.6s" begin="${i * 0.1}s" fill="freeze" />
+                </rect>
+                <text x="${labelWidth + Math.max(25, barW - 5)}" y="${y + 21}" font-size="10" font-weight="700" text-anchor="end" fill="white">${item.average.toFixed(1)}</text>
             `;
         });
 

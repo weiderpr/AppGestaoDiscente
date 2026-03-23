@@ -655,6 +655,12 @@ function showDetailTab(tabId) {
             html += '<div style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:1.5rem;">📊 Médias por Etapa</div>';
             html += '<div id="perf-chart-' + a.id + '" style="height:150px;width:100%;"></div>';
             html += '</div>';
+
+            // Card 3: Desempenho por Categoria
+            html += '<div style="padding:1rem;background:var(--bg-surface);border:1px solid var(--border-color);border-radius:var(--radius-md);">';
+            html += '<div style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:1.5rem;">🎯 Por Área de Conhecimento</div>';
+            html += '<div id="perf-categories-' + a.id + '" style="min-height:100px;width:100%;"></div>';
+            html += '</div>';
             
             html += '</div>'; // Fecha área de gráficos
             html += '</div>'; // Fecha container flex principal
@@ -665,6 +671,7 @@ function showDetailTab(tabId) {
             VASentiment.renderTrend('banner-trend-' + a.id, a.id, conselho.turma_id);
             VAPerformance.renderPerformanceTrend('perf-trend-' + a.id, dados.etapas, dados.disciplinas);
             VAPerformance.renderPerformanceChart('perf-chart-' + a.id, dados.etapas, dados.disciplinas);
+            VAPerformance.renderCategoryChart('perf-categories-' + a.id, dados.disciplinas);
         })
         .catch(() => {
             content.innerHTML = '<p style="text-align:center;color:var(--color-danger);">Erro ao carregar detalhes.</p>';
