@@ -387,6 +387,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Médias Perdidas</th>
                             <th style="padding:.75rem 1rem;text-align:left;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Disciplinas</th>
                             <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Total Faltas</th>
+                            <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color); width:200px;">Tendência (Análise Quantitativa)</th>
                             <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color); width:200px;">Tendência (Análise Qualitativa)</th>
                             <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Ação</th>
                         </tr>
@@ -447,7 +448,10 @@ require_once __DIR__ . '/../includes/header.php';
                                     <span style="color:var(--text-muted);">0</span>
                                 <?php endif; ?>
                             </td>
-                            <td style="padding:.75rem 1rem;vertical-align:middle; width:200px;">
+                            <td style="padding:.75rem 1rem;text-align:center;vertical-align:middle;">
+                                <div id="perf-trend-<?= $aluno['id'] ?>" class="performance-trend-container" data-aluno-id="<?= $aluno['id'] ?>" data-turma-id="<?= $turmaId ?>"></div>
+                            </td>
+                            <td style="padding:.75rem 1rem;text-align:center;vertical-align:middle;">
                                 <div id="trend-<?= $aluno['id'] ?>" class="sentiment-trend-container" data-aluno-id="<?= $aluno['id'] ?>" data-turma-id="<?= $turmaId ?>"></div>
                             </td>
                             <td style="padding:.75rem 1rem;text-align:center;vertical-align:middle;">
@@ -762,10 +766,14 @@ function openAlunoModal(aluno) {
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     // Inicializa tendências na lista de conselho
+    // Inicializa tendências qualitativas
     document.querySelectorAll('.sentiment-trend-container').forEach(container => {
-        const alunoId = container.dataset.alunoId;
-        const turmaId = container.dataset.turmaId;
-        VASentiment.renderTrend(container, alunoId, turmaId);
+        VASentiment.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId);
+    });
+
+    // Inicializa tendências quantitativas
+    document.querySelectorAll('.performance-trend-container').forEach(container => {
+        VAPerformance.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId);
     });
 });
 </script>

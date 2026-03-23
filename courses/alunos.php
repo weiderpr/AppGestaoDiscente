@@ -433,7 +433,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <th>Matrícula</th>
                     <th>Nome Completo</th>
                     <?php if ($isAdmin || $isCoord): ?>
-                    <th>Contato</th>
+                    <th style="width:200px;">Tendência (Análise Quantitativa)</th>
                     <?php endif; ?>
                     <th style="width:200px;">Tendência (Análise Qualitativa)</th>
                     <th style="text-align:center; width:<?= ($isAdmin || $isCoord) ? '160px' : '80px' ?>;">Ações</th>
@@ -460,7 +460,9 @@ require_once __DIR__ . '/../includes/header.php';
                         <?php endif; ?>
                     </td>
                     <?php if ($isAdmin || $isCoord): ?>
-                    <td style="font-size:.8125rem;"><?= htmlspecialchars($a['telefone'] ?: '—') ?></td>
+                    <td>
+                        <div id="perf-trend-<?= $a['id'] ?>" class="performance-trend-container" data-aluno-id="<?= $a['id'] ?>" data-turma-id="<?= $turmaId ?>"></div>
+                    </td>
                     <?php endif; ?>
                     <td>
                         <div id="trend-<?= $a['id'] ?>" class="sentiment-trend-container" data-aluno-id="<?= $a['id'] ?>" data-turma-id="<?= $turmaId ?>"></div>
@@ -792,11 +794,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // Inicializa tendências na lista de alunos
+    // Inicializa tendências qualitativas
     document.querySelectorAll('.sentiment-trend-container').forEach(container => {
-        const alunoId = container.dataset.alunoId;
-        const turmaId = container.dataset.turmaId;
-        VASentiment.renderTrend(container, alunoId, turmaId);
+        VASentiment.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId);
+    });
+
+    // Inicializa tendências quantitativas (notas)
+    document.querySelectorAll('.performance-trend-container').forEach(container => {
+        VAPerformance.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId);
     });
 });
 </script>

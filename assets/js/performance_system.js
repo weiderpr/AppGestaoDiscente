@@ -268,5 +268,31 @@ const VAPerformance = {
 
         svg += `</svg>`;
         container.innerHTML = svg;
+    },
+
+    /**
+     * Fetch data and render performance trend for a student (Asynchronous)
+     */
+    renderTrend: async function(container, alunoId, turmaId) {
+        const target = typeof container === 'string' ? document.getElementById(container) : container;
+        if (!target) return;
+
+        target.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);padding:0.5rem;">⏳...</div>';
+
+        try {
+            const resp = await fetch(`/courses/conselho_aluno_detalhes_ajax.php?aluno_id=${alunoId}&turma_id=${turmaId}`);
+            const data = await resp.json();
+            
+            if (data.error || !data.etapas || data.etapas.length === 0) {
+                target.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);padding:0.5rem;">—</div>';
+                return;
+            }
+
+            this.renderPerformanceTrend(target, data.etapas, data.disciplinas);
+
+        } catch (e) {
+            console.error('Erro na renderização de tendência quantitativa:', e);
+            target.innerHTML = '';
+        }
     }
 };

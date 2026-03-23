@@ -11,8 +11,20 @@ $db = getDB();
 $alunoId = (int)($_GET['aluno_id'] ?? 0);
 $conselhoId = (int)($_GET['conselho_id'] ?? 0);
 
-if (!$alunoId || !$conselhoId) {
-    echo json_encode(['error' => 'Parâmetros inválidos']);
+if (!$alunoId) {
+    echo json_encode(['error' => 'Aluno ID inválido']);
+    exit;
+}
+
+if (!$conselhoId && isset($_GET['turma_id'])) {
+    $turmaId = (int)$_GET['turma_id'];
+    $stc = $db->prepare("SELECT id FROM conselhos_classe WHERE turma_id = ? ORDER BY id DESC LIMIT 1");
+    $stc->execute([$turmaId]);
+    $conselhoId = $stc->fetchColumn();
+}
+
+if (!$conselhoId) {
+    echo json_encode(['error' => 'Conselho não encontrado para esta turma']);
     exit;
 }
 
