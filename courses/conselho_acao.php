@@ -608,8 +608,10 @@ function showDetailTab(tabId) {
             
             // Corpo da tabela
             let tbodyHtml = '<tbody>';
+            // Calcula a soma das médias das etapas do conselho
+            const somaMediaEtapas = dados.etapas.reduce((acc, e) => acc + (parseFloat(e.media_nota) || 0), 0);
             dados.disciplinas.forEach(disc => {
-                let mediaStyle = disc.soma_nota < (dados.etapas.length * 6) ? 'color:#dc2626;font-weight:600;' : 'color:var(--color-success);';
+                let mediaStyle = disc.soma_nota < somaMediaEtapas ? 'color:#dc2626;font-weight:600;' : 'color:var(--color-success);';
                 tbodyHtml += '<tr style="border-bottom:1px solid var(--border-color);">';
                 tbodyHtml += '<td style="padding:.5rem .75rem;font-size:.8125rem;">' + disc.descricao + '</td>';
                 
@@ -632,12 +634,37 @@ function showDetailTab(tabId) {
             });
             tbodyHtml += '</tbody>';
             
-            html += '<div style="overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-color);">';
+            html += '<div style="display:flex;gap:1.5rem;align-items:flex-start;">';
+            
+            // Tabela de notas - 2/3
+            html += '<div style="flex:2;overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-color);">';
             html += '<table style="width:100%;border-collapse:collapse;font-size:.8125rem;">' + theadHtml + tbodyHtml + '</table>';
             html += '</div>';
             
+            // Área de gráficos - 1/3
+            html += '<div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:1rem;">';
+            
+            // Card 1: Tendência Geral
+            html += '<div style="padding:1rem;background:var(--bg-surface);border:1px solid var(--border-color);border-radius:var(--radius-md);">';
+            html += '<div style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:1rem;">📈 Tendência de Evolução</div>';
+            html += '<div id="perf-trend-' + a.id + '"></div>';
+            html += '</div>';
+
+            // Card 2: Evolução por Etapa
+            html += '<div style="padding:1rem;background:var(--bg-surface);border:1px solid var(--border-color);border-radius:var(--radius-md);">';
+            html += '<div style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:1.5rem;">📊 Médias por Etapa</div>';
+            html += '<div id="perf-chart-' + a.id + '" style="height:150px;width:100%;"></div>';
+            html += '</div>';
+            
+            html += '</div>'; // Fecha área de gráficos
+            html += '</div>'; // Fecha container flex principal
+            
             content.innerHTML = html;
+            
+            // Renderiza as análises
             VASentiment.renderTrend('banner-trend-' + a.id, a.id, conselho.turma_id);
+            VAPerformance.renderPerformanceTrend('perf-trend-' + a.id, dados.etapas, dados.disciplinas);
+            VAPerformance.renderPerformanceChart('perf-chart-' + a.id, dados.etapas, dados.disciplinas);
         })
         .catch(() => {
             content.innerHTML = '<p style="text-align:center;color:var(--color-danger);">Erro ao carregar detalhes.</p>';
