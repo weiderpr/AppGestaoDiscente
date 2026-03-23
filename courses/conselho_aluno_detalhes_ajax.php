@@ -28,6 +28,14 @@ if (!$conselhoId) {
     exit;
 }
 
+// Busca a turma_id se não fornecida
+$targetTurmaId = (int)($_GET['turma_id'] ?? 0);
+if (!$targetTurmaId) {
+    $stTurma = $db->prepare("SELECT turma_id FROM conselhos_classe WHERE id = ?");
+    $stTurma->execute([$conselhoId]);
+    $targetTurmaId = (int)$stTurma->fetchColumn();
+}
+
 $stAluno = $db->prepare("SELECT id, nome, email, telefone, photo FROM alunos WHERE id = ?");
 $stAluno->execute([$alunoId]);
 $aluno = $stAluno->fetch();
@@ -52,47 +60,66 @@ if (empty($etapasConselho)) {
     exit;
 }
 
+// 1. Buscar TODAS as disciplinas vinculadas à turma
+$stDisciplinas = $db->prepare("
+    SELECT d.codigo, d.descricao, dc.nome as categoria_nome
+    FROM turma_disciplinas td
+    JOIN disciplinas d ON td.disciplina_codigo = d.codigo
+    LEFT JOIN disciplina_categorias dc ON d.categoria_id = dc.id
+    WHERE td.turma_id = ?
+    ORDER BY d.descricao
+");
+$stDisciplinas->execute([$targetTurmaId]);
+$todasDisciplinas = $stDisciplinas->fetchAll();
+
+// 2. Buscar as notas lançadas para as etapas deste conselho
 $etapasIds = array_column($etapasConselho, 'id');
 $placeholders = implode(',', array_fill(0, count($etapasIds), '?'));
-
-$sql = "SELECT en.etapa_id, e.description as etapa_desc, e.media_nota,
-               en.disciplina_codigo, d.descricao, dc.nome as categoria_nome,
-               en.nota, en.faltas
-        FROM etapa_notas en
-        JOIN etapas e ON en.etapa_id = e.id
-        JOIN disciplinas d ON en.disciplina_codigo = d.codigo
-        LEFT JOIN disciplina_categorias dc ON d.categoria_id = dc.id
-        WHERE en.aluno_id = ? AND en.etapa_id IN ($placeholders)
-        ORDER BY d.descricao, e.id";
-
 $params = array_merge([$alunoId], $etapasIds);
-$st = $db->prepare($sql);
-$st->execute($params);
-$notas = $st->fetchAll();
 
+$sqlNotas = "SELECT etapa_id, disciplina_codigo, nota, faltas FROM etapa_notas WHERE aluno_id = ? AND etapa_id IN ($placeholders)";
+$stNotas = $db->prepare($sqlNotas);
+$stNotas->execute($params);
+$notasRaw = $stNotas->fetchAll();
+
+// Indexar notas para facilitar o agrupamento
+$indexedNotas = [];
+foreach ($notasRaw as $n) {
+    $indexedNotas[$n['disciplina_codigo']][$n['etapa_id']] = $n;
+}
+
+// 3. Montar o retorno garantindo que TODAS as disciplinas apareçam
 $disciplinasAgrupadas = [];
-foreach ($notas as $nota) {
-    $discCodigo = $nota['disciplina_codigo'];
-    if (!isset($disciplinasAgrupadas[$discCodigo])) {
-        $disciplinasAgrupadas[$discCodigo] = [
-            'codigo' => $discCodigo,
-            'descricao' => $nota['descricao'],
-            'categoria' => $nota['categoria_nome'] ?? 'Sem Categoria',
-            'soma_nota' => 0,
-            'soma_faltas' => 0,
-            'etapas' => []
-        ];
-    }
-    $disciplinasAgrupadas[$discCodigo]['etapas'][$nota['etapa_id']] = [
-        'descricao' => $nota['etapa_desc'],
-        'nota' => $nota['nota'] !== null ? (float)$nota['nota'] : null,
-        'faltas' => (int)$nota['faltas'],
-        'media' => $nota['media_nota']
+foreach ($todasDisciplinas as $d) {
+    $discCodigo = $d['codigo'];
+    $agrupada = [
+        'codigo' => $discCodigo,
+        'descricao' => $d['descricao'],
+        'categoria' => $d['categoria_nome'] ?? 'Sem Categoria',
+        'soma_nota' => 0,
+        'soma_faltas' => 0,
+        'etapas' => []
     ];
-    if ($nota['nota'] !== null) {
-        $disciplinasAgrupadas[$discCodigo]['soma_nota'] += (float)$nota['nota'];
+    
+    foreach ($etapasConselho as $e) {
+        $etapaId = $e['id'];
+        $detalheNota = $indexedNotas[$discCodigo][$etapaId] ?? null;
+        
+        $agrupada['etapas'][$etapaId] = [
+            'descricao' => $e['description'],
+            'nota' => $detalheNota ? ($detalheNota['nota'] !== null ? (float)$detalheNota['nota'] : null) : null,
+            'faltas' => $detalheNota ? (int)$detalheNota['faltas'] : 0,
+            'media' => $e['media_nota']
+        ];
+        
+        if ($detalheNota && $detalheNota['nota'] !== null) {
+            $agrupada['soma_nota'] += (float)$detalheNota['nota'];
+        }
+        if ($detalheNota) {
+            $agrupada['soma_faltas'] += (int)$detalheNota['faltas'];
+        }
     }
-    $disciplinasAgrupadas[$discCodigo]['soma_faltas'] += (int)$nota['faltas'];
+    $disciplinasAgrupadas[] = $agrupada;
 }
 
 echo json_encode([

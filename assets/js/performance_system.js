@@ -11,8 +11,8 @@ const VAPerformance = {
      * @returns {Object} - { trend: 'Improving'|'Stable'|'Worsening', score: number, data: [] }
      */
     analyzeEvolution: function(stages, disciplines) {
-        if (!stages || stages.length < 2 || !disciplines || disciplines.length === 0) {
-            return { trend: 'Estável', score: 0, status: 'neutral', message: 'Dados insuficientes' };
+        if (!stages || !disciplines || disciplines.length === 0) {
+            return { trend: 'Estável', score: 0, status: 'neutral', message: 'Sem dados para análise', averages: [], labels: [] };
         }
 
         // 1. Calculate average per stage across all disciplines
@@ -31,8 +31,22 @@ const VAPerformance = {
 
         // 2. Filter valid averages (only stages that have grades)
         const validAverages = stageAverages.filter(avg => avg !== null);
+        const validLabels = stages.filter((_, i) => stageAverages[i] !== null).map(s => s.description);
+
+        if (validAverages.length === 0) {
+            return { trend: 'Estável', score: 0, status: 'neutral', message: 'Nenhuma nota lançada', averages: [], labels: [] };
+        }
+
         if (validAverages.length < 2) {
-            return { trend: 'Estável', score: 0, status: 'neutral', message: 'Evolução requer ao menos duas etapas com notas' };
+            return { 
+                trend: 'Iniciando', 
+                score: 0, 
+                status: 'neutral', 
+                message: 'Aguardando mais etapas para análise de tendência',
+                averages: validAverages,
+                labels: validLabels,
+                icon: '⏳'
+            };
         }
 
         // 3. Simple Linear Regression Slope (simplified) or just compare last vs previous
@@ -69,7 +83,7 @@ const VAPerformance = {
             score: avgDiff,
             icon,
             averages: validAverages,
-            labels: stages.filter((_, i) => stageAverages[i] !== null).map(s => s.description)
+            labels: validLabels
         };
     },
 
@@ -120,7 +134,7 @@ const VAPerformance = {
         }
 
         container.innerHTML = `
-            <div style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.75rem; background:${bgColors[analysis.status]}; border-radius:var(--radius-md); border:1px solid ${colors[analysis.status]}22;">
+            <div style="display:flex; align-items:center; gap:0.75rem; padding:0.5rem 0.75rem; background:${bgColors[analysis.status]}; border-radius:var(--radius-md); border:1px solid ${colors[analysis.status]}22;" title="${analysis.message || ''}">
                 <div style="font-size:1.25rem;">${analysis.icon}</div>
                 <div style="flex:1;">
                     <div style="font-size:0.6875rem; text-transform:uppercase; font-weight:700; color:var(--text-muted); line-height:1;">Desempenho</div>
