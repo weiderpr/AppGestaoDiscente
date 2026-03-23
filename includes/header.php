@@ -43,6 +43,8 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 
     <!-- Styles -->
     <link rel="stylesheet" href="/assets/css/style.css">
+    <script src="/assets/js/main.js"></script>
+    <script src="/assets/js/sentiment_system.js?v=1.0"></script>
     <?php if (isset($extraCSS)): foreach ($extraCSS as $css): ?>
     <link rel="stylesheet" href="<?= $css ?>">
     <?php endforeach; endif; ?>
@@ -90,7 +92,12 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                 📖 Disciplinas
             </a>
             <?php endif; ?>
-            <!-- Novos itens de menu serão adicionados aqui conforme o sistema cresce -->
+            <?php if ($user && in_array($user['profile'], ['Administrador', 'Coordenador']) && !empty($curInst['id'])): ?>
+            <a href="/courses/conselhos.php"
+               class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/courses/conselhos') !== false ? 'active' : '' ?>">
+                🏠 Conselhos
+            </a>
+            <?php endif; ?>
         </nav>
 
         <!-- Ações (direita) -->
