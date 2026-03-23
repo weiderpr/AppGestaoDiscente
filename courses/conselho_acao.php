@@ -568,11 +568,11 @@ function showDetailTab(tabId) {
     const content = document.getElementById('detail-content');
     content.innerHTML = '<p style="text-align:center;color:var(--text-muted);">Carregando detalhes de ' + tab.aluno.nome + '...</p>';
     
-    fetch('/courses/conselho_aluno_detalhes_ajax.php?aluno_id=' + tab.aluno.id + '&conselho_id=' + conselhoId)
+    fetch('conselho_aluno_detalhes_ajax.php?aluno_id=' + tab.aluno.id + '&conselho_id=' + conselhoId)
         .then(res => res.json())
         .then(dados => {
             if (dados.error) {
-                content.innerHTML = '<p style="text-align:center;color:var(--color-danger);">' + dados.error + '</p>';
+                content.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--color-danger);font-weight:600;">⚠️ ${dados.error}</div>`;
                 return;
             }
             

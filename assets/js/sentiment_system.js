@@ -65,7 +65,8 @@ const VASentiment = {
         target.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--text-muted);">⏳ Analisando tendência...</div>';
 
         try {
-            const resp = await fetch(`/api/comments.php?aluno_id=${alunoId}&turma_id=${turmaId}`);
+            const apiPath = window.location.pathname.includes('/courses/') ? '../api/comments.php' : 'api/comments.php';
+            const resp = await fetch(`${apiPath}?aluno_id=${alunoId}&turma_id=${turmaId}`);
             const data = await resp.json();
             
             if (!data.todos_comentarios || data.todos_comentarios.length < 2) {

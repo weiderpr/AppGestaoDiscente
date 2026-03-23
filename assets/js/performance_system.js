@@ -12,7 +12,7 @@ const VAPerformance = {
      */
     analyzeEvolution: function(stages, disciplines) {
         if (!stages || !disciplines || disciplines.length === 0) {
-            return { trend: 'Estável', score: 0, status: 'neutral', message: 'Sem dados para análise', averages: [], labels: [] };
+            return { trend: 'Estável', score: 0, status: 'neutral', message: 'Sem dados para análise', averages: [], labels: [], icon: '➡️' };
         }
 
         // 1. Calculate average per stage across all disciplines
@@ -34,7 +34,7 @@ const VAPerformance = {
         const validLabels = stages.filter((_, i) => stageAverages[i] !== null).map(s => s.description);
 
         if (validAverages.length === 0) {
-            return { trend: 'Estável', score: 0, status: 'neutral', message: 'Nenhuma nota lançada', averages: [], labels: [] };
+            return { trend: 'Estável', score: 0, status: 'neutral', message: 'Nenhuma nota lançada', averages: [], labels: [], icon: '➡️' };
         }
 
         if (validAverages.length < 2) {
@@ -294,7 +294,7 @@ const VAPerformance = {
         target.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);padding:0.5rem;">⏳...</div>';
 
         try {
-            const resp = await fetch(`/courses/conselho_aluno_detalhes_ajax.php?aluno_id=${alunoId}&turma_id=${turmaId}`);
+            const resp = await fetch(`conselho_aluno_detalhes_ajax.php?aluno_id=${alunoId}&turma_id=${turmaId}`);
             const data = await resp.json();
             
             if (data.error || !data.etapas || data.etapas.length === 0) {
