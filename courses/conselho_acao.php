@@ -42,6 +42,8 @@ if (!$conselho) {
     exit;
 }
 
+$turmaId = $conselho['turma_id'];
+
 $success = '';
 $error = '';
 $action = $_POST['action'] ?? '';
@@ -72,7 +74,7 @@ $st = $db->prepare($sql);
 $st->execute([$conselho['turma_id']]);
 $professores = $st->fetchAll();
 
-$profiles = ['Administrador', 'Coordenador', 'Diretor', 'Professor', 'Pedagogo', 'Assistente Social', 'Naapi', 'Outro'];
+$profiles = PROFILES;
 $selectedProfile = $_GET['profile'] ?? '';
 
 $usuariosPorPerfil = [];
@@ -267,6 +269,14 @@ require_once __DIR__ . '/../includes/header.php';
             <span style="color:var(--text-muted);"> | <?= date('d/m/Y H:i', strtotime($conselho['data_hora'])) ?></span>
         </p>
     </div>
+    <div style="display:flex; gap:0.75rem;">
+        <button type="button" class="btn btn-primary" onclick="openReferralModal(0, 'Encaminhamento para a Turma', conselhoId)" style="display:inline-flex; align-items:center; gap:0.5rem;">
+            <span>📌 Encaminhamento Turma</span>
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="openCouncilRecordModal(conselhoId, null)" style="display:inline-flex; align-items:center; gap:0.5rem; background:var(--bg-surface); border:1px solid var(--border-color); color:var(--text-primary);">
+            <span>📝 Registros Gerais</span>
+        </button>
+    </div>
 </div>
 
 <?php if ($success): ?>
@@ -387,8 +397,8 @@ require_once __DIR__ . '/../includes/header.php';
                             <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Médias Perdidas</th>
                             <th style="padding:.75rem 1rem;text-align:left;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Disciplinas</th>
                             <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Total Faltas</th>
-                            <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color); width:200px;">Tendência (Análise Quantitativa)</th>
-                            <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color); width:200px;">Tendência (Análise Qualitativa)</th>
+                            <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Quant</th>
+                            <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Quali</th>
                             <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Ação</th>
                         </tr>
                     </thead>
@@ -467,6 +477,24 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<style>
+    .radar-chart-container { width: 100%; max-width: 450px; margin: 0 auto; min-height: 350px; }
+    
+    @media print {
+        body * { visibility: hidden; }
+        #ata, #ata *, .ata-document, .ata-document * { visibility: visible; }
+        .ata-document { 
+            position: absolute; left: 0; top: 0; width: 100%; 
+            margin: 0 !important; padding: 0 !important; 
+            box-shadow: none !important; border: none !important; 
+        }
+        .sidebar, .header, .tabs-container, .card-header, .btn, .modal-backdrop { display: none !important; }
+        #ata { display: block !important; width: 100%; position: absolute; left: 0; top: 0; }
+        .tab-content:not(.active) { display: none !important; }
+        @page { margin: 1cm; }
+    }
+</style>
+
 <div id="alunos_detalhes" class="tab-content fade-in">
     <div class="card">
         <div class="card-header">
@@ -491,18 +519,37 @@ require_once __DIR__ . '/../includes/header.php';
 
 <div id="encaminhamentos" class="tab-content fade-in">
     <div class="card">
-        <div class="card-body" style="text-align:center;padding:3rem;color:var(--text-muted);">
-            <p style="font-size:3rem;margin-bottom:1rem;">📌</p>
-            <p>Encaminhamentos em desenvolvimento.</p>
+        <div class="card-header">
+            <span class="card-title">Conferência de Encaminhamentos</span>
+            <span style="font-size:.875rem;color:var(--text-muted);">Todas as providências registradas nesta sessão</span>
+        </div>
+        <div class="card-body" id="council_referrals_list" style="padding:0;">
+            <!-- Renderizado via AJAX no referrals_system.js -->
+            <div style="text-align:center;padding:3rem;color:var(--text-muted);">
+                <p style="font-size:3rem;margin-bottom:1rem;">📌</p>
+                <p>Nenhum encaminhamento carregado.</p>
+            </div>
         </div>
     </div>
 </div>
 
 <div id="ata" class="tab-content fade-in">
     <div class="card">
-        <div class="card-body" style="text-align:center;padding:3rem;color:var(--text-muted);">
-            <p style="font-size:3rem;margin-bottom:1rem;">📝</p>
-            <p>Ata do Conselho em desenvolvimento.</p>
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <span class="card-title">Ata do Conselho</span>
+                <span style="font-size:.875rem;color:var(--text-muted);">Documento consolidado da sessão</span>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="window.print()" style="display:inline-flex; align-items:center; gap:0.4rem;">
+                <span>🖨️ Imprimir Ata</span>
+            </button>
+        </div>
+        <div class="card-body" id="ata_content_area" style="background:var(--bg-surface-2nd); padding:2rem;">
+            <!-- Renderizado via AJAX no conselho_ata_system.js -->
+            <div style="text-align:center;padding:3rem;color:var(--text-muted);">
+                <p style="font-size:3rem;margin-bottom:1rem;">📝</p>
+                <p>Nenhuma informação carregada para a Ata.</p>
+            </div>
         </div>
     </div>
 </div>
@@ -529,6 +576,16 @@ function showTab(tabId) {
     
     document.getElementById(tabId).classList.add('active');
     document.querySelector(`[onclick="showTab('${tabId}')"]`).classList.add('active');
+
+    // Se for a aba de encaminhamentos, carrega a lista geral
+    if (tabId === 'encaminhamentos' && typeof loadCouncilReferrals === 'function') {
+        loadCouncilReferrals(conselhoId);
+    }
+
+    // Se for a aba de Ata, carrega consolidado
+    if (tabId === 'ata' && typeof loadCouncilAta === 'function') {
+        loadCouncilAta(conselhoId);
+    }
 }
 
 function addDetailTab(aluno) {
@@ -593,10 +650,20 @@ function showDetailTab(tabId) {
             html += '</div>';
             html += '<div style="display:flex;align-items:center;gap:1.5rem;">';
             html += '<div id="banner-trend-' + a.id + '" style="min-width:140px; transform: scale(0.9); transform-origin: right center;"></div>';
-            html += '<div style="display:flex;gap:.5rem;">';
-            html += '<button type="button" class="action-btn" title="Comentários" onclick="openComentariosModal(' + tab.aluno.id + ', \'' + tab.aluno.nome.replace(/'/g, "\\'") + '\')">💬</button>';
-            html += '<button type="button" class="action-btn" title="Encaminhamentos">📌</button>';
-            html += '<button type="button" class="action-btn" title="Histórico">📜</button>';
+            html += '<div id="banner-perf-' + a.id + '" style="min-width:140px; transform: scale(0.85); transform-origin: right center;"></div>';
+            html += '<div style="display:flex;gap:.75rem;align-items:center;">';
+            
+            // Botão Comentários (Azul)
+            html += '<button type="button" title="Comentários" style="background:#eff6ff;color:#3b82f6;border:1px solid #bfdbfe;padding:.625rem;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;transition:all .2s ease;cursor:pointer;" onmouseover="this.style.background=\'#dbeafe\'" onmouseout="this.style.background=\'#eff6ff\'" onclick="openComentariosModal(' + a.id + ', \'' + a.nome.replace(/'/g, "\\'") + '\')">' + 
+                    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>';
+            
+            // Botão Registros (Amarelo/Laranja)
+            html += '<button type="button" title="Registros (Post-it)" style="background:#fffbeb;color:#d97706;border:1px solid #fef3c7;padding:.625rem;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;transition:all .2s ease;cursor:pointer;" onmouseover="this.style.background=\'#fef3c7\'" onmouseout="this.style.background=\'#fffbeb\'" onclick="openCouncilRecordModal(' + conselhoId + ', {id:' + a.id + ', nome:\'' + a.nome.replace(/'/g, "\\'") + '\', photo:\'' + (a.photo || '') + '\'})">' + 
+                    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3z"></path><path d="M15 3v6h6"></path><line x1="13" y1="13" x2="7" y2="13"></line><line x1="13" y1="17" x2="7" y2="17"></line><line x1="9" y1="9" x2="7" y2="9"></line></svg></button>';
+            
+            // Botão Encaminhamentos (Roxo/Indigo)
+            html += '<button type="button" title="Encaminhamentos" style="background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;padding:.625rem;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;transition:all .2s ease;cursor:pointer;" onmouseover="this.style.background=\'#ddd6fe\'" onmouseout="this.style.background=\'#f5f3ff\'" onclick="openReferralModal(' + a.id + ', \'' + a.nome.replace(/'/g, "\\'") + '\', ' + conselhoId + ')">' + 
+                    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg></button>';
             html += '</div>';
             html += '</div>';
             html += '</div>';
@@ -608,6 +675,7 @@ function showDetailTab(tabId) {
             });
             theadHtml += '<th style="padding:.5rem .75rem;text-align:center;font-size:.75rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Soma Notas</th>';
             theadHtml += '<th style="padding:.5rem .75rem;text-align:center;font-size:.75rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Soma Faltas</th>';
+            theadHtml += '<th style="padding:.5rem .75rem;text-align:center;font-size:.75rem;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Tendência</th>';
             theadHtml += '</tr></thead>';
             
             // Corpo da tabela
@@ -634,6 +702,37 @@ function showDetailTab(tabId) {
                 
                 tbodyHtml += '<td style="text-align:center;padding:.5rem .75rem;font-size:.8125rem;' + mediaStyle + '">' + disc.soma_nota.toFixed(1) + '</td>';
                 tbodyHtml += '<td style="text-align:center;padding:.5rem .75rem;font-size:.8125rem;">' + disc.soma_faltas + '</td>';
+                
+                let trendIcon = '';
+                let trendStyle = '';
+                const relNotas = dados.etapas.map(e => {
+                    const etapaData = disc.etapas[e.id];
+                    if (etapaData && etapaData.nota !== null) {
+                        return (parseFloat(etapaData.nota) / (parseFloat(e.nota_maxima) || 10)) * 10;
+                    }
+                    return null;
+                }).filter(n => n !== null);
+
+                if (relNotas.length >= 2) {
+                    let diff = relNotas[relNotas.length - 1] - relNotas[0];
+                    if (diff > 0.5) {
+                        trendIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>';
+                        trendStyle = 'color:#3b82f6;'; // Azul conforme solicitação
+                    } else if (diff < -0.5) {
+                        trendIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>';
+                        trendStyle = 'color:var(--color-danger);';
+                    } else {
+                        trendIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>';
+                        trendStyle = 'color:var(--text-muted);';
+                    }
+                } else if (relNotas.length === 1) {
+                    trendIcon = '⏳';
+                    trendStyle = 'color:var(--text-muted);';
+                } else {
+                    trendIcon = '—';
+                    trendStyle = 'color:var(--text-muted);';
+                }
+                tbodyHtml += '<td style="text-align:center;padding:.5rem .75rem;font-size:.8125rem;' + trendStyle + '">' + trendIcon + '</td>';
                 tbodyHtml += '</tr>';
             });
             tbodyHtml += '</tbody>';
@@ -648,13 +747,7 @@ function showDetailTab(tabId) {
             // Área de gráficos - 1/3
             html += '<div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:1rem;">';
             
-            // Card 1: Tendência Geral
-            html += '<div style="padding:1rem;background:var(--bg-surface);border:1px solid var(--border-color);border-radius:var(--radius-md);">';
-            html += '<div style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:1rem;">📈 Tendência de Evolução</div>';
-            html += '<div id="perf-trend-' + a.id + '"></div>';
-            html += '</div>';
-
-            // Card 2: Evolução por Etapa
+            // Card: Evolução por Etapa (Médias)
             html += '<div style="padding:1rem;background:var(--bg-surface);border:1px solid var(--border-color);border-radius:var(--radius-md);">';
             html += '<div style="font-size:.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;margin-bottom:1.5rem;">📊 Médias por Etapa</div>';
             html += '<div id="perf-chart-' + a.id + '" style="height:150px;width:100%;"></div>';
@@ -673,6 +766,7 @@ function showDetailTab(tabId) {
             
             // Renderiza as análises
             VASentiment.renderTrend('banner-trend-' + a.id, a.id, conselho.turma_id);
+            VAPerformance.renderPerformanceTrend('banner-perf-' + a.id, dados.etapas, dados.disciplinas);
             VAPerformance.renderPerformanceTrend('perf-trend-' + a.id, dados.etapas, dados.disciplinas);
             VAPerformance.renderPerformanceChart('perf-chart-' + a.id, dados.etapas, dados.disciplinas);
             VAPerformance.renderCategoryChart('perf-categories-' + a.id, dados.disciplinas);
@@ -760,20 +854,26 @@ function openAlunoModal(aluno) {
 <script src="/assets/js/student_comments.js?v=1.1"></script>
 <?php require_once __DIR__ . '/../includes/student_comment_modal.php'; ?>
 
+<!-- Componente de Encaminhamentos -->
+<?php require_once __DIR__ . '/../includes/encaminhamento_modal.php'; ?>
 
+<!-- Componente de Registros do Conselho -->
+<script src="/assets/js/conselho_registros_system.js?v=1.1"></script>
+<?php require_once __DIR__ . '/../includes/conselho_registro_modal.php'; ?>
 
+<!-- Componente de Ata do Conselho -->
+<script src="/assets/js/conselho_ata_system.js?v=1.3"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // Inicializa tendências na lista de conselho
-    // Inicializa tendências qualitativas
+    // Inicializa tendências qualitativas (Mini)
     document.querySelectorAll('.sentiment-trend-container').forEach(container => {
-        VASentiment.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId);
+        VASentiment.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId, true);
     });
 
-    // Inicializa tendências quantitativas
+    // Inicializa tendências quantitativas (Mini)
     document.querySelectorAll('.performance-trend-container').forEach(container => {
-        VAPerformance.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId);
+        VAPerformance.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId, true);
     });
 });
 </script>

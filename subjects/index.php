@@ -69,6 +69,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+
+    if ($action === 'import_file' && !empty($_FILES['import_file']['tmp_name'])) {
+        $file = $_FILES['import_file']['tmp_name'];
+        $handle = fopen($file, "r");
+        $imported = 0;
+        
+        $firstLine = fgets($handle);
+        rewind($handle);
+        $delimiter = (str_contains($firstLine, ';')) ? ';' : ',';
+
+        try {
+            $db->beginTransaction();
+            while (($data = fgetcsv($handle, 1000, $delimiter)) !== FALSE) {
+                if (str_contains(strtolower($data[0] ?? ''), 'codi')) continue;
+
+                $codigo    = trim($data[0] ?? '');
+                $descricao = trim($data[1] ?? '');
+                $catId     = (int)($data[2] ?? 0);
+
+                if (!$codigo || !$descricao || !$catId) continue;
+
+                $stCat = $db->prepare("SELECT 1 FROM disciplina_categorias WHERE id = ? AND institution_id = ?");
+                $stCat->execute([$catId, $instId]);
+                if (!$stCat->fetch()) continue;
+
+                $stCheck = $db->prepare("SELECT 1 FROM disciplinas WHERE codigo = ? AND institution_id = ?");
+                $stCheck->execute([$codigo, $instId]);
+                if ($stCheck->fetch()) {
+                    $db->prepare("UPDATE disciplinas SET descricao = ?, categoria_id = ? WHERE codigo = ? AND institution_id = ?")
+                       ->execute([$descricao, $catId, $codigo, $instId]);
+                } else {
+                    $db->prepare("INSERT INTO disciplinas (codigo, descricao, categoria_id, institution_id) VALUES (?, ?, ?, ?)")
+                       ->execute([$codigo, $descricao, $catId, $instId]);
+                }
+                $imported++;
+            }
+            $db->commit();
+            $success = "Importação concluída: {$imported} disciplinas processadas.";
+        } catch (Exception $e) {
+            $db->rollBack();
+            $error = "Erro na importação: " . $e->getMessage();
+        }
+        fclose($handle);
+    }
 }
 
 // --- LISTAGEM ---
@@ -156,8 +200,9 @@ require_once __DIR__ . '/../includes/header.php';
             Instituição: <strong><?= htmlspecialchars($inst['name']) ?></strong>
         </p>
     </div>
-    <div style="display:flex;gap:.75rem;">
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
         <a href="/subjects/categories.php" class="btn btn-secondary">📂 Categorias</a>
+        <button class="btn btn-secondary" onclick="openImportModal()">📥 Importar CSV</button>
         <button class="btn btn-primary" onclick="openModal()">➕ Nova Disciplina</button>
     </div>
 </div>
@@ -327,6 +372,41 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<!-- Modal: Importar Disciplinas -->
+<div class="modal-backdrop" id="importFileModal" role="dialog" aria-modal="true">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">📥 Importar Disciplinas via CSV</span>
+            <button class="modal-close" onclick="closeImportModal()">✕</button>
+        </div>
+        <form method="POST" action="?action=import_file" enctype="multipart/form-data">
+            <div class="modal-body">
+                <div style="padding:1rem; border-radius:var(--radius-md); background:var(--bg-surface-2nd); border:1px dashed var(--border-color); margin-bottom:0.5rem;">
+                    <p style="font-size:0.875rem; font-weight:600; margin-bottom:0.5rem; color:var(--text-primary);">📝 Layout do Arquivo CSV:</p>
+                    <ul style="font-size:0.8125rem; color:var(--text-muted); padding-left:1.25rem;">
+                        <li>O arquivo deve ser um **CSV** (delimitado por `;` ou `,`).</li>
+                        <li>Colunas na ordem: **Código**, **Descrição**, **ID Categoria**.</li>
+                        <li>A primeira linha (cabeçalho) pode ser ignorada.</li>
+                        <li>Exemplo: `MAT101;Matemática I;5`</li>
+                    </ul>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Selecione o arquivo (.csv)</label>
+                    <div class="input-group">
+                        <span class="input-icon">📄</span>
+                        <input type="file" name="import_file" class="form-control" accept=".csv" required style="padding-left:2.75rem;">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">🚀 Iniciar Importação</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 function openModal() {
     document.getElementById('modalTitle').textContent = '➕ Nova Disciplina';
@@ -359,6 +439,16 @@ function closeModal() {
     document.body.style.overflow = '';
 }
 
+function openImportModal() {
+    document.getElementById('importFileModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeImportModal() {
+    document.getElementById('importFileModal').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
 function deleteSubject(codigo, name) {
     if (confirm('Excluir permanentemente a disciplina «' + name + '»? Esta ação não pode ser desfeita.')) {
         const form = document.createElement('form');
@@ -377,8 +467,14 @@ function deleteSubject(codigo, name) {
 document.getElementById('subjectModal').addEventListener('click', function(e) {
     if (e.target === this) closeModal();
 });
+document.getElementById('importFileModal').addEventListener('click', function(e) {
+    if (e.target === this) closeImportModal();
+});
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Escape') {
+        closeModal();
+        closeImportModal();
+    }
 });
 </script>
 

@@ -40,15 +40,26 @@ if (isset($_GET['api']) && $_GET['api'] === 'get_students') {
         ");
         $st->execute();
     } else {
-        $tid = (int)$tid;
-        $st = getDB()->prepare("
+        $tid      = (int)$tid;
+        $targetId = (int)($_GET['target_id'] ?? 0);
+        
+        // Busca alunos QUE ESTÃO na turma de origem ($tid)
+        // E (opcionalmente) que NÃO ESTÃO na turma de destino ($targetId)
+        $sql = "
             SELECT a.id, a.nome, a.matricula, a.photo 
             FROM alunos a 
-            LEFT JOIN turma_alunos ta ON ta.aluno_id = a.id AND ta.turma_id = ?
-            WHERE ta.aluno_id IS NULL 
-            ORDER BY a.nome ASC
-        ");
-        $st->execute([$tid]);
+            INNER JOIN turma_alunos ta_src ON ta_src.aluno_id = a.id AND ta_src.turma_id = ?
+        ";
+        $params = [$tid];
+
+        if ($targetId > 0) {
+            $sql .= " LEFT JOIN turma_alunos ta_tgt ON ta_tgt.aluno_id = a.id AND ta_tgt.turma_id = ?";
+            $sql .= " WHERE ta_tgt.aluno_id IS NULL";
+            $params[] = $targetId;
+        }
+
+        $st = getDB()->prepare($sql . " ORDER BY a.nome ASC");
+        $st->execute($params);
     }
     header('Content-Type: application/json');
     echo json_encode($st->fetchAll(PDO::FETCH_ASSOC));
@@ -711,7 +722,7 @@ async function loadStudentsForImport(sourceId) {
     container.style.display = 'block';
 
     try {
-        const resp = await fetch(`?api=get_students&source_id=${sourceId}`);
+        const resp = await fetch(`?api=get_students&source_id=${sourceId}&target_id=<?= $turmaId ?>`);
         const data = await resp.json();
 
         if (data.length === 0) {

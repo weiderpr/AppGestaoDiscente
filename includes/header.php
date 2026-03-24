@@ -44,8 +44,8 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
     <!-- Styles -->
     <link rel="stylesheet" href="/assets/css/style.css">
     <script src="/assets/js/main.js"></script>
-    <script src="/assets/js/sentiment_system.js?v=1.0"></script>
-    <script src="/assets/js/performance_system.js?v=1.0"></script>
+    <script src="/assets/js/sentiment_system.js?v=1.2"></script>
+    <script src="/assets/js/performance_system.js?v=1.6"></script>
     <?php if (isset($extraCSS)): foreach ($extraCSS as $css): ?>
     <link rel="stylesheet" href="<?= $css ?>">
     <?php endforeach; endif; ?>

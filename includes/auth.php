@@ -18,6 +18,7 @@ const PROFILES = [
     'Pedagogo',
     'Assistente Social',
     'Naapi',
+    'Psicólogo',
     'Outro',
 ];
 

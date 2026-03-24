@@ -47,22 +47,28 @@ const VASentiment = {
         const avgSecond = secondHalf.length ? secondHalf.reduce((sum, c) => sum + c.score, 0) / secondHalf.length : 0;
         const diff = avgSecond - avgFirst;
 
-        let status = { label: 'Estável', color: 'var(--color-warning)', emoji: '➡️', desc: 'Desempenho constante.' };
-        if (diff > 0.5) status = { label: 'Melhorando', color: 'var(--color-success)', emoji: '📈', desc: 'Evolução positiva.' };
-        else if (diff < -0.5) status = { label: 'Em Piora', color: 'var(--color-danger)', emoji: '📉', desc: 'Queda no desempenho.' };
+        const icons = {
+            positive: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>`,
+            negative: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline><polyline points="17 18 23 18 23 12"></polyline></svg>`,
+            neutral: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>`
+        };
+
+        let status = { label: 'Estável', color: 'var(--text-muted)', icon: icons.neutral, emoji: '➡️', desc: 'Desempenho constante.' };
+        if (diff > 0.5) status = { label: 'Melhorando', color: '#3b82f6', icon: icons.positive, emoji: '📈', desc: 'Evolução positiva.' };
+        else if (diff < -0.5) status = { label: 'Em Piora', color: 'var(--color-danger)', icon: icons.negative, emoji: '📉', desc: 'Queda no desempenho.' };
 
         return { history, status, diff, avgOverall: (avgFirst + avgSecond) / 2 };
     },
 
     // --- Renderização de Componente de Tendência ---
-    renderTrend: async function(container, alunoId, turmaId) {
+    renderTrend: async function(container, alunoId, turmaId, isMini = false) {
         if (!container) return;
         
         // Se container for string, busca elemento
         const target = typeof container === 'string' ? document.getElementById(container) : container;
         if (!target) return;
 
-        target.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--text-muted);">⏳ Analisando tendência...</div>';
+        target.innerHTML = isMini ? '<span style="font-size:0.75rem;">⏳</span>' : '<div style="text-align:center;padding:1rem;color:var(--text-muted);">⏳ Analisando tendência...</div>';
 
         try {
             const apiPath = window.location.pathname.includes('/courses/') ? '../api/comments.php' : 'api/comments.php';
@@ -70,7 +76,7 @@ const VASentiment = {
             const data = await resp.json();
             
             if (!data.todos_comentarios || data.todos_comentarios.length < 2) {
-                target.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);">Dados insuficientes para tendência.</div>';
+                target.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);">—</div>';
                 return;
             }
 
@@ -78,23 +84,38 @@ const VASentiment = {
             const { status, history } = analysis;
             const maxScore = Math.max(...history.map(c => Math.abs(c.score)), 5);
 
-            target.innerHTML = `
-                <div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem;background:var(--bg-surface-2nd);border-radius:var(--radius-md);border:1px solid var(--border-color);">
-                    <div style="font-size:1.5rem;">${status.emoji}</div>
-                    <div style="flex:1;">
-                        <div style="font-size:0.625rem;text-transform:uppercase;font-weight:700;color:var(--text-muted);letter-spacing:0.05em;">Tendência</div>
-                        <div style="font-size:0.875rem;font-weight:700;color:${status.color};">${status.label}</div>
+            if (isMini) {
+                target.innerHTML = `
+                    <div style="display:inline-flex;align-items:center;gap:0.375rem;color:${status.color};" title="${status.label} (Análise de Comentários)">
+                        <div style="display:flex;align-items:center;">${status.icon}</div>
+                        <div style="display:flex;align-items:flex-end;gap:1.5px;height:14px;width:40px;">
+                            ${history.slice(-8).map(c => {
+                                const h = Math.abs((c.score / maxScore) * 100);
+                                const color = c.score >= 1 ? 'var(--color-success)' : (c.score <= -1 ? 'var(--color-danger)' : 'var(--color-warning)');
+                                return `<div style="flex:1;background:${color};height:${Math.max(20, h)}%;border-radius:1px;opacity:0.6;"></div>`;
+                            }).join('')}
+                        </div>
                     </div>
-                    <!-- Mini Sparkline -->
-                    <div style="display:flex;align-items:flex-end;gap:2px;height:24px;width:60px;">
-                        ${history.slice(-10).map(c => {
-                            const h = Math.abs((c.score / maxScore) * 100);
-                            const color = c.score >= 1 ? 'var(--color-success)' : (c.score <= -1 ? 'var(--color-danger)' : 'var(--color-warning)');
-                            return `<div style="flex:1;background:${color};height:${Math.max(4, h)}%;border-radius:1px;opacity:0.6;"></div>`;
-                        }).join('')}
+                `;
+            } else {
+                target.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem;background:var(--bg-surface-2nd);border-radius:var(--radius-md);border:1px solid var(--border-color);">
+                        <div style="color:${status.color};display:flex;align-items:center;justify-content:center;">${status.icon}</div>
+                        <div style="flex:1;">
+                            <div style="font-size:0.625rem;text-transform:uppercase;font-weight:700;color:var(--text-muted);letter-spacing:0.05em;">Tendência</div>
+                            <div style="font-size:0.875rem;font-weight:700;color:${status.color};">${status.label}</div>
+                        </div>
+                        <!-- Mini Sparkline -->
+                        <div style="display:flex;align-items:flex-end;gap:2px;height:24px;width:60px;">
+                            ${history.slice(-10).map(c => {
+                                const h = Math.abs((c.score / maxScore) * 100);
+                                const color = c.score >= 1 ? 'var(--color-success)' : (c.score <= -1 ? 'var(--color-danger)' : 'var(--color-warning)');
+                                return `<div style="flex:1;background:${color};height:${Math.max(4, h)}%;border-radius:1px;opacity:0.6;"></div>`;
+                            }).join('')}
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }
 
         } catch (e) {
             console.error('Erro na renderização de tendência:', e);

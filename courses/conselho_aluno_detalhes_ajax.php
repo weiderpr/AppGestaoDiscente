@@ -46,7 +46,7 @@ if (!$aluno) {
 }
 
 $stEtapas = $db->prepare('
-    SELECT e.id, e.description, e.media_nota
+    SELECT e.id, e.description, e.media_nota, e.nota_maxima
     FROM conselhos_etapas ce
     JOIN etapas e ON ce.etapa_id = e.id
     WHERE ce.conselho_id = ?

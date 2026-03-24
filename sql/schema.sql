@@ -49,6 +49,7 @@ CREATE TABLE users (
                     'Pedagogo',
                     'Assistente Social',
                     'Naapi',
+                    'Psicólogo',
                     'Outro'
                 ) NOT NULL DEFAULT 'Outro',
     theme       ENUM('light', 'dark') NOT NULL DEFAULT 'light',
