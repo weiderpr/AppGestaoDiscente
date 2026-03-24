@@ -404,7 +404,7 @@ require_once __DIR__ . '/../includes/header.php';
                     </thead>
                     <tbody>
                         <?php foreach ($alunos as $aluno): ?>
-                        <tr style="border-bottom:1px solid var(--border-color);">
+                        <tr data-aluno-id="<?= $aluno['id'] ?>" style="border-bottom:1px solid var(--border-color);">
                             <td style="padding:.75rem 1rem;vertical-align:middle;">
                                 <div style="width:40px;height:40px;border-radius:50%;background:var(--bg-surface-2nd);display:flex;align-items:center;justify-content:center;overflow:hidden;">
                                     <?php if ($aluno['photo'] && file_exists(__DIR__ . '/../' . $aluno['photo'])): ?>
@@ -569,6 +569,7 @@ const usuariosPorPerfil = <?= json_encode($usuariosPorPerfil) ?>;
 const conselhoId = <?= $conselhoId ?>;
 const conselho = { turma_id: <?= $conselho['turma_id'] ?> };
 let detailTabs = [];
+let studentsInDetail = [];
 
 function showTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -598,6 +599,11 @@ function addDetailTab(aluno) {
         detailTabs.push({ id: tabId, name: tabName, aluno: aluno });
     }
     
+    if (!studentsInDetail.includes(aluno.id)) {
+        studentsInDetail.push(aluno.id);
+        setStudentRowInactive(aluno.id, true);
+    }
+    
     showTab('alunos_detalhes');
     
     renderDetailTabs();
@@ -605,6 +611,14 @@ function addDetailTab(aluno) {
 }
 
 function removeDetailTab(tabId) {
+    const tab = detailTabs.find(t => t.id === tabId);
+    const alunoId = tab ? tab.aluno.id : null;
+    
+    if (alunoId) {
+        studentsInDetail = studentsInDetail.filter(id => id !== alunoId);
+        setStudentRowInactive(alunoId, false);
+    }
+    
     detailTabs = detailTabs.filter(t => t.id !== tabId);
     renderDetailTabs();
     
@@ -612,6 +626,19 @@ function removeDetailTab(tabId) {
         showDetailTab(detailTabs[detailTabs.length - 1].id);
     } else {
         document.getElementById('detail-content').innerHTML = '<div class="detail-content-empty">Clique no botão 👁️ de um aluno na aba "2. Alunos" para visualizar os detalhes.</div>';
+    }
+}
+
+function setStudentRowInactive(alunoId, inactive) {
+    const row = document.querySelector('tr[data-aluno-id="' + alunoId + '"]');
+    if (row) {
+        if (inactive) {
+            row.style.opacity = '0.4';
+            row.style.background = 'var(--bg-surface-2nd)';
+        } else {
+            row.style.opacity = '';
+            row.style.background = '';
+        }
     }
 }
 
