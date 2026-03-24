@@ -3,6 +3,9 @@
  * Vértice Acadêmico — AJAX: Carregar modal de professores da disciplina
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
+
+$csrfToken = $_GET['csrf_token'] ?? '';
 requireLogin();
 
 if (!isset($_GET['td_id']) || !isset($_GET['disciplina_nome'])) {
@@ -32,8 +35,13 @@ if (!$stCheck->fetch()) {
 $success = '';
 $error   = '';
 
+// CSRF check
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !csrf_verify($_POST['csrf_token'] ?? '')) {
+    $error = 'Token de segurança expirado. Tente novamente.';
+} else {
+
 // Adicionar professor
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_professor') {
+if (($_POST['action'] ?? '') === 'add_professor') {
     $professorId = (int)($_POST['professor_id'] ?? 0);
     
     if (!$professorId) {
@@ -133,6 +141,7 @@ $availableProfs = $stAvailable->fetchAll();
                     </div>
                 </div>
                 <form method="POST" style="margin:0;" onsubmit="return confirm('Remover <?= htmlspecialchars($p['name']) ?> desta disciplina?');">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
                     <input type="hidden" name="action" value="remove_professor">
                     <input type="hidden" name="td_professor_id" value="<?= $p['tdp_id'] ?>">
                     <button type="submit" class="btn btn-ghost" style="padding:.3rem .5rem;font-size:.75rem;color:var(--color-danger);">Remover</button>
@@ -154,6 +163,7 @@ $availableProfs = $stAvailable->fetchAll();
                 </p>
                 <?php else: ?>
                 <form method="POST" style="display:flex;flex-direction:column;gap:.875rem;">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
                     <input type="hidden" name="action" value="add_professor">
                     <input type="hidden" name="turma_disciplina_id" value="<?= $tdId ?>">
                     <div class="form-group" style="margin:0;">
@@ -183,3 +193,4 @@ $availableProfs = $stAvailable->fetchAll();
     </div>
 
 </div>
+<?php } ?>

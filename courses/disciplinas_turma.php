@@ -3,6 +3,7 @@
  * Vértice Acadêmico — Disciplinas da Turma
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user    = getCurrentUser();
@@ -38,8 +39,13 @@ if (!$turma) { header('Location: /courses/index.php'); exit; }
 $success = '';
 $error   = '';
 
+// CSRF check
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !csrf_verify($_POST['csrf_token'] ?? '')) {
+    $error = 'Token de segurança expirado. Tente novamente.';
+} else {
+
 // ---- ADICIONAR DISCIPLINA ----
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_disciplina') {
+if (($_POST['action'] ?? '') === 'add_disciplina') {
     $disciplinaCodigo = trim($_POST['disciplina_codigo'] ?? '');
     
     if (!$disciplinaCodigo) {
@@ -99,6 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'remov
            ->execute([$tdpId]);
         $success = 'Professor desvinculado da disciplina.';
     }
+}
 }
 
 // ---- LISTAR DISCIPLINAS DA TURMA ----
@@ -347,6 +354,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 👨‍🏫
                             </button>
                             <form method="POST" style="display:inline;" onsubmit="return confirm('Remover esta disciplina da turma?');">
+                                <?= csrf_field() ?>
                                 <input type="hidden" name="action" value="remove_disciplina">
                                 <input type="hidden" name="turma_disciplina_id" value="<?= $td['td_id'] ?>">
                                 <button type="submit" class="action-btn danger" title="Remover Disciplina">🗑</button>
@@ -384,6 +392,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <?php else: ?>
         <form method="POST">
+            <?= csrf_field() ?>
             <input type="hidden" name="action" value="add_disciplina">
             <div class="modal-body">
                 <div class="form-group">
@@ -443,7 +452,8 @@ function openProfessorModal(tdId, disciplinaNome) {
     document.body.style.overflow = 'hidden';
     
     // Carregar conteúdo via AJAX
-    fetch('disciplinas_turma_ajax.php?td_id=' + tdId + '&disciplina_nome=' + encodeURIComponent(disciplinaNome))
+    const csrfToken = document.querySelector('[name=csrf_token]')?.value || '';
+    fetch('disciplinas_turma_ajax.php?td_id=' + tdId + '&disciplina_nome=' + encodeURIComponent(disciplinaNome) + '&csrf_token=' + encodeURIComponent(csrfToken))
         .then(r => r.text())
         .then(html => {
             document.getElementById('professorModalContent').innerHTML = html;

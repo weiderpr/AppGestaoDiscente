@@ -3,6 +3,7 @@
  * Vértice Acadêmico — Categorias de Disciplinas
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user = getCurrentUser();
@@ -27,7 +28,9 @@ $error = '';
 $action = $_GET['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if ($action === 'add') {
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança expirado. Tente novamente.';
+    } else {
         $nome = trim($_POST['nome'] ?? '');
         if ($nome) {
             try {
@@ -237,6 +240,7 @@ require_once __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeAddModal()">✕</button>
         </div>
         <form method="POST" action="?action=add">
+            <?= csrf_field() ?>
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">Nome da Categoria <span class="required">*</span></label>

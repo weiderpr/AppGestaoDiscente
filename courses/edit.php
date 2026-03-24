@@ -3,6 +3,7 @@
  * Vértice Acadêmico — Edição de Curso
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user    = getCurrentUser();
@@ -44,24 +45,28 @@ $success = '';
 $error   = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name     = trim($_POST['name']     ?? '');
-    $location = trim($_POST['location'] ?? '');
-
-    if (strlen($name) < 2) {
-        $error = 'Informe o nome do curso.';
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança expirado. Tente novamente.';
     } else {
-        // Verifica duplicidade (exceto o próprio)
-        $st = $db->prepare('SELECT id FROM courses WHERE name=? AND institution_id=? AND id!=? LIMIT 1');
-        $st->execute([$name, $instId, $id]);
-        if ($st->fetch()) {
-            $error = 'Já existe outro curso com este nome nesta instituição.';
+        $name     = trim($_POST['name']     ?? '');
+        $location = trim($_POST['location'] ?? '');
+
+        if (strlen($name) < 2) {
+            $error = 'Informe o nome do curso.';
         } else {
-            $db->prepare('UPDATE courses SET name=?, location=? WHERE id=? AND institution_id=?')
-               ->execute([$name, $location ?: null, $id, $instId]);
-            $success = 'Curso atualizado com sucesso!';
-            $stmt = $db->prepare('SELECT * FROM courses WHERE id=? LIMIT 1');
-            $stmt->execute([$id]);
-            $course = $stmt->fetch();
+            // Verifica duplicidade (exceto o próprio)
+            $st = $db->prepare('SELECT id FROM courses WHERE name=? AND institution_id=? AND id!=? LIMIT 1');
+            $st->execute([$name, $instId, $id]);
+            if ($st->fetch()) {
+                $error = 'Já existe outro curso com este nome nesta instituição.';
+            } else {
+                $db->prepare('UPDATE courses SET name=?, location=? WHERE id=? AND institution_id=?')
+                   ->execute([$name, $location ?: null, $id, $instId]);
+                $success = 'Curso atualizado com sucesso!';
+                $stmt = $db->prepare('SELECT * FROM courses WHERE id=? LIMIT 1');
+                $stmt->execute([$id]);
+                $course = $stmt->fetch();
+            }
         }
     }
 }
@@ -106,6 +111,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <div class="card-body">
             <form method="POST" class="auth-form" style="gap:1.125rem;">
+                <?= csrf_field() ?>
 
                 <div class="form-group">
                     <label for="name" class="form-label">Nome do Curso <span class="required">*</span></label>
@@ -177,5 +183,18 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 
 </div>
+
+<script>
+<?php if ($success || $error): ?>
+document.addEventListener('DOMContentLoaded', function() {
+    <?php if ($success): ?>
+    showSuccess(<?= json_encode($success) ?>);
+    <?php endif; ?>
+    <?php if ($error): ?>
+    showError(<?= json_encode($error) ?>);
+    <?php endif; ?>
+});
+<?php endif; ?>
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

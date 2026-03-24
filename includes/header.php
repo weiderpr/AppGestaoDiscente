@@ -4,6 +4,14 @@
  * Requer: $user (array com dados do usuário logado)
  */
 
+// Security headers
+require_once __DIR__ . '/security_headers.php';
+
+// Internationalization
+require_once __DIR__ . '/i18n.php';
+I18n::init();
+$currentLocale = I18n::getLocale();
+
 if (!isset($user)) $user = getCurrentUser();
 $theme      = $user['theme'] ?? 'light';
 $userName   = htmlspecialchars($user['name'] ?? '');
@@ -26,7 +34,7 @@ foreach (explode(' ', trim($userName)) as $part) {
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 ?>
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="<?= $theme ?>" data-server-theme="<?= $theme ?>" data-user-id="<?= $userId ?>">
+<html lang="<?= substr($currentLocale, 0, 2) ?>" data-theme="<?= $theme ?>" data-server-theme="<?= $theme ?>" data-user-id="<?= $userId ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -46,6 +54,16 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
     <script src="/assets/js/main.js"></script>
     <script src="/assets/js/sentiment_system.js?v=1.2"></script>
     <script src="/assets/js/performance_system.js?v=1.6"></script>
+    
+    <!-- UI Components -->
+    <link rel="stylesheet" href="/assets/css/components/toast.css">
+    <link rel="stylesheet" href="/assets/css/components/loading.css">
+    <link rel="stylesheet" href="/assets/css/components/modal.css">
+    <script src="/assets/js/components/Toast.js"></script>
+    <script src="/assets/js/components/Loading.js"></script>
+    <script src="/assets/js/components/Modal.js"></script>
+    <script src="/assets/js/components/LanguageSwitcher.js"></script>
+    
     <?php if (isset($extraCSS)): foreach ($extraCSS as $css): ?>
     <link rel="stylesheet" href="<?= $css ?>">
     <?php endforeach; endif; ?>
@@ -112,6 +130,9 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                     aria-label="Alternar tema claro/escuro">
                 🌙
             </button>
+
+            <!-- Language Switcher -->
+            <?php include_once __DIR__ . '/language_switcher.php'; ?>
 
             <!-- Menu do Usuário -->
             <div class="user-menu" id="userMenu" role="navigation" aria-label="Menu do usuário">

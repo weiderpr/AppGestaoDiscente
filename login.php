@@ -3,6 +3,8 @@
  * Vértice Acadêmico — Login
  */
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/csrf.php';
+require_once __DIR__ . '/includes/RateLimit.php';
 
 // Já logado? Vai pro dashboard
 if (isLoggedIn()) {
@@ -13,27 +15,42 @@ if (isLoggedIn()) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email    = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-
-    if (empty($email) || empty($password)) {
-        $error = 'Preencha e-mail e senha para continuar.';
+    // Rate limiting
+    $loginKey = 'login_' . ($_POST['email'] ?? '');
+    if (!rate_limit_check($loginKey)) {
+        $lockout = rate_limit_lockout($loginKey);
+        $minutes = ceil($lockout / 60);
+        $error = "Muitas tentativas falhas. Tente novamente em {$minutes} minuto(s).";
+    } elseif (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança expirado. Tente novamente.';
     } else {
-        $user = loginUser($email, $password);
-        if ($user) {
-            $instCount = countUserInstitutions($user['id']);
-            if ($instCount > 1) {
-                // Tem mais de uma instituição: vai selecionar
-                $defaultDest = $user['profile'] === 'Administrador' ? '/admin/users.php' : '/dashboard.php';
-                header('Location: /select_institution.php?redirect=' . urlencode($defaultDest));
-            } else {
-                // Zero ou uma instituição: select_institution.php tratará automaticamente
-                $defaultDest = $user['profile'] === 'Administrador' ? '/admin/users.php' : '/dashboard.php';
-                header('Location: /select_institution.php?redirect=' . urlencode($defaultDest));
-            }
-            exit;
+        $email    = trim($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
+
+        if (empty($email) || empty($password)) {
+            $error = 'Preencha e-mail e senha para continuar.';
         } else {
-            $error = 'E-mail ou senha incorretos. Verifique e tente novamente.';
+            $user = loginUser($email, $password);
+            if ($user) {
+                rate_limit_clear($loginKey);
+                $instCount = countUserInstitutions($user['id']);
+                if ($instCount > 1) {
+                    $defaultDest = $user['profile'] === 'Administrador' ? '/admin/users.php' : '/dashboard.php';
+                    header('Location: /select_institution.php?redirect=' . urlencode($defaultDest));
+                } else {
+                    $defaultDest = $user['profile'] === 'Administrador' ? '/admin/users.php' : '/dashboard.php';
+                    header('Location: /select_institution.php?redirect=' . urlencode($defaultDest));
+                }
+                exit;
+            } else {
+                rate_limit_record($loginKey);
+                $remaining = rate_limit_remaining($loginKey);
+                if ($remaining <= 2) {
+                    $error = "E-mail ou senha incorretos. Você tem apenas {$remaining} tentativa(s) antes de bloquear.";
+                } else {
+                    $error = 'E-mail ou senha incorretos. Verifique e tente novamente.';
+                }
+            }
         }
     }
 }
@@ -85,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
 
                 <form method="POST" action="/login.php" class="auth-form" id="loginForm" novalidate>
+                    <?= csrf_field() ?>
 
                     <!-- E-mail -->
                     <div class="form-group">

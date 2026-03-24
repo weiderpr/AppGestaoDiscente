@@ -3,6 +3,7 @@
  * Vértice Acadêmico — Edição de Usuário (somente Administrador)
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $currentUser = getCurrentUser();
@@ -34,10 +35,13 @@ $error   = '';
 
 // Processar formulário
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? 'update';
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança expirado. Tente novamente.';
+    } else {
+        $action = $_POST['action'] ?? 'update';
 
-    // ---- ATUALIZAR DADOS ----
-    if ($action === 'update') {
+        // ---- ATUALIZAR DADOS ----
+        if ($action === 'update') {
         $name    = trim($_POST['name']    ?? '');
         $phone   = trim($_POST['phone']   ?? '');
         $profile = $_POST['profile']      ?? '';
@@ -105,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$hash, $uid]);
             $success = 'Senha redefinida com sucesso!';
         }
+        }
     }
 }
 
@@ -160,6 +165,7 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="card-body">
             <form method="POST" enctype="multipart/form-data" class="auth-form" style="gap:1.125rem;">
                 <input type="hidden" name="action" value="update">
+                <?= csrf_field() ?>
 
                 <!-- Avatar -->
                 <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">

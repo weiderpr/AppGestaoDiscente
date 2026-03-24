@@ -3,6 +3,7 @@
  * Vértice Acadêmico — Gestão de Usuários (somente Administrador)
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user = getCurrentUser();
@@ -18,8 +19,10 @@ $error   = '';
 // ---- AÇÕES POST ----
 $action = $_POST['action'] ?? '';
 
-// Cadastrar novo usuário
-if ($action === 'create') {
+// Verificação CSRF para todas as ações POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !csrf_verify($_POST['csrf_token'] ?? '')) {
+    $error = 'Token de segurança expirado. Tente novamente.';
+} elseif ($action === 'create') {
     $name    = trim($_POST['name']    ?? '');
     $email   = trim($_POST['email']   ?? '');
     $phone   = trim($_POST['phone']   ?? '');
@@ -74,20 +77,18 @@ if ($action === 'create') {
             $success = "Usuário «{$name}» cadastrado com sucesso!";
         }
     }
-}
 
 // Ativar / Desativar usuário
-if ($action === 'toggle' && !empty($_POST['user_id'])) {
+} elseif ($action === 'toggle' && !empty($_POST['user_id'])) {
     $uid = (int)$_POST['user_id'];
-    if ($uid !== $user['id']) { // não desativa a si mesmo
+    if ($uid !== $user['id']) {
         $st = $db->prepare('UPDATE users SET is_active = !is_active WHERE id=?');
         $st->execute([$uid]);
         $success = 'Status do usuário atualizado.';
     }
-}
 
 // Excluir usuário
-if ($action === 'delete' && !empty($_POST['user_id'])) {
+} elseif ($action === 'delete' && !empty($_POST['user_id'])) {
     $uid = (int)$_POST['user_id'];
     if ($uid !== $user['id']) {
         $st = $db->prepare('DELETE FROM users WHERE id=?');
@@ -172,27 +173,39 @@ require_once __DIR__ . '/../includes/header.php';
 .action-btn.danger:hover { background: #fef2f2; color: var(--color-danger); border-color: var(--color-danger); }
 [data-theme="dark"] .action-btn.danger:hover { background: #450a0a; }
 
-/* Modal */
+/* Modal - Usa o padrão do componente */
 .modal-backdrop {
-    position: fixed; inset: 0; z-index: 3000;
-    background: rgba(0,0,0,.5); backdrop-filter: blur(4px);
-    display: flex; align-items: center; justify-content: center;
-    padding: 1rem;
-    opacity: 0; visibility: hidden;
-    transition: all .25s ease;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 3000;
+    background: rgba(0,0,0,.5);
+    backdrop-filter: blur(4px);
+    display: none;
 }
-.modal-backdrop.show { opacity: 1; visibility: visible; }
+.modal-backdrop.show {
+    display: block;
+}
+.modal-backdrop.show .modal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
 .modal {
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-xl);
-    width: 100%; max-width: 520px;
-    max-height: 90vh; overflow-y: auto;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
     box-shadow: 0 25px 60px rgba(0,0,0,.3);
-    transform: translateY(20px) scale(.97);
-    transition: all .25s ease;
+    display: flex;
+    flex-direction: column;
 }
-.modal-backdrop.show .modal { transform: translateY(0) scale(1); }
 .modal-header {
     padding: 1.5rem;
     border-bottom: 1px solid var(--border-color);
@@ -331,25 +344,17 @@ require_once __DIR__ . '/../includes/header.php';
 
                             <?php if (!$isSelf): ?>
                             <!-- Toggle Ativo/Inativo -->
-                            <form method="POST" style="display:inline;">
-                                <input type="hidden" name="action"  value="toggle">
-                                <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
-                                <button type="submit" class="action-btn"
-                                        title="<?= $u['is_active'] ? 'Desativar' : 'Ativar' ?> usuário"
-                                        onclick="return confirm('<?= $u['is_active'] ? 'Desativar' : 'Ativar' ?> o usuário «<?= htmlspecialchars($u['name']) ?>»?')">
-                                    <?= $u['is_active'] ? '⏸' : '▶' ?>
-                                </button>
-                            </form>
+                            <button type="button" class="action-btn"
+                                    title="<?= $u['is_active'] ? 'Desativar' : 'Ativar' ?> usuário"
+                                    onclick="toggleUser(<?= $u['id'] ?>, '<?= htmlspecialchars($u['name']) ?>', <?= $u['is_active'] ? 'true' : 'false' ?>)">
+                                <?= $u['is_active'] ? '⏸' : '▶' ?>
+                            </button>
                             <!-- Excluir -->
-                            <form method="POST" style="display:inline;">
-                                <input type="hidden" name="action"  value="delete">
-                                <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
-                                <button type="submit" class="action-btn danger"
-                                        title="Excluir usuário"
-                                        onclick="return confirm('Excluir permanentemente o usuário «<?= htmlspecialchars($u['name']) ?>»? Esta ação não pode ser desfeita.')">
-                                    🗑
-                                </button>
-                            </form>
+                            <button type="button" class="action-btn danger"
+                                    title="Excluir usuário"
+                                    onclick="deleteUser(<?= $u['id'] ?>, '<?= htmlspecialchars($u['name']) ?>')">
+                                🗑
+                            </button>
                             <?php else: ?>
                             <span style="font-size:.75rem;color:var(--text-muted);">—</span>
                             <?php endif; ?>
@@ -369,8 +374,9 @@ require_once __DIR__ . '/../includes/header.php';
             <span class="modal-title" id="modalTitle">➕ Cadastrar Novo Usuário</span>
             <button class="modal-close" onclick="closeModal()" aria-label="Fechar">✕</button>
         </div>
-        <form method="POST" enctype="multipart/form-data">
+        <form method="POST" enctype="multipart/form-data" id="createUserForm">
             <input type="hidden" name="action" value="create">
+            <?= csrf_field() ?>
             <div class="modal-body">
 
                 <!-- Avatar preview -->
@@ -458,11 +464,11 @@ require_once __DIR__ . '/../includes/header.php';
 
 <script>
 function openModal() {
-    document.getElementById('userModal').classList.add('show');
+    document.getElementById('userModal').style.display = 'flex';
     document.body.style.overflow = 'hidden';
 }
 function closeModal() {
-    document.getElementById('userModal').classList.remove('show');
+    document.getElementById('userModal').style.display = 'none';
     document.body.style.overflow = '';
 }
 // Fecha ao clicar no backdrop
@@ -486,8 +492,81 @@ document.getElementById('modalPhoto').addEventListener('change', function(e) {
 });
 
 <?php if ($success || $error): ?>
-// Não reabre o modal em caso de erro
+// Mostrar toast após ação
+document.addEventListener('DOMContentLoaded', function() {
+    <?php if ($success): ?>
+    showSuccess(<?= json_encode($success) ?>);
+    <?php endif; ?>
+    <?php if ($error): ?>
+    showError(<?= json_encode($error) ?>);
+    <?php endif; ?>
+});
 <?php endif; ?>
+
+// Funções para toggle e delete com confirmModal
+function toggleUser(userId, userName, isActive) {
+    const action = isActive ? 'Desativar' : 'Ativar';
+    confirmModal({
+        title: action + ' Usuário',
+        message: `Tem certeza que deseja ${action.toLowerCase()} o usuário "${userName}"?`,
+        confirmText: action,
+        confirmClass: isActive ? 'btn-warning' : 'btn-success',
+        onConfirm: () => {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="toggle">
+                <input type="hidden" name="user_id" value="${userId}">
+                <input type="hidden" name="csrf_token" value="${document.querySelector('[name=csrf_token]')?.value || ''}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+}
+
+function deleteUser(userId, userName) {
+    confirmModal({
+        title: 'Excluir Usuário',
+        message: `Tem certeza que deseja excluir permanentemente o usuário "${userName}"? Esta ação não pode ser desfeita.`,
+        confirmText: 'Excluir',
+        confirmClass: 'btn-danger',
+        onConfirm: () => {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="user_id" value="${userId}">
+                <input type="hidden" name="csrf_token" value="${document.querySelector('[name=csrf_token]')?.value || ''}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+}
+
+// Submeter formulário de criar usuário via AJAX
+document.getElementById('createUserForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    showLoading('Criando usuário...');
+    
+    fetch('', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.text())
+    .then(html => {
+        hideLoading();
+        // Recarrega a página para mostrar o resultado
+        window.location.reload();
+    })
+    .catch(err => {
+        hideLoading();
+        showError('Erro ao criar usuário. Tente novamente.');
+    });
+});
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

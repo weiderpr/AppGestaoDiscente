@@ -3,6 +3,7 @@
  * Vértice Acadêmico — Turmas de um Curso
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user    = getCurrentUser();
@@ -59,8 +60,10 @@ $success = '';
 $error   = '';
 $action  = $_POST['action'] ?? '';
 
-// ---- CRIAR ----
-if ($action === 'create') {
+// Verificação CSRF
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !csrf_verify($_POST['csrf_token'] ?? '')) {
+    $error = 'Token de segurança expirado. Tente novamente.';
+} elseif ($action === 'create') {
     $description     = trim($_POST['description']     ?? '');
     $ano             = (int)($_POST['ano']            ?? date('Y'));
     $nota_maxima     = (float)str_replace(',', '.', $_POST['nota_maxima']     ?? '10');
@@ -340,21 +343,13 @@ require_once __DIR__ . '/../includes/header.php';
                             <?php if ($user['profile'] !== 'Professor'): ?>
                             <a href="/courses/edit_turma.php?id=<?= $t['id'] ?>&course_id=<?= $courseId ?>"
                                class="action-btn" title="Editar">✏️</a>
-                            <form method="POST" style="display:inline;">
-                                <input type="hidden" name="action"   value="toggle">
-                                <input type="hidden" name="turma_id" value="<?= $t['id'] ?>">
-                                <button type="submit" class="action-btn"
-                                        title="<?= $t['is_active'] ? 'Desativar' : 'Ativar' ?>"
-                                        onclick="return confirm('<?= $t['is_active'] ? 'Desativar' : 'Ativar' ?> «<?= htmlspecialchars($t['description']) ?>»?')">
-                                    <?= $t['is_active'] ? '⏸' : '▶' ?>
-                                </button>
-                            </form>
-                            <form method="POST" style="display:inline;">
-                                <input type="hidden" name="action"   value="delete">
-                                <input type="hidden" name="turma_id" value="<?= $t['id'] ?>">
-                                <button type="submit" class="action-btn danger" title="Excluir"
-                                        onclick="return confirm('Excluir permanentemente «<?= htmlspecialchars($t['description']) ?>»?')">🗑</button>
-                            </form>
+                            <button type="button" class="action-btn"
+                                    title="<?= $t['is_active'] ? 'Desativar' : 'Ativar' ?>"
+                                    onclick="toggleTurma(<?= $t['id'] ?>, '<?= htmlspecialchars($t['description']) ?>', <?= $t['is_active'] ? 'true' : 'false' ?>)">
+                                <?= $t['is_active'] ? '⏸' : '▶' ?>
+                            </button>
+                            <button type="button" class="action-btn danger" title="Excluir"
+                                    onclick="deleteTurma(<?= $t['id'] ?>, '<?= htmlspecialchars($t['description']) ?>')">🗑</button>
                             <?php endif; ?>
                         </div>
                     </td>
@@ -372,8 +367,9 @@ require_once __DIR__ . '/../includes/header.php';
             <span class="modal-title">🎓 Nova Turma</span>
             <button class="modal-close" onclick="closeModal()">✕</button>
         </div>
-        <form method="POST">
+        <form method="POST" id="createTurmaForm">
             <input type="hidden" name="action" value="create">
+            <?= csrf_field() ?>
             <div class="modal-body">
 
                 <div style="padding:.625rem .875rem;border-radius:var(--radius-md);background:var(--color-primary-light);color:var(--color-primary);font-size:.875rem;font-weight:500;">
@@ -428,10 +424,75 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
-function openModal()  { document.getElementById('turmaModal').classList.add('show'); document.body.style.overflow='hidden'; }
-function closeModal() { document.getElementById('turmaModal').classList.remove('show'); document.body.style.overflow=''; }
+function openModal()  { document.getElementById('turmaModal').style.display='flex'; document.body.style.overflow='hidden'; }
+function closeModal() { document.getElementById('turmaModal').style.display='none'; document.body.style.overflow=''; }
 document.getElementById('turmaModal').addEventListener('click', e => { if(e.target===document.getElementById('turmaModal')) closeModal(); });
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+// Toasts para feedback
+<?php if ($success || $error): ?>
+document.addEventListener('DOMContentLoaded', function() {
+    <?php if ($success): ?>
+    showSuccess(<?= json_encode($success) ?>);
+    <?php endif; ?>
+    <?php if ($error): ?>
+    showError(<?= json_encode($error) ?>);
+    <?php endif; ?>
+});
+<?php endif; ?>
+
+// Toggle e Delete com confirmModal
+function toggleTurma(id, desc, isActive) {
+    const action = isActive ? 'Desativar' : 'Ativar';
+    confirmModal({
+        title: action + ' Turma',
+        message: `Tem certeza que deseja ${action.toLowerCase()} a turma "${desc}"?`,
+        confirmText: action,
+        confirmClass: isActive ? 'btn-warning' : 'btn-success',
+        onConfirm: () => {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="toggle">
+                <input type="hidden" name="turma_id" value="${id}">
+                <input type="hidden" name="csrf_token" value="${document.querySelector('[name=csrf_token]')?.value || ''}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+}
+
+function deleteTurma(id, desc) {
+    confirmModal({
+        title: 'Excluir Turma',
+        message: `Tem certeza que deseja excluir permanentemente a turma "${desc}"?`,
+        confirmText: 'Excluir',
+        confirmClass: 'btn-danger',
+        onConfirm: () => {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="turma_id" value="${id}">
+                <input type="hidden" name="csrf_token" value="${document.querySelector('[name=csrf_token]')?.value || ''}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+}
+
+// Submit AJAX do formulário de criar
+document.getElementById('createTurmaForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    showLoading('Criando turma...');
+    fetch('', { method: 'POST', body: formData })
+    .then(res => res.text())
+    .then(html => { hideLoading(); window.location.reload(); })
+    .catch(err => { hideLoading(); showError('Erro ao criar turma.'); });
+});
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

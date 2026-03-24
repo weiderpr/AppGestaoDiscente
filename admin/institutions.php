@@ -3,6 +3,7 @@
  * Vértice Acadêmico — Gestão de Instituições (somente Administrador)
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $currentUser = getCurrentUser();
@@ -16,8 +17,10 @@ $success = '';
 $error   = '';
 $action  = $_POST['action'] ?? '';
 
-// ---- CRIAR ----
-if ($action === 'create') {
+// Verificação CSRF
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !csrf_verify($_POST['csrf_token'] ?? '')) {
+    $error = 'Token de segurança expirado. Tente novamente.';
+} elseif ($action === 'create') {
     $name        = trim($_POST['name']        ?? '');
     $cnpj        = trim($_POST['cnpj']        ?? '');
     $responsible = trim($_POST['responsible'] ?? '');
@@ -59,17 +62,14 @@ if ($action === 'create') {
             $success = "Instituição «{$name}» cadastrada com sucesso!";
         }
     }
-}
 
 // ---- TOGGLE ATIVO ----
-if ($action === 'toggle' && !empty($_POST['inst_id'])) {
+} elseif ($action === 'toggle' && !empty($_POST['inst_id'])) {
     $id = (int)$_POST['inst_id'];
     $db->prepare('UPDATE institutions SET is_active = !is_active WHERE id=?')->execute([$id]);
     $success = 'Status da instituição atualizado.';
-}
-
 // ---- EXCLUIR ----
-if ($action === 'delete' && !empty($_POST['inst_id'])) {
+} elseif ($action === 'delete' && !empty($_POST['inst_id'])) {
     $id = (int)$_POST['inst_id'];
     $db->prepare('DELETE FROM institutions WHERE id=?')->execute([$id]);
     $success = 'Instituição removida do sistema.';
@@ -124,16 +124,14 @@ require_once __DIR__ . '/../includes/header.php';
 .action-btn:hover { background:var(--bg-hover); color:var(--text-primary); }
 .action-btn.danger:hover { background:#fef2f2; color:var(--color-danger); border-color:var(--color-danger); }
 [data-theme="dark"] .action-btn.danger:hover { background:#450a0a; }
-/* Modal */
-.modal-backdrop { position:fixed; inset:0; z-index:3000; background:rgba(0,0,0,.5);
-    backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center;
-    padding:1rem; opacity:0; visibility:hidden; transition:all .25s ease; }
-.modal-backdrop.show { opacity:1; visibility:visible; }
+/* Modal - centralizado */
+.modal-backdrop { position:fixed; top:0; left:0; right:0; bottom:0; z-index:3000; background:rgba(0,0,0,.5);
+    backdrop-filter:blur(4px); display:none; }
+.modal-backdrop.show { display:block; }
+.modal-backdrop.show .modal { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
 .modal { background:var(--bg-surface); border:1px solid var(--border-color);
     border-radius:var(--radius-xl); width:100%; max-width:560px;
-    max-height:90vh; overflow-y:auto; box-shadow:0 25px 60px rgba(0,0,0,.3);
-    transform:translateY(20px) scale(.97); transition:all .25s ease; }
-.modal-backdrop.show .modal { transform:translateY(0) scale(1); }
+    max-height:90vh; overflow-y:auto; box-shadow:0 25px 60px rgba(0,0,0,.3); display:flex; flex-direction:column; }
 .modal-header { padding:1.5rem; border-bottom:1px solid var(--border-color);
     display:flex; align-items:center; justify-content:space-between; }
 .modal-title { font-size:1.0625rem; font-weight:700; color:var(--text-primary); }
@@ -246,20 +244,12 @@ require_once __DIR__ . '/../includes/header.php';
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
                             <a href="/admin/edit_institution.php?id=<?= $inst['id'] ?>"
                                class="action-btn" title="Editar">✏️</a>
-                            <form method="POST" style="display:inline;">
-                                <input type="hidden" name="action"  value="toggle">
-                                <input type="hidden" name="inst_id" value="<?= $inst['id'] ?>">
-                                <button type="submit" class="action-btn" title="<?= $inst['is_active'] ? 'Desativar' : 'Ativar' ?>"
-                                        onclick="return confirm('<?= $inst['is_active'] ? 'Desativar' : 'Ativar' ?> «<?= htmlspecialchars($inst['name']) ?>»?')">
-                                    <?= $inst['is_active'] ? '⏸' : '▶' ?>
-                                </button>
-                            </form>
-                            <form method="POST" style="display:inline;">
-                                <input type="hidden" name="action"  value="delete">
-                                <input type="hidden" name="inst_id" value="<?= $inst['id'] ?>">
-                                <button type="submit" class="action-btn danger" title="Excluir"
-                                        onclick="return confirm('Excluir permanentemente «<?= htmlspecialchars($inst['name']) ?>»?\n\nIsso removerá o vínculo com todos os usuários.')">🗑</button>
-                            </form>
+                            <button type="button" class="action-btn" title="<?= $inst['is_active'] ? 'Desativar' : 'Ativar' ?>"
+                                    onclick="toggleInst(<?= $inst['id'] ?>, '<?= htmlspecialchars($inst['name']) ?>', <?= $inst['is_active'] ? 'true' : 'false' ?>)">
+                                <?= $inst['is_active'] ? '⏸' : '▶' ?>
+                            </button>
+                            <button type="button" class="action-btn danger" title="Excluir"
+                                    onclick="deleteInst(<?= $inst['id'] ?>, '<?= htmlspecialchars($inst['name']) ?>')">🗑</button>
                         </div>
                     </td>
                 </tr>
@@ -276,8 +266,9 @@ require_once __DIR__ . '/../includes/header.php';
             <span class="modal-title">🏫 Nova Instituição</span>
             <button class="modal-close" onclick="closeModal()">✕</button>
         </div>
-        <form method="POST" enctype="multipart/form-data">
+        <form method="POST" enctype="multipart/form-data" id="createInstForm">
             <input type="hidden" name="action" value="create">
+            <?= csrf_field() ?>
             <div class="modal-body">
 
                 <!-- Logo Preview -->
@@ -346,10 +337,75 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
-function openModal()  { document.getElementById('instModal').classList.add('show'); document.body.style.overflow='hidden'; }
-function closeModal() { document.getElementById('instModal').classList.remove('show'); document.body.style.overflow=''; }
+function openModal()  { document.getElementById('instModal').style.display='flex'; document.body.style.overflow='hidden'; }
+function closeModal() { document.getElementById('instModal').style.display='none'; document.body.style.overflow=''; }
 document.getElementById('instModal').addEventListener('click', e => { if(e.target===document.getElementById('instModal')) closeModal(); });
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+
+// Toasts para feedback
+<?php if ($success || $error): ?>
+document.addEventListener('DOMContentLoaded', function() {
+    <?php if ($success): ?>
+    showSuccess(<?= json_encode($success) ?>);
+    <?php endif; ?>
+    <?php if ($error): ?>
+    showError(<?= json_encode($error) ?>);
+    <?php endif; ?>
+});
+<?php endif; ?>
+
+// Toggle e Delete com confirmModal
+function toggleInst(id, name, isActive) {
+    const action = isActive ? 'Desativar' : 'Ativar';
+    confirmModal({
+        title: action + ' Instituição',
+        message: `Tem certeza que deseja ${action.toLowerCase()} a instituição "${name}"?`,
+        confirmText: action,
+        confirmClass: isActive ? 'btn-warning' : 'btn-success',
+        onConfirm: () => {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="toggle">
+                <input type="hidden" name="inst_id" value="${id}">
+                <input type="hidden" name="csrf_token" value="${document.querySelector('[name=csrf_token]')?.value || ''}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+}
+
+function deleteInst(id, name) {
+    confirmModal({
+        title: 'Excluir Instituição',
+        message: `Tem certeza que deseja excluir a instituição "${name}"? Isso removerá o vínculo com todos os usuários.`,
+        confirmText: 'Excluir',
+        confirmClass: 'btn-danger',
+        onConfirm: () => {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="inst_id" value="${id}">
+                <input type="hidden" name="csrf_token" value="${document.querySelector('[name=csrf_token]')?.value || ''}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+}
+
+// Submit AJAX do formulário de criar
+document.getElementById('createInstForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    showLoading('Criando instituição...');
+    fetch('', { method: 'POST', body: formData })
+    .then(res => res.text())
+    .then(html => { hideLoading(); window.location.reload(); })
+    .catch(err => { hideLoading(); showError('Erro ao criar instituição.'); });
+});
 
 // Logotipo preview
 document.getElementById('instImgRing').addEventListener('click', () => document.getElementById('instPhoto').click());

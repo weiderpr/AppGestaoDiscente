@@ -3,6 +3,7 @@
  * Vértice Acadêmico — Edição de Instituição
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $currentUser = getCurrentUser();
@@ -24,7 +25,10 @@ $success = '';
 $error   = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name        = trim($_POST['name']        ?? '');
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança expirado. Tente novamente.';
+    } else {
+        $name        = trim($_POST['name']        ?? '');
     $cnpj        = trim($_POST['cnpj']        ?? '');
     $responsible = trim($_POST['responsible'] ?? '');
     $address     = trim($_POST['address']     ?? '');
@@ -66,6 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $db->prepare('SELECT * FROM institutions WHERE id=? LIMIT 1');
             $stmt->execute([$id]);
             $inst = $stmt->fetch();
+        }
         }
     }
 }
@@ -118,6 +123,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <div class="card-body">
             <form method="POST" enctype="multipart/form-data" class="auth-form" style="gap:1.125rem;">
+                <?= csrf_field() ?>
 
                 <!-- Logotipo -->
                 <div style="display:flex;justify-content:center;">

@@ -3,6 +3,7 @@
  * Vértice Acadêmico — Disciplinas
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user = getCurrentUser();
@@ -27,7 +28,9 @@ $error = '';
 $action = $_GET['action'] ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if ($action === 'add' || $action === 'edit') {
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança expirado. Tente novamente.';
+    } elseif ($action === 'add' || $action === 'edit') {
         $old_codigo  = trim($_POST['old_codigo'] ?? '');
         $codigo      = trim($_POST['codigo'] ?? '');
         $descricao   = trim($_POST['descricao'] ?? '');
@@ -317,6 +320,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <form method="POST" id="subjectForm">
             <input type="hidden" name="old_codigo" id="field_old_codigo">
+            <?= csrf_field() ?>
             <div class="modal-body">
 
                 <div style="display:grid;grid-template-columns:1fr 2fr;gap:.875rem;">

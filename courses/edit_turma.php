@@ -3,6 +3,7 @@
  * Vértice Acadêmico — Edição de Turma
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user    = getCurrentUser();
@@ -41,7 +42,10 @@ $success = '';
 $error   = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $description     = trim($_POST['description']     ?? '');
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança expirado. Tente novamente.';
+    } else {
+        $description     = trim($_POST['description']     ?? '');
     $ano             = (int)($_POST['ano']            ?? date('Y'));
     $nota_maxima     = (float)str_replace(',', '.', $_POST['nota_maxima']     ?? '10');
     $media_aprovacao = (float)str_replace(',', '.', $_POST['media_aprovacao'] ?? '6');
@@ -65,6 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$id]);
             $turma = $stmt->fetch();
         }
+    }
     }
 }
 
@@ -111,8 +116,8 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <div class="card-body">
             <form method="POST" class="auth-form" style="gap:1.125rem;">
-
-                <!-- Curso (leitura) -->
+                <?= csrf_field() ?>
+                
                 <div class="form-group">
                     <label class="form-label">Curso</label>
                     <div class="input-group">

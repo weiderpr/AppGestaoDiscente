@@ -3,6 +3,7 @@
  * Vértice Acadêmico — Configurações do Sistema
  */
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/csrf.php';
 requireLogin();
 
 $user = getCurrentUser();
@@ -15,6 +16,11 @@ $db = getDB();
 
 // Processar backup
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'backup') {
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $_SESSION['error'] = 'Token de segurança expirado. Tente novamente.';
+        header('Location: /settings.php');
+        exit;
+    }
     header('Content-Type: application/sql');
     header('Content-Disposition: attachment; filename="backup_vertice_academico_' . date('Y-m-d_H-i-s') . '.sql"');
     header('Pragma: no-cache');
@@ -94,7 +100,9 @@ $success = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'restore') {
-    if (!isset($_FILES['backup_file']) || $_FILES['backup_file']['error'] !== UPLOAD_ERR_OK) {
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança expirado. Tente novamente.';
+    } elseif (!isset($_FILES['backup_file']) || $_FILES['backup_file']['error'] !== UPLOAD_ERR_OK) {
         $error = 'Erro ao carregar o arquivo. Tente novamente.';
     } else {
         $reason = trim($_POST['restore_reason'] ?? '');
@@ -349,6 +357,7 @@ require_once __DIR__ . '/includes/header.php';
             </div>
 
             <form method="POST">
+                <?= csrf_field() ?>
                 <input type="hidden" name="action" value="backup">
                 <button type="submit" class="btn btn-primary">
                     💾 Gerar Backup SQL
@@ -375,6 +384,7 @@ require_once __DIR__ . '/includes/header.php';
             </div>
             
             <form method="POST" enctype="multipart/form-data" id="restoreForm">
+                <?= csrf_field() ?>
                 <input type="hidden" name="action" value="restore">
                 
                 <div class="restore-dropzone" id="dropzone" onclick="document.getElementById('backup_file').click()">

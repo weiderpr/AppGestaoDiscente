@@ -3,6 +3,7 @@
  * Vértice Acadêmico — Meu Perfil
  */
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/csrf.php';
 requireLogin();
 
 $user      = getCurrentUser();
@@ -13,8 +14,11 @@ $success = '';
 $error   = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name  = trim($_POST['name']  ?? '');
-    $phone = trim($_POST['phone'] ?? '');
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança expirado. Tente novamente.';
+    } else {
+        $name  = trim($_POST['name']  ?? '');
+        $phone = trim($_POST['phone'] ?? '');
     $theme = in_array($_POST['theme'] ?? '', ['light', 'dark']) ? $_POST['theme'] : 'light';
 
     if (strlen($name) < 3) {
@@ -52,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $success = 'Perfil atualizado com sucesso!';
             $user    = getCurrentUser(); // recarrega
+        }
         }
     }
 }
@@ -121,6 +126,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         <div class="card-body">
             <form method="POST" enctype="multipart/form-data" class="auth-form" style="gap:1.125rem;">
+                <?= csrf_field() ?>
 
                 <!-- Avatar -->
                 <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
