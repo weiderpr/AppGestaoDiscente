@@ -440,7 +440,7 @@ CREATE INDEX idx_ccons_usuario  ON conselhos_comentarios(usuario_id);
 CREATE INDEX idx_ccons_aluno    ON conselhos_comentarios(aluno_id);
 
 -- =======================================================
--- Tabela: conselhos_presentes
+-- Tabela: conselhos_presentes 
 -- =======================================================
 CREATE TABLE conselhos_presentes (
     id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
