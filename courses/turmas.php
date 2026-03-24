@@ -424,8 +424,8 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
-function openModal()  { document.getElementById('turmaModal').style.display='flex'; document.body.style.overflow='hidden'; }
-function closeModal() { document.getElementById('turmaModal').style.display='none'; document.body.style.overflow=''; }
+function openModal()  { document.getElementById('turmaModal').classList.add('show'); document.body.style.overflow='hidden'; }
+function closeModal() { document.getElementById('turmaModal').classList.remove('show'); document.body.style.overflow=''; }
 document.getElementById('turmaModal').addEventListener('click', e => { if(e.target===document.getElementById('turmaModal')) closeModal(); });
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
 

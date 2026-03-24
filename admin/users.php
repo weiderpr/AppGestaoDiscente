@@ -174,54 +174,26 @@ require_once __DIR__ . '/../includes/header.php';
 [data-theme="dark"] .action-btn.danger:hover { background: #450a0a; }
 
 /* Modal - Usa o padrão do componente */
-.modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 3000;
-    background: rgba(0,0,0,.5);
-    backdrop-filter: blur(4px);
-    display: none;
-}
-.modal-backdrop.show {
-    display: block;
-}
-.modal-backdrop.show .modal {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-}
-.modal {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-xl);
-    width: 100%;
-    max-width: 520px;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 25px 60px rgba(0,0,0,.3);
-    display: flex;
-    flex-direction: column;
-}
-.modal-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-    display: flex; align-items: center; justify-content: space-between;
-}
-.modal-title { font-size: 1.0625rem; font-weight: 700; color: var(--text-primary); }
-.modal-close {
-    width: 32px; height: 32px; border-radius: var(--radius-md);
-    border: 1px solid var(--border-color); background: var(--bg-surface);
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    color: var(--text-muted); font-size: 1.125rem;
-    transition: all var(--transition-fast);
-}
-.modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
-.modal-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
-.modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--border-color); display: flex; gap: .75rem; justify-content: flex-end; }
+.modal-backdrop { position:fixed; inset:0; z-index:3000; background:rgba(0,0,0,.5);
+    backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center;
+    padding:1rem; opacity:0; visibility:hidden; transition:all .25s ease; }
+.modal-backdrop.show { opacity:1; visibility:visible; }
+.modal { background:var(--bg-surface); border:1px solid var(--border-color);
+    border-radius:var(--radius-xl); width:100%; max-width:520px;
+    max-height:90vh; overflow-y:auto; box-shadow:0 25px 60px rgba(0,0,0,.3);
+    transform:translateY(20px) scale(.97); transition:all .25s ease; }
+.modal-backdrop.show .modal { transform:translateY(0) scale(1); }
+.modal-header { padding:1.5rem; border-bottom:1px solid var(--border-color);
+    display:flex; align-items:center; justify-content:space-between; }
+.modal-title { font-size:1.0625rem; font-weight:700; color:var(--text-primary); }
+.modal-close { width:32px; height:32px; border-radius:var(--radius-md);
+    border:1px solid var(--border-color); background:var(--bg-surface);
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    color:var(--text-muted); font-size:1.125rem; transition:all var(--transition-fast); }
+.modal-close:hover { background:var(--bg-hover); }
+.modal-body { padding:1.5rem; display:flex; flex-direction:column; gap:1rem; }
+.modal-footer { padding:1rem 1.5rem; border-top:1px solid var(--border-color);
+    display:flex; gap:.75rem; justify-content:flex-end; }
 </style>
 
 <!-- Page Header -->
@@ -464,11 +436,11 @@ require_once __DIR__ . '/../includes/header.php';
 
 <script>
 function openModal() {
-    document.getElementById('userModal').style.display = 'flex';
+    document.getElementById('userModal').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 function closeModal() {
-    document.getElementById('userModal').style.display = 'none';
+    document.getElementById('userModal').classList.remove('show');
     document.body.style.overflow = '';
 }
 // Fecha ao clicar no backdrop
