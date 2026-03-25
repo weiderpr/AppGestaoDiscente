@@ -18,15 +18,6 @@ else                                $greeting = 'Boa noite';
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<!-- Welcome Banner -->
-<div class="welcome-banner fade-in">
-    <div class="welcome-greeting"><?= $greeting ?>,</div>
-    <div class="welcome-name"><?= htmlspecialchars($firstName) ?>! 👋</div>
-    <div class="welcome-badge">
-        🎓 <?= htmlspecialchars($user['profile']) ?>
-    </div>
-</div>
-
 <?php if ($user['profile'] === 'Professor' && !empty($curInst['id'])): 
     $db = getDB();
     $stCourses = $db->prepare("
@@ -70,6 +61,7 @@ require_once __DIR__ . '/includes/header.php';
     <?php endif; ?>
 <?php endif; ?>
 
+<?php if ($user['profile'] !== 'Professor'): ?>
 <!-- Stats Grid (placeholders para futuros indicadores) -->
 <div class="stats-grid fade-in">
 
@@ -110,10 +102,12 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 
 </div>
+<?php endif; ?>
 
 <!-- Dashboard Grid -->
 <div class="dashboard-grid fade-in">
 
+    <?php if ($user['profile'] !== 'Professor'): ?>
     <!-- Card Principal -->
     <div class="card">
         <div class="card-header">
@@ -131,7 +125,9 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         </div>
     </div>
+    <?php endif; ?>
 
+    <?php if ($user['profile'] !== 'Professor'): ?>
     <!-- Card Lateral -->
     <div class="card">
         <div class="card-header">
@@ -182,6 +178,7 @@ require_once __DIR__ . '/includes/header.php';
 
         </div>
     </div>
+    <?php endif; ?>
 
 </div>
 

@@ -2,9 +2,27 @@
 /**
  * Vértice Acadêmico — Partial: Listagem de Avaliações
  */
+function renderStars($rating) {
+    $rating = round($rating, 1);
+    $stars = '';
+    for ($i = 1; $i <= 5; $i++) {
+        if ($i <= round($rating)) {
+            $stars .= '<span style="color:#fbbf24;">★</span>';
+        } else {
+            $stars .= '<span style="color:#94a3b8;opacity:0.4;">★</span>';
+        }
+    }
+    return $stars;
+}
+
 // --- LISTAGEM ---
 $st = $db->prepare("
-    SELECT a.*, ta.nome as tipo_nome 
+    SELECT a.*, ta.nome as tipo_nome,
+    (SELECT AVG(rp.nota) FROM respostas_perguntas rp 
+     JOIN respostas_avaliacao ra ON rp.resposta_id = ra.id 
+     WHERE ra.avaliacao_id = a.id) as media_respostas,
+    (SELECT COUNT(DISTINCT ra.id) FROM respostas_avaliacao ra 
+     WHERE ra.avaliacao_id = a.id) as total_respostas
     FROM avaliacoes a
     LEFT JOIN tipos_avaliacao ta ON ta.id = a.tipo_id
     WHERE a.deleted_at IS NULL 
@@ -54,6 +72,7 @@ $avaliacoes = $st->fetchAll();
                 <tr>
                     <th>Nome</th>
                     <th>Tipo</th>
+                    <th>Média</th>
                     <th>Data de Criação</th>
                     <th style="text-align:center;">Ações</th>
                 </tr>
@@ -61,7 +80,7 @@ $avaliacoes = $st->fetchAll();
             <tbody>
                 <?php if (empty($avaliacoes)): ?>
                 <tr>
-                    <td colspan="4" style="text-align:center;padding:2.5rem;color:var(--text-muted);">
+                    <td colspan="5" style="text-align:center;padding:2.5rem;color:var(--text-muted);">
                         📋 Nenhuma avaliação cadastrada ainda.
                     </td>
                 </tr>
@@ -73,6 +92,16 @@ $avaliacoes = $st->fetchAll();
                             <span class="badge" style="background:var(--bg-surface-2nd);color:var(--text-secondary);">
                                 <?= htmlspecialchars($av['tipo_nome'] ?: 'Sem Tipo') ?>
                             </span>
+                        </td>
+                        <td>
+                            <?php if ($av['total_respostas'] > 0): ?>
+                            <div style="display:flex;flex-direction:column;gap:2px;" title="Média: <?= round($av['media_respostas'], 1) ?>/5 (<?= $av['total_respostas'] ?> respostas)">
+                                <div style="font-size:1rem;line-height:1;"><?= renderStars($av['media_respostas']) ?></div>
+                                <div style="font-size:0.65rem;color:var(--text-muted);"><?= $av['total_respostas'] ?> resposta(s)</div>
+                            </div>
+                            <?php else: ?>
+                            <span style="color:var(--text-muted);font-size:.75rem;">Sem respostas</span>
+                            <?php endif; ?>
                         </td>
                         <td style="color:var(--text-muted);"><?= date('d/m/Y H:i', strtotime($av['created_at'])) ?></td>
                         <td>

@@ -82,6 +82,15 @@ $st = $db->prepare($sql);
 $st->execute([$conselho['turma_id']]);
 $professores = $st->fetchAll();
 
+$stFb = $db->prepare('
+    SELECT ra.comentario, ra.created_at, ra.id as resposta_id
+    FROM respostas_avaliacao ra
+    WHERE ra.conselho_id = ? AND ra.comentario IS NOT NULL AND ra.comentario != ""
+    ORDER BY ra.created_at DESC
+');
+$stFb->execute([$conselhoId]);
+$feedbacks = $stFb->fetchAll();
+
 $profiles = PROFILES;
 $selectedProfile = $_GET['profile'] ?? '';
 
@@ -336,6 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <button class="tab-btn <?= $conselhoConcluido ? 'inactive' : '' ?>" data-tab="encaminhamentos" onclick="showTab('encaminhamentos')">3. Encaminhamentos</button>
     <button class="tab-btn <?= $conselhoConcluido ? 'active' : '' ?>" data-tab="ata" onclick="showTab('ata')">4. Ata do Conselho</button>
     <button class="tab-btn <?= $conselhoConcluido ? 'active' : '' ?>" data-tab="avaliacao" onclick="showTab('avaliacao')">5. Finalização</button>
+    <button class="tab-btn <?= $conselhoConcluido ? 'active' : 'inactive' ?>" data-tab="feedbacks" onclick="showTab('feedbacks')">5.1 Feedbacks</button>
 </div>
 
 <div id="presenca" class="tab-content <?= $conselhoConcluido ? '' : 'active' ?> fade-in">
@@ -639,6 +649,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <?php endif; ?>
                 </div>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<div id="feedbacks" class="tab-content fade-in">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">💬 Feedbacks dos Alunos</span>
+            <span style="font-size:.875rem;color:var(--text-muted);"><?= count($feedbacks) ?> feedback(s) recebido(s)</span>
+        </div>
+        <div class="card-body">
+            <?php if (empty($feedbacks)): ?>
+            <div style="text-align:center;padding:3rem;color:var(--text-muted);">
+                <p style="font-size:3rem;margin-bottom:1rem;">📭</p>
+                <p>Nenhum feedback recebido ainda.</p>
+            </div>
+            <?php else: ?>
+            <div style="display:flex;flex-direction:column;gap:1rem;">
+                <?php foreach ($feedbacks as $fb): ?>
+                <div style="background:var(--bg-surface-2nd);padding:1.25rem;border-radius:var(--radius-lg);border:1px solid var(--border-color);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+                        <span style="font-weight:600;color:var(--text-primary);">Feedback #<?= $fb['resposta_id'] ?></span>
+                        <span style="font-size:.75rem;color:var(--text-muted);"><?= date('d/m/Y H:i', strtotime($fb['created_at'])) ?></span>
+                    </div>
+                    <p style="color:var(--text-secondary);font-size:.875rem;line-height:1.6;margin:0;"><?= htmlspecialchars($fb['comentario']) ?></p>
+                </div>
+                <?php endforeach; ?>
+            </div>
             <?php endif; ?>
         </div>
     </div>

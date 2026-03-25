@@ -47,15 +47,41 @@ if ($user['profile'] === 'Coordenador') {
     }
 }
 
+// Segurança: Professor só nas turmas/disciplinas que leciona
+if ($user['profile'] === 'Professor') {
+    $stCheck = $db->prepare('
+        SELECT 1 FROM turma_disciplinas td
+        JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
+        WHERE td.turma_id = ? AND tdp.professor_id = ? LIMIT 1
+    ');
+    $stCheck->execute([$etapa['turma_id'], $user['id']]);
+    if (!$stCheck->fetch()) {
+        header('Location: /courses/index.php');
+        exit;
+    }
+}
+
 // Buscar disciplinas da turma
-$stDisc = $db->prepare('
+$sqlDisc = '
     SELECT d.codigo as disciplina_codigo, d.descricao 
     FROM turma_disciplinas td
     INNER JOIN disciplinas d ON d.codigo = td.disciplina_codigo
     WHERE td.turma_id = ?
-    ORDER BY d.descricao ASC
-');
-$stDisc->execute([$etapa['turma_id']]);
+';
+$paramsDisc = [$etapa['turma_id']];
+
+// Se for professor, filtrar apenas suas disciplinas
+if ($user['profile'] === 'Professor') {
+    $sqlDisc .= ' AND td.id IN (
+        SELECT tdp.turma_disciplina_id FROM turma_disciplina_professores tdp 
+        WHERE tdp.professor_id = ?
+    )';
+    $paramsDisc[] = $user['id'];
+}
+$sqlDisc .= ' ORDER BY d.descricao ASC';
+
+$stDisc = $db->prepare($sqlDisc);
+$stDisc->execute($paramsDisc);
 $disciplinas = $stDisc->fetchAll();
 
 $disciplinaCodigo = trim($_GET['disciplina_codigo'] ?? ($_POST['disciplina_codigo'] ?? ''));

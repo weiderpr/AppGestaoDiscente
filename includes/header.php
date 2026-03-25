@@ -104,10 +104,12 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                class="nav-link <?= $currentPage === 'index' && strpos($_SERVER['PHP_SELF'], '/courses/') !== false ? 'active' : '' ?>">
                 📚 Cursos
             </a>
+            <?php if ($user && $user['profile'] === 'Administrador' && !empty($curInst['id'])): ?>
             <a href="/subjects/index.php"
                class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/subjects/') !== false ? 'active' : '' ?>">
                 📖 Disciplinas
             </a>
+            <?php endif; ?>
             <?php endif; ?>
             <?php if ($user && in_array($user['profile'], ['Administrador', 'Coordenador']) && !empty($curInst['id'])): ?>
             <a href="/courses/conselhos.php"

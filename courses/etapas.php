@@ -6,7 +6,7 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $user    = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador'];
+$allowed = ['Administrador', 'Coordenador', 'Professor'];
 if (!$user || !in_array($user['profile'], $allowed)) {
     header('Location: /dashboard.php');
     exit;
@@ -39,6 +39,19 @@ if (!$turma) { header('Location: /courses/index.php'); exit; }
 if ($user['profile'] === 'Coordenador') {
     $stCheck = $db->prepare('SELECT 1 FROM course_coordinators WHERE course_id=? AND user_id=? LIMIT 1');
     $stCheck->execute([$turma['course_id'], $user['id']]);
+    if (!$stCheck->fetch()) {
+        header('Location: /courses/index.php');
+        exit;
+    }
+}
+// Segurança: Professor só vê as turmas que leciona
+if ($user['profile'] === 'Professor') {
+    $stCheck = $db->prepare('
+        SELECT 1 FROM turma_disciplinas td
+        JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
+        WHERE td.turma_id = ? AND tdp.professor_id = ? LIMIT 1
+    ');
+    $stCheck->execute([$turmaId, $user['id']]);
     if (!$stCheck->fetch()) {
         header('Location: /courses/index.php');
         exit;
@@ -188,7 +201,9 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
     <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
         <a href="/courses/turmas.php?course_id=<?= $turma['course_id'] ?>" class="btn btn-secondary">← Voltar</a>
+        <?php if ($user['profile'] !== 'Professor'): ?>
         <button class="btn btn-primary" onclick="openModal()">➕ Nova Etapa</button>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -277,6 +292,7 @@ require_once __DIR__ . '/../includes/header.php';
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
                             <a href="/courses/lancar_notas.php?etapa_id=<?= $e['id'] ?>"
                                class="action-btn" title="Lançar Notas e Faltas" style="border-color:var(--color-primary);color:var(--color-primary);">📊</a>
+                            <?php if ($user['profile'] !== 'Professor'): ?>
                             <a href="/courses/edit_etapa.php?id=<?= $e['id'] ?>&turma_id=<?= $turmaId ?>"
                                class="action-btn" title="Editar">✏️</a>
                             <form method="POST" style="display:inline;">
@@ -294,6 +310,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <button type="submit" class="action-btn danger" title="Excluir"
                                         onclick="return confirm('Excluir permanentemente «<?= htmlspecialchars($e['description']) ?>»?')">🗑</button>
                             </form>
+                            <?php endif; ?>
                         </div>
                     </td>
                 </tr>

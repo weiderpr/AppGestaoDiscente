@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user    = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador'];
+$allowed = ['Administrador', 'Coordenador', 'Professor'];
 if (!$user || !in_array($user['profile'], $allowed)) {
     header('Location: /dashboard.php');
     exit;
@@ -41,6 +41,19 @@ if (!$turma) { header('Location: /courses/index.php'); exit; }
 if ($user['profile'] === 'Coordenador') {
     $stCheck = $db->prepare('SELECT 1 FROM course_coordinators WHERE course_id=? AND user_id=? LIMIT 1');
     $stCheck->execute([$turma['course_id'], $user['id']]);
+    if (!$stCheck->fetch()) {
+        header('Location: /courses/index.php');
+        exit;
+    }
+}
+// Segurança: Professor só edita as turmas que leciona
+if ($user['profile'] === 'Professor') {
+    $stCheck = $db->prepare('
+        SELECT 1 FROM turma_disciplinas td
+        JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
+        WHERE td.turma_id = ? AND tdp.professor_id = ? LIMIT 1
+    ');
+    $stCheck->execute([$turmaId, $user['id']]);
     if (!$stCheck->fetch()) {
         header('Location: /courses/index.php');
         exit;
