@@ -93,7 +93,7 @@ $tipos = $st->fetchAll();
                 
                 <div class="form-group">
                     <label class="form-label">Nome <span class="required">*</span></label>
-                    <input type="text" name="nome" class="form-control" value="${nome.replace(/"/g, '&quot;')}" required autofocus>
+                    <input type="text" name="nome" class="form-control" value="${nome.replace(/"/g, '&quot;')}" required>
                 </div>
                 
                 <div class="form-group" style="margin-top:1rem;">
@@ -107,6 +107,11 @@ $tipos = $st->fetchAll();
             title,
             content,
             size: 'md',
+            closeOnOverlay: false,
+            onOpen: (modal) => {
+                const input = modal.querySelector('input[name="nome"]');
+                if (input) setTimeout(() => input.focus(), 100);
+            },
             buttons: [
                 { text: 'Cancelar', class: 'btn-secondary', action: (e) => hideModal(e.target.closest('.modal-wrapper').id) },
                 { 

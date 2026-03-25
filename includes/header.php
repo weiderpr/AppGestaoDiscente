@@ -99,7 +99,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                 🏫 Instituições
             </a>
             <?php endif; ?>
-            <?php if ($user && in_array($user['profile'], ['Administrador', 'Coordenador', 'Professor']) && !empty($curInst['id'])): ?>
+            <?php if ($user && in_array($user['profile'], ['Administrador', 'Coordenador', 'Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo']) && !empty($curInst['id'])): ?>
             <a href="/courses/index.php"
                class="nav-link <?= $currentPage === 'index' && strpos($_SERVER['PHP_SELF'], '/courses/') !== false ? 'active' : '' ?>">
                 📚 Cursos
@@ -111,7 +111,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
             </a>
             <?php endif; ?>
             <?php endif; ?>
-            <?php if ($user && in_array($user['profile'], ['Administrador', 'Coordenador']) && !empty($curInst['id'])): ?>
+            <?php if ($user && in_array($user['profile'], ['Administrador', 'Coordenador', 'Pedagogo', 'Assistente Social', 'Psicólogo']) && !empty($curInst['id'])): ?>
             <a href="/courses/conselhos.php"
                class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/courses/conselhos') !== false ? 'active' : '' ?>">
                 🏠 Conselhos

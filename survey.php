@@ -31,7 +31,7 @@ if (!$info) {
 }
 
 // Busca as perguntas
-$stP = $db->prepare("SELECT id, texto_pergunta, ordem FROM perguntas WHERE avaliacao_id = ? AND is_active = 1 ORDER BY ordem ASC");
+$stP = $db->prepare("SELECT id, texto_pergunta, ordem FROM perguntas WHERE avaliacao_id = ? AND is_active = 1 AND deleted_at IS NULL ORDER BY ordem ASC");
 $stP->execute([$avaliacaoId]);
 $perguntas = $stP->fetchAll();
 

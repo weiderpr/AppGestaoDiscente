@@ -12,7 +12,7 @@ if ($id) {
     $avaliacao = $st->fetch();
     
     if ($avaliacao) {
-        $stP = $db->prepare("SELECT * FROM perguntas WHERE avaliacao_id = ? ORDER BY ordem ASC");
+        $stP = $db->prepare("SELECT * FROM perguntas WHERE avaliacao_id = ? AND deleted_at IS NULL ORDER BY ordem ASC");
         $stP->execute([$id]);
         $perguntaList = $stP->fetchAll();
     }

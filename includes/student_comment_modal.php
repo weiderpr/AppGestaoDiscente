@@ -4,7 +4,7 @@
  */
 if (!isset($canComment)) {
     $user = getCurrentUser();
-    $allowed = ['Administrador', 'Coordenador', 'Professor'];
+    $allowed = ['Administrador', 'Coordenador', 'Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'];
     $canComment = $user && in_array($user['profile'], $allowed);
 }
 

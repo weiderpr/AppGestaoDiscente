@@ -6,7 +6,7 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $user    = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador', 'Professor'];
+$allowed = ['Administrador', 'Coordenador', 'Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'];
 if (!$user || !in_array($user['profile'], $allowed)) {
     header('Location: /dashboard.php');
     exit;
@@ -45,10 +45,9 @@ if ($user['profile'] === 'Coordenador') {
         header('Location: /courses/index.php');
         exit;
     }
-}
-
-// Segurança: Professor só nas turmas/disciplinas que leciona
-if ($user['profile'] === 'Professor') {
+} elseif (in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo'])) {
+    // Estes perfis veem todas as turmas
+} elseif ($user['profile'] === 'Professor') {
     $stCheck = $db->prepare('
         SELECT 1 FROM turma_disciplinas td
         JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id

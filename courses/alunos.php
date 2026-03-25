@@ -6,11 +6,12 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $user    = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador', 'Professor'];
+$allowed = ['Administrador', 'Coordenador', 'Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'];
 $isProfessor = $user && $user['profile'] === 'Professor';
 $isCoord     = $user && $user['profile'] === 'Coordenador';
 $isAdmin     = $user && $user['profile'] === 'Administrador';
-$canComment  = $isProfessor || $isCoord || $isAdmin;
+$isPedagogo  = $user && in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo']);
+$canComment  = $isProfessor || $isCoord || $isAdmin || $isPedagogo;
 if (!$user || !in_array($user['profile'], $allowed)) {
     header('Location: /dashboard.php');
     exit;
@@ -394,12 +395,16 @@ require_once __DIR__ . '/../includes/header.php';
         <h1 class="page-title">👤 Alunos da Turma</h1>
         <p class="page-subtitle">Turma: <strong><?= htmlspecialchars($turma['description']) ?> (<?= $turma['ano'] ?>)</strong></p>
     </div>
-    <?php if (!$isProfessor): ?>
+    <?php if (!in_array($user['profile'], ['Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'])): ?>
     <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
         <a href="/courses/turmas.php?course_id=<?= $courseId ?>" class="btn btn-secondary">← Voltar</a>
         <button class="btn btn-secondary" onclick="openModal('importFileModal')">📊 Importar Excel/CSV</button>
         <button class="btn btn-secondary" onclick="openModal('importModal')">📥 Importar de Turma</button>
         <button class="btn btn-primary" onclick="openModal('alunoModal')">➕ Novo Aluno</button>
+    </div>
+    <?php elseif (in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo'])): ?>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
+        <a href="/courses/turmas.php?course_id=<?= $courseId ?>" class="btn btn-secondary">← Voltar para Turmas</a>
     </div>
     <?php else: ?>
     <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
@@ -505,7 +510,8 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- Modal: Novo Aluno -->
-<div class="modal-backdrop" id="alunoModal" role="dialog">
+<?php $hideModals = in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo']); ?>
+<div class="modal-backdrop" id="alunoModal" role="dialog" <?= $hideModals ? 'style="display:none;"' : '' ?>>
     <div class="modal">
         <div class="modal-header">
             <span class="modal-title">👤 Novo Aluno</span>
@@ -561,7 +567,7 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- Modal: Editar Aluno -->
-<div class="modal-backdrop" id="editAlunoModal" role="dialog">
+<div class="modal-backdrop" id="editAlunoModal" role="dialog" <?= $hideModals ? 'style="display:none;"' : '' ?>>
     <div class="modal">
         <div class="modal-header">
             <span class="modal-title">✏️ Editar Dados do Aluno</span>
@@ -624,7 +630,7 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- Modal: Importar -->
-<div class="modal-backdrop" id="importModal" role="dialog">
+<div class="modal-backdrop" id="importModal" role="dialog" <?= $hideModals ? 'style="display:none;"' : '' ?>>
     <div class="modal">
         <div class="modal-header">
             <span class="modal-title">📥 Importar Alunos</span>
@@ -673,7 +679,7 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- Modal: Importar Arquivo -->
-<div class="modal-backdrop" id="importFileModal" role="dialog">
+<div class="modal-backdrop" id="importFileModal" role="dialog" <?= $hideModals ? 'style="display:none;"' : '' ?>>
     <div class="modal">
         <div class="modal-header">
             <span class="modal-title">📊 Importar Alunos via Arquivo</span>

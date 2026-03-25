@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user    = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador', 'Professor'];
+$allowed = ['Administrador', 'Coordenador', 'Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'];
 if (!$user || !in_array($user['profile'], $allowed)) {
     header('Location: /dashboard.php');
     exit;
@@ -40,6 +40,8 @@ if ($user['profile'] === 'Coordenador') {
         header('Location: /courses/index.php');
         exit;
     }
+} elseif (in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo'])) {
+    // Estes perfis veem todas as turmas da instituição
 } elseif ($user['profile'] === 'Professor') {
     $stCheck = $db->prepare('
         SELECT 1 
@@ -330,7 +332,7 @@ require_once __DIR__ . '/../includes/header.php';
                     </td>
                     <td>
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
-                            <?php if ($user['profile'] !== 'Professor'): ?>
+                            <?php if (!in_array($user['profile'], ['Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'])): ?>
                             <a href="/courses/disciplinas_turma.php?turma_id=<?= $t['id'] ?>"
                                class="action-btn" title="Gerenciar Disciplinas">📖</a>
                             <a href="/courses/representantes.php?turma_id=<?= $t['id'] ?>"
@@ -338,9 +340,9 @@ require_once __DIR__ . '/../includes/header.php';
                             <?php endif; ?>
                             <a href="/courses/alunos.php?turma_id=<?= $t['id'] ?>"
                                class="action-btn" title="Visualizar Alunos">👤</a>
+                            <?php if (!in_array($user['profile'], ['Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'])): ?>
                             <a href="/courses/etapas.php?turma_id=<?= $t['id'] ?>"
                                class="action-btn" title="Lançar Notas/Faltas">📋</a>
-                            <?php if ($user['profile'] !== 'Professor'): ?>
                             <a href="/courses/edit_turma.php?id=<?= $t['id'] ?>&course_id=<?= $courseId ?>"
                                class="action-btn" title="Editar">✏️</a>
                             <button type="button" class="action-btn"

@@ -18,7 +18,45 @@ else                                $greeting = 'Boa noite';
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<?php if ($user['profile'] === 'Professor' && !empty($curInst['id'])): 
+<?php if (in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo']) && !empty($curInst['id'])): 
+    $db = getDB();
+    $stCourses = $db->prepare("
+        SELECT c.id, c.name, c.location
+        FROM courses c
+        WHERE c.institution_id = ?
+        ORDER BY c.name
+    ");
+    $stCourses->execute([$curInst['id']]);
+    $teacherCourses = $stCourses->fetchAll();
+?>
+    <?php if (!empty($teacherCourses)): ?>
+    <div class="fade-in" style="margin-bottom:2.5rem;">
+        <h2 style="font-size:1.125rem;font-weight:700;color:var(--text-primary);margin-bottom:1.25rem;display:flex;align-items:center;gap:0.5rem;">
+            📚 Cursos Ativos
+        </h2>
+        <div class="stats-grid" style="grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));">
+            <?php foreach ($teacherCourses as $tc): ?>
+            <a href="/courses/turmas.php?course_id=<?= $tc['id'] ?>" class="stat-card" style="text-decoration:none;transition:transform 0.2s;cursor:pointer;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
+                <div class="stat-icon" style="background:var(--color-primary-light);color:var(--color-primary);font-size:1.5rem;">
+                    📚
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:1rem;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?= htmlspecialchars($tc['name']) ?>">
+                        <?= htmlspecialchars($tc['name']) ?>
+                    </div>
+                    <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;display:flex;align-items:center;gap:0.25rem;">
+                        📍 <?= $tc['location'] ? htmlspecialchars($tc['location']) : 'Local não informado' ?>
+                    </div>
+                </div>
+                <div style="color:var(--color-primary);font-size:1.25rem;margin-left:0.5rem;">
+                    ➜
+                </div>
+            </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+<?php elseif ($user['profile'] === 'Professor' && !empty($curInst['id'])): 
     $db = getDB();
     $stCourses = $db->prepare("
         SELECT DISTINCT c.id, c.name, c.location
@@ -61,7 +99,7 @@ require_once __DIR__ . '/includes/header.php';
     <?php endif; ?>
 <?php endif; ?>
 
-<?php if ($user['profile'] !== 'Professor'): ?>
+<?php if (!in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo', 'Professor']) && $user['profile'] !== 'Professor'): ?>
 <!-- Stats Grid (placeholders para futuros indicadores) -->
 <div class="stats-grid fade-in">
 
@@ -107,7 +145,7 @@ require_once __DIR__ . '/includes/header.php';
 <!-- Dashboard Grid -->
 <div class="dashboard-grid fade-in">
 
-    <?php if ($user['profile'] !== 'Professor'): ?>
+    <?php if (!in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo', 'Professor'])): ?>
     <!-- Card Principal -->
     <div class="card">
         <div class="card-header">
@@ -127,7 +165,7 @@ require_once __DIR__ . '/includes/header.php';
     </div>
     <?php endif; ?>
 
-    <?php if ($user['profile'] !== 'Professor'): ?>
+    <?php if (!in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo', 'Professor'])): ?>
     <!-- Card Lateral -->
     <div class="card">
         <div class="card-header">

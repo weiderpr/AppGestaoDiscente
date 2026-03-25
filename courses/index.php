@@ -92,6 +92,8 @@ $where  = "WHERE c.institution_id=?";
 if ($user['profile'] === 'Coordenador') {
     $where .= " AND c.id IN (SELECT course_id FROM course_coordinators WHERE user_id = ?)";
     $params[] = $user['id'];
+} elseif ($user['profile'] === 'Pedagogo' || $user['profile'] === 'Assistente Social' || $user['profile'] === 'Psicólogo') {
+    // Pedagogo e outros profissionais veem todos os cursos da instituição
 } elseif ($user['profile'] === 'Professor') {
     $where .= " AND c.id IN (
         SELECT DISTINCT t.course_id 
