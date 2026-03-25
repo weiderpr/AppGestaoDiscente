@@ -4,6 +4,8 @@
  */
 
 const VAPerformance = {
+    // Cache de dados para re-renderização (ex: troca de abas)
+    cache: {},
     /**
      * Analyze grade evolution across stages
      * @param {Array} stages - Array of stage objects { id, description, media_nota }

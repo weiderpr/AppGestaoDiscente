@@ -171,7 +171,7 @@ if (!empty($etapasIds)) {
 $pageTitle = 'Conselho de Classe - ' . htmlspecialchars($conselho['descricao']);
 $extraJS = [
     '/assets/js/sentiment_system.js?v=1.2',
-    '/assets/js/performance_system.js?v=2.0'
+    '/assets/js/performance_system.js?v=2.1'
 ];
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -233,6 +233,30 @@ require_once __DIR__ . '/../includes/header.php';
     flex-direction:column;
     gap:.5rem;
 }
+.detail-sidebar-tabs {
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    padding:1rem .5rem;
+    gap:.25rem;
+    overflow-y:auto;
+}
+
+/* SUB TABS CSS */
+.sub-tabs-nav { display:flex; gap:.5rem; margin-bottom:1rem; border-bottom:1px solid var(--border-color); padding-bottom:.5rem; }
+.sub-tab-btn { 
+    padding:.5rem 1rem; border:none; background:var(--bg-card); cursor:pointer; 
+    font-size:.75rem; font-weight:600; color:var(--text-muted); border-radius:var(--radius-md);
+    border:1px solid var(--border-color); transition:all .2s;
+}
+.sub-tab-btn.active { 
+    background:var(--color-primary); color:white; border-color:var(--color-primary);
+}
+.sub-tab-btn:hover:not(.active) {
+    background:var(--bg-hover);
+    border-color:var(--border-color-hover);
+}
+
 .detail-sidebar-header {
     font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:.5rem;
 }
@@ -780,17 +804,29 @@ function showDetailTab(tabId) {
             
             html += '<div style="display:flex;gap:1.5rem;align-items:flex-start;">';
             
-            // Tabela de notas - 2/3
-            html += '<div style="flex:2;overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-color);">';
-            html += '<table style="width:100%;border-collapse:collapse;font-size:.8125rem;">' + theadHtml + tbodyHtml + '</table>';
+            // Container principal tabulado - 2/3
+            html += '<div style="flex:2;background:var(--bg-card);border:1px solid var(--border-color);padding:1rem;border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);">';
+            
+            // Navegação de Sub-abas
+            html += '<div class="sub-tabs-nav">';
+            html += '<button class="sub-tab-btn active" onclick="switchSubTab(this, \'pane-chart-' + a.id + '\', \'' + a.id + '\')">📊 Comparativo</button>';
+            html += '<button class="sub-tab-btn" onclick="switchSubTab(this, \'pane-table-' + a.id + '\', \'' + a.id + '\')">📋 Planilha de Notas</button>';
+            html += '</div>';
 
-            // Card 4: Comparação com a Turma (MOVIDO PARA BAIXO DA TABELA)
-            html += '<div style="margin-top:2rem;padding:1.5rem;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);">';
+            // Pane 1: Gráfico de Comparação (Ativo por padrão)
+            html += '<div id="pane-chart-' + a.id + '" class="sub-tab-pane">';
             html += '<div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;">';
             html += '<span style="font-size:1.25rem;">⚖️</span>';
             html += '<div style="font-size:.875rem;font-weight:700;color:var(--text-primary);text-transform:uppercase;">Desempenho: Aluno vs Média da Turma</div>';
             html += '</div>';
-            html += '<div id="perf-comparison-' + a.id + '" style="min-height:340px;width:100%;"></div>';
+            html += '<div id="perf-comparison-' + a.id + '" style="min-height:360px;width:100%;"></div>';
+            html += '</div>';
+
+            // Pane 2: Tabela de Notas (Escondido por padrão)
+            html += '<div id="pane-table-' + a.id + '" class="sub-tab-pane" style="display:none;">';
+            html += '<div style="overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-color);">';
+            html += '<table style="width:100%;border-collapse:collapse;font-size:.8125rem;">' + theadHtml + tbodyHtml + '</table>';
+            html += '</div>';
             html += '</div>';
             
             html += '</div>'; // Fecha container flex:2 (principal)
@@ -815,6 +851,9 @@ function showDetailTab(tabId) {
             
             content.innerHTML = html;
             
+            // Armazena dados no cache global para troca de abas
+            VAPerformance.cache[a.id] = dados;
+            
             // Renderiza as análises no banner lateral e nos cards de detalhes
             VASentiment.renderTrend('banner-trend-' + a.id, a.id, conselho.turma_id);
             VAPerformance.renderPerformanceTrend('banner-perf-' + a.id, dados.etapas, dados.disciplinas);
@@ -826,6 +865,28 @@ function showDetailTab(tabId) {
             console.error('Erro ao carregar detalhes:', err);
             content.innerHTML = '<p style="text-align:center;color:var(--color-danger);padding:2rem;"><b>Erro ao carregar detalhes.</b><br><small>' + (err.message || 'Erro desconhecido') + '</small></p>';
         });
+}
+
+// Função para alternar entre sub-abas (Gráfico/Tabela)
+function switchSubTab(btn, paneId, alunoId) {
+    const container = btn.closest('div').parentElement;
+    const dados = VAPerformance.cache[alunoId];
+    
+    // Toggle botões
+    container.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    // Toggle panes
+    container.querySelectorAll('.sub-tab-pane').forEach(p => p.style.display = 'none');
+    const pane = document.getElementById(paneId);
+    if (pane) pane.style.display = 'block';
+
+    // Se for a aba do gráfico, forçar re-render para garantir largura correta
+    if (paneId.startsWith('pane-chart')) {
+        setTimeout(() => {
+            VAPerformance.renderComparisonChart('perf-comparison-' + alunoId, dados.disciplinas, dados.soma_media_aprovacao);
+        }, 50);
+    }
 }
 
 function renderDetailTabs() {
