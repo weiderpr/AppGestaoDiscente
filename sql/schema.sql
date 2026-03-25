@@ -393,20 +393,23 @@ CREATE TABLE conselhos_classe (
     descricao       VARCHAR(255) NOT NULL,
     data_hora       DATETIME NOT NULL,
     local_reuniao   VARCHAR(255) DEFAULT NULL,
-    is_active       TINYINT(1) NOT NULL DEFAULT 1,
-    deleted_at      TIMESTAMP NULL DEFAULT NULL,
+    avaliacao_id    INT UNSIGNED DEFAULT NULL,
+    is_active       TINYINT(1) DEFAULT 1,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at      TIMESTAMP NULL DEFAULT NULL,
     CONSTRAINT fk_cc_inst FOREIGN KEY (institution_id) REFERENCES institutions(id) ON DELETE CASCADE,
     CONSTRAINT fk_cc_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
-    CONSTRAINT fk_cc_turma FOREIGN KEY (turma_id) REFERENCES turmas(id) ON DELETE CASCADE
+    CONSTRAINT fk_cc_turma FOREIGN KEY (turma_id) REFERENCES turmas(id) ON DELETE CASCADE,
+    CONSTRAINT fk_cc_avaliacao FOREIGN KEY (avaliacao_id) REFERENCES avaliacoes(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_cc_inst    ON conselhos_classe(institution_id);
-CREATE INDEX idx_cc_course  ON conselhos_classe(course_id);
-CREATE INDEX idx_cc_turma   ON conselhos_classe(turma_id);
-CREATE INDEX idx_cc_data    ON conselhos_classe(data_hora);
-CREATE INDEX idx_cc_deleted ON conselhos_classe(deleted_at);
+CREATE INDEX idx_cc_inst      ON conselhos_classe(institution_id);
+CREATE INDEX idx_cc_course    ON conselhos_classe(course_id);
+CREATE INDEX idx_cc_turma     ON conselhos_classe(turma_id);
+CREATE INDEX idx_cc_avaliacao ON conselhos_classe(avaliacao_id);
+CREATE INDEX idx_cc_data      ON conselhos_classe(data_hora);
+CREATE INDEX idx_cc_deleted   ON conselhos_classe(deleted_at);
 
 -- =======================================================
 -- Tabela: conselhos_etapas (relação N:N)
@@ -454,3 +457,77 @@ CREATE TABLE conselhos_presentes (
 
 CREATE INDEX idx_cp_conselho ON conselhos_presentes(conselho_id);
 CREATE INDEX idx_cp_usuario  ON conselhos_presentes(usuario_id);
+
+-- =======================================================
+-- Módulo: Avaliações
+-- =======================================================
+
+-- Tabela: tipos_avaliacao
+CREATE TABLE tipos_avaliacao (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    nome        VARCHAR(100) NOT NULL,
+    descricao   TEXT,
+    is_active   TINYINT(1) DEFAULT 1,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at  TIMESTAMP NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_ta_deleted ON tipos_avaliacao (deleted_at);
+
+-- Tabela: avaliacoes
+CREATE TABLE avaliacoes (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    tipo_id     INT UNSIGNED NOT NULL,
+    nome        VARCHAR(255) NOT NULL,
+    is_active   TINYINT(1) DEFAULT 1,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at  TIMESTAMP NULL DEFAULT NULL,
+    CONSTRAINT fk_av_tipo FOREIGN KEY (tipo_id) REFERENCES tipos_avaliacao(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_av_tipo    ON avaliacoes (tipo_id);
+CREATE INDEX idx_av_deleted ON avaliacoes (deleted_at);
+
+-- Tabela: perguntas
+CREATE TABLE perguntas (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    avaliacao_id    INT UNSIGNED NOT NULL,
+    texto_pergunta  TEXT NOT NULL,
+    ordem           INT DEFAULT 1,
+    is_active       TINYINT(1) DEFAULT 1,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at      TIMESTAMP NULL DEFAULT NULL,
+    CONSTRAINT fk_p_avaliacao FOREIGN KEY (avaliacao_id) REFERENCES avaliacoes(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_p_avaliacao ON perguntas (avaliacao_id);
+CREATE INDEX idx_p_deleted   ON perguntas (deleted_at);
+
+-- =======================================================
+-- Módulo: Respostas de Pesquisa (Survey)
+-- =======================================================
+
+-- Tabela: respostas_avaliacao
+CREATE TABLE respostas_avaliacao (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    avaliacao_id    INT UNSIGNED NOT NULL,
+    conselho_id     INT UNSIGNED NOT NULL,
+    comentario      TEXT,
+    dispositivo     VARCHAR(255),
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ra_avaliacao FOREIGN KEY (avaliacao_id) REFERENCES avaliacoes(id) ON DELETE CASCADE,
+    CONSTRAINT fk_ra_conselho  FOREIGN KEY (conselho_id)  REFERENCES conselhos_classe(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabela: respostas_perguntas
+CREATE TABLE respostas_perguntas (
+    id              INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    resposta_id     INT UNSIGNED NOT NULL,
+    pergunta_id     INT UNSIGNED NOT NULL,
+    nota            TINYINT(1) NOT NULL,
+    CONSTRAINT fk_rp_resposta FOREIGN KEY (resposta_id) REFERENCES respostas_avaliacao(id) ON DELETE CASCADE,
+    CONSTRAINT fk_rp_pergunta FOREIGN KEY (pergunta_id) REFERENCES perguntas(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

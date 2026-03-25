@@ -7,12 +7,23 @@ require_once __DIR__ . '/includes/csrf.php';
 requireLogin();
 
 $user = getCurrentUser();
-if (!$user || $user['profile'] !== 'Administrador') {
+if (!$user || !in_array($user['profile'], ['Administrador', 'Coordenador'])) {
     header('Location: /dashboard.php');
     exit;
 }
 
+// Proteção: Somente Administrador acessa Backup
+$requestedSection = $_GET['section'] ?? 'backup';
+if ($requestedSection === 'backup' && $user['profile'] !== 'Administrador') {
+    header('Location: /settings.php?section=avaliacoes');
+    exit;
+}
+
 $db = getDB();
+
+// Mensagens de feedback
+$success = $_GET['success'] ?? '';
+$error   = $_GET['error'] ?? '';
 
 // Processar backup
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'backup') {
@@ -185,10 +196,66 @@ $restoreLogs = $db->query('
     LIMIT 20
 ')->fetchAll();
 
-// Aba ativa
-$activeTab = $_GET['tab'] ?? 'backup';
+// --- AÇÕES: AVALIAÇÕES (TIPOS) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['add_tipo', 'edit_tipo', 'delete_tipo'])) {
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança expirado. Tente novamente.';
+    } else {
+        $action = $_POST['action'];
+        $id     = (int)($_POST['id'] ?? 0);
+        $nome   = trim($_POST['nome'] ?? '');
+        $desc   = trim($_POST['descricao'] ?? '');
+
+        try {
+            if ($action === 'add_tipo' && $nome) {
+                $db->prepare("INSERT INTO tipos_avaliacao (nome, descricao) VALUES (?, ?)")->execute([$nome, $desc]);
+                $success = 'Tipo de avaliação cadastrado!';
+            } elseif ($action === 'edit_tipo' && $id && $nome) {
+                $db->prepare("UPDATE tipos_avaliacao SET nome=?, descricao=? WHERE id=?")->execute([$nome, $desc, $id]);
+                $success = 'Tipo de avaliação atualizado!';
+            } elseif ($action === 'delete_tipo' && $id) {
+                $db->prepare("UPDATE tipos_avaliacao SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$id]);
+                $success = 'Tipo de avaliação removido!';
+            }
+        } catch (PDOException $e) {
+            $error = 'Erro no banco: ' . $e->getMessage();
+        }
+    }
+}
+
+// --- AÇÕES: AVALIAÇÕES (LISTA) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_avaliacao') {
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança expirado.';
+    } else {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id) {
+            try {
+                $db->prepare("UPDATE avaliacoes SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$id]);
+                $success = 'Avaliação removida com sucesso!';
+            } catch (PDOException $e) {
+                $error = 'Erro ao remover: ' . $e->getMessage();
+            }
+        }
+    }
+}
+
+// Seção e sub-seção ativas
+$activeSection = $_GET['section'] ?? 'backup';
+if (!in_array($activeSection, ['backup', 'avaliacoes'])) $activeSection = 'backup';
+
+$activeSub = $_GET['sub'] ?? 'backup';
+$allowedSubs = [
+    'backup'     => ['backup', 'restore', 'logs'],
+    'avaliacoes' => ['dashboard', 'tipos', 'lista', 'create']
+];
+if (!in_array($activeSub, $allowedSubs[$activeSection] ?? [])) {
+    $activeSub = $allowedSubs[$activeSection][0];
+}
 
 $pageTitle = 'Configurações';
+$extraCSS  = ['/assets/css/components/sidebar.css'];
+$extraJS   = ['/assets/js/components/Sidebar.js'];
 require_once __DIR__ . '/includes/header.php';
 ?>
 
@@ -295,37 +362,30 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </div>
 
-<?php if ($success): ?>
-<div class="alert alert-success fade-in" style="margin-bottom:1.5rem;">
-    ✅ <?= htmlspecialchars($success) ?>
-    <button onclick="dismissAlert(this)" style="margin-left:auto;background:none;border:none;cursor:pointer;color:inherit;font-size:1.1rem;">✕</button>
-</div>
-<?php endif; ?>
-<?php if ($error): ?>
-<div class="alert alert-danger fade-in" style="margin-bottom:1.5rem;">
-    ⚠️ <?= htmlspecialchars($error) ?>
-    <button onclick="dismissAlert(this)" style="margin-left:auto;background:none;border:none;cursor:pointer;color:inherit;font-size:1.1rem;">✕</button>
-</div>
-<?php endif; ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    <?php if ($success): ?>
+    showSuccess(<?= json_encode($success) ?>);
+    <?php endif; ?>
+    <?php if ($error): ?>
+    showError(<?= json_encode($error) ?>);
+    <?php endif; ?>
+});
+</script>
 
-<!-- Abas de Configuração -->
-<div class="settings-tabs fade-in">
-    <button class="settings-tab <?= $activeTab === 'backup' ? 'active' : '' ?>" onclick="location.href='?tab=backup'">
-        💾 Backup
-    </button>
-    <button class="settings-tab <?= $activeTab === 'restore' ? 'active' : '' ?>" onclick="location.href='?tab=restore'">
-        📂 Restaurar
-    </button>
-    <button class="settings-tab <?= $activeTab === 'logs' ? 'active' : '' ?>" onclick="location.href='?tab=logs'">
-        📜 Logs de Restauração
-    </button>
-    <button class="settings-tab <?= $activeTab === 'info' ? 'active' : '' ?>" onclick="location.href='?tab=info'">
-        ℹ️ Informações
-    </button>
-</div>
+<!-- Shell: sidebar + conteúdo -->
+<div class="settings-shell fade-in">
 
-<!-- Seção: Backup -->
-<div class="settings-section <?= $activeTab === 'backup' ? 'active' : '' ?>">
+<?php require_once __DIR__ . '/includes/settings_sidebar.php'; ?>
+
+<!-- Área de conteúdo -->
+<div class="settings-content">
+
+<!-- ===== SEÇÃO: BACKUP ===== -->
+<div class="settings-section <?= $activeSection === 'backup' ? 'active' : '' ?>">
+
+    <!-- SUB: Gerar Backup -->
+    <?php if ($activeSub === 'backup'): ?>
     <div class="card settings-card">
         <div class="settings-card-header">
             <div class="settings-card-icon">💾</div>
@@ -336,11 +396,11 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         <div class="card-body">
             <p style="color:var(--text-secondary);margin:0 0 1.5rem;font-size:.9375rem;line-height:1.6;">
-                Esta ferramenta gera um arquivo SQL completo contendo todas as tabelas, estrutura e dados do banco de dados 
-                <strong>vertice_academico</strong>. O arquivo pode ser usado para restaurar o banco de dados ou transferi-lo 
+                Esta ferramenta gera um arquivo SQL completo contendo todas as tabelas, estrutura e dados do banco de dados
+                <strong>vertice_academico</strong>. O arquivo pode ser usado para restaurar o banco de dados ou transferi-lo
                 para outro servidor.
             </p>
-            
+
             <div style="background:var(--bg-surface-2nd);border-radius:var(--radius-md);padding:1rem;margin-bottom:1.5rem;">
                 <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
                     <span style="font-size:1rem;">📋</span>
@@ -365,10 +425,10 @@ require_once __DIR__ . '/includes/header.php';
             </form>
         </div>
     </div>
-</div>
+    <?php endif; ?>
 
-<!-- Seção: Restaurar -->
-<div class="settings-section <?= $activeTab === 'restore' ? 'active' : '' ?>">
+    <!-- SUB: Restaurar -->
+    <?php if ($activeSub === 'restore'): ?>
     <div class="card settings-card">
         <div class="settings-card-header">
             <div class="settings-card-icon warning">⚠️</div>
@@ -379,14 +439,14 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         <div class="card-body">
             <div class="alert alert-warning" style="margin-bottom:1.5rem;">
-                ⚠️ <strong>Atenção:</strong> A restauração substituirá todos os dados atuais. 
+                ⚠️ <strong>Atenção:</strong> A restauração substituirá todos os dados atuais.
                 Certifique-se de ter feito um backup antes de continuar.
             </div>
-            
+
             <form method="POST" enctype="multipart/form-data" id="restoreForm">
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="restore">
-                
+
                 <div class="restore-dropzone" id="dropzone" onclick="document.getElementById('backup_file').click()">
                     <input type="file" id="backup_file" name="backup_file" accept=".sql" required>
                     <div class="restore-dropzone-icon">📁</div>
@@ -397,7 +457,7 @@ require_once __DIR__ . '/includes/header.php';
 
                 <div class="form-group" style="margin-top:1.5rem;">
                     <label class="form-label">Motivo da Restauração <span class="required">*</span></label>
-                    <textarea name="restore_reason" id="restore_reason" class="form-control" rows="3" 
+                    <textarea name="restore_reason" id="restore_reason" class="form-control" rows="3"
                               placeholder="Descreva o motivo desta restauração (ex: Correção de dados, migração de servidor, etc.)"
                               required style="resize:vertical;"></textarea>
                     <small style="color:var(--text-muted);">Este motivo será registrado no log de auditoria.</small>
@@ -414,10 +474,10 @@ require_once __DIR__ . '/includes/header.php';
             </form>
         </div>
     </div>
-</div>
+    <?php endif; ?>
 
-<!-- Seção: Logs de Restauração -->
-<div class="settings-section <?= $activeTab === 'logs' ? 'active' : '' ?>">
+    <!-- SUB: Logs de Restauração -->
+    <?php if ($activeSub === 'logs'): ?>
     <div class="card settings-card">
         <div class="settings-card-header">
             <div class="settings-card-icon">📜</div>
@@ -476,7 +536,7 @@ require_once __DIR__ . '/includes/header.php';
                                 ✅ Sucesso
                             </span>
                             <?php else: ?>
-                            <span style="display:inline-flex;align-items:center;gap:.25rem;font-size:.8125rem;font-weight:600;color:var(--color-danger);" 
+                            <span style="display:inline-flex;align-items:center;gap:.25rem;font-size:.8125rem;font-weight:600;color:var(--color-danger);"
                                   title="<?= htmlspecialchars($log['error_message'] ?? '') ?>">
                                 ❌ Erro
                             </span>
@@ -489,84 +549,33 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         <?php endif; ?>
     </div>
-</div>
+    <?php endif; ?>
 
-<!-- Seção: Informações -->
-<div class="settings-section <?= $activeTab === 'info' ? 'active' : '' ?>">
-    <div class="card settings-card">
-        <div class="settings-card-header">
-            <div class="settings-card-icon">ℹ️</div>
-            <div>
-                <div class="settings-card-title">Informações do Sistema</div>
-                <div class="settings-card-desc">Dados técnicos sobre a instalação.</div>
-            </div>
-        </div>
-        <div class="card-body">
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;">
-                <?php
-                $dbVersion = $db->query("SELECT VERSION() as v")->fetch()['v'];
-                $tablesCount = $db->query("SELECT COUNT(*) as c FROM information_schema.tables WHERE table_schema = 'vertice_academico'")->fetch()['c'];
-                $usersCount = $db->query("SELECT COUNT(*) as c FROM users")->fetch()['c'];
-                $institutionsCount = $db->query("SELECT COUNT(*) as c FROM institutions")->fetch()['c'];
-                ?>
-                <div style="background:var(--bg-surface-2nd);border-radius:var(--radius-md);padding:1rem;">
-                    <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem;">Banco de Dados</div>
-                    <div style="font-weight:600;">vertice_academico</div>
-                </div>
-                <div style="background:var(--bg-surface-2nd);border-radius:var(--radius-md);padding:1rem;">
-                    <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem;">Versão MySQL</div>
-                    <div style="font-weight:600;"><?= htmlspecialchars($dbVersion) ?></div>
-                </div>
-                <div style="background:var(--bg-surface-2nd);border-radius:var(--radius-md);padding:1rem;">
-                    <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem;">Tabelas</div>
-                    <div style="font-weight:600;"><?= $tablesCount ?> tabelas</div>
-                </div>
-                <div style="background:var(--bg-surface-2nd);border-radius:var(--radius-md);padding:1rem;">
-                    <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem;">Versão PHP</div>
-                    <div style="font-weight:600;"><?= PHP_VERSION ?></div>
-                </div>
-                <div style="background:var(--bg-surface-2nd);border-radius:var(--radius-md);padding:1rem;">
-                    <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem;">Usuários</div>
-                    <div style="font-weight:600;"><?= $usersCount ?> usuários</div>
-                </div>
-                <div style="background:var(--bg-surface-2nd);border-radius:var(--radius-md);padding:1rem;">
-                    <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem;">Instituições</div>
-                    <div style="font-weight:600;"><?= $institutionsCount ?> instituições</div>
-                </div>
-            </div>
-        </div>
-    </div>
+</div><!-- /settings-section backup -->
 
-    <div class="card settings-card">
-        <div class="settings-card-header">
-            <div class="settings-card-icon">🛠️</div>
-            <div>
-                <div class="settings-card-title">Configurações do PHP</div>
-                <div class="settings-card-desc">Limites e configurações do servidor.</div>
-            </div>
-        </div>
-        <div class="card-body">
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;">
-                <div style="background:var(--bg-surface-2nd);border-radius:var(--radius-md);padding:1rem;">
-                    <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem;">Upload Máximo</div>
-                    <div style="font-weight:600;"><?= ini_get('upload_max_filesize') ?></div>
-                </div>
-                <div style="background:var(--bg-surface-2nd);border-radius:var(--radius-md);padding:1rem;">
-                    <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem;">Post Máximo</div>
-                    <div style="font-weight:600;"><?= ini_get('post_max_size') ?></div>
-                </div>
-                <div style="background:var(--bg-surface-2nd);border-radius:var(--radius-md);padding:1rem;">
-                    <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem;">Tempo Execução</div>
-                    <div style="font-weight:600;"><?= ini_get('max_execution_time') ?>s</div>
-                </div>
-                <div style="background:var(--bg-surface-2nd);border-radius:var(--radius-md);padding:1rem;">
-                    <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.25rem;">Memória</div>
-                    <div style="font-weight:600;"><?= ini_get('memory_limit') ?></div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- ===== SEÇÃO: AVALIAÇÕES ===== -->
+<div class="settings-section <?= $activeSection === 'avaliacoes' ? 'active' : '' ?>">
+    <?php 
+    switch($activeSub) {
+        case 'tipos':
+            include __DIR__ . '/includes/settings/av_tipos.php';
+            break;
+        case 'lista':
+            include __DIR__ . '/includes/settings/av_lista.php';
+            break;
+        case 'create':
+            include __DIR__ . '/includes/settings/av_form.php';
+            break;
+        default:
+            include __DIR__ . '/includes/settings/av_dashboard.php';
+            break;
+    }
+    ?>
+</div><!-- /settings-section avaliacoes -->
+
+</div><!-- /settings-content -->
+</div><!-- /settings-shell -->
+
 
 <script>
 // Dropzone para restore

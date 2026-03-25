@@ -1,0 +1,268 @@
+/* =============================================================
+   Vértice Acadêmico — Settings Sidebar
+   Componente: sidebar retrátil da área de configurações
+   Usa apenas variáveis CSS do sistema (sem cores fixas)
+   ============================================================= */
+
+/* ---------- Shell Layout (flex row) ---------- */
+.settings-shell {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+}
+
+/* ---------- Sidebar ---------- */
+.settings-sidebar {
+    flex-shrink: 0;
+    width: 220px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--card-shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width var(--transition-base);
+    position: sticky;
+    top: calc(var(--navbar-height) + 1rem);
+}
+
+.settings-sidebar.collapsed {
+    width: 64px;
+}
+
+/* ---------- Sidebar Header (toggle row) ---------- */
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    min-height: 52px;
+    overflow: hidden;
+}
+
+.sidebar-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    transition: opacity var(--transition-base), width var(--transition-base);
+    opacity: 1;
+    width: auto;
+}
+
+.settings-sidebar.collapsed .sidebar-title {
+    opacity: 0;
+    width: 0;
+}
+
+/* ---------- Toggle Button ---------- */
+.sidebar-toggle-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface-2nd);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    transition: all var(--transition-fast);
+    margin-left: auto;
+}
+
+.sidebar-toggle-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--color-primary);
+}
+
+.settings-sidebar.collapsed .sidebar-toggle-btn {
+    margin-left: 0;
+}
+
+/* ---------- Nav Items ---------- */
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem 0.5rem;
+}
+
+.sidebar-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    width: 100%;
+    text-align: left;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.sidebar-nav-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.sidebar-nav-item.active {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.settings-sidebar.collapsed .sidebar-nav-item {
+    justify-content: center;
+    padding: 0.625rem;
+}
+
+/* ---------- Nav Item Icon ---------- */
+.sidebar-nav-icon {
+    flex-shrink: 0;
+    font-size: 1.125rem;
+    width: 20px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ---------- Nav Item Label ---------- */
+.sidebar-label {
+    overflow: hidden;
+    white-space: nowrap;
+    transition: opacity var(--transition-base), max-width var(--transition-base);
+    opacity: 1;
+    max-width: 160px;
+}
+
+.settings-sidebar.collapsed .sidebar-label {
+    opacity: 0;
+    max-width: 0;
+}
+
+/* ---------- Content Area ---------- */
+.settings-content {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ---------- Tooltip on collapsed (accessibility) ---------- */
+.settings-sidebar.collapsed .sidebar-nav-item[title] {
+    position: relative;
+}
+
+/* ---------- Submenu ---------- */
+.sidebar-submenu {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    margin: 0.125rem 0 0.25rem 0;
+    padding-left: 1rem;
+    overflow: hidden;
+    /* altura controlada por JS: max-height 0 → auto */
+    max-height: 0;
+    transition: max-height var(--transition-base);
+}
+
+.sidebar-submenu.open {
+    max-height: 200px; /* suficiente para 3 itens */
+}
+
+.sidebar-sub-item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-md);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+    overflow: hidden;
+    border-left: 2px solid var(--border-color);
+}
+
+.sidebar-sub-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-left-color: var(--color-primary);
+}
+
+.sidebar-sub-item.active {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    font-weight: 600;
+    border-left-color: var(--color-primary);
+}
+
+/* Ocultar submenu e sub-itens quando sidebar recolhida */
+.settings-sidebar.collapsed .sidebar-submenu {
+    display: none;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 768px) {
+    .settings-shell {
+        flex-direction: column;
+    }
+
+    .settings-sidebar {
+        width: 100% !important;
+        position: static;
+        flex-direction: row;
+        border-radius: var(--radius-md);
+    }
+
+    .settings-sidebar .sidebar-header {
+        display: none;
+    }
+
+    .settings-sidebar .sidebar-nav {
+        flex-direction: row;
+        padding: 0.5rem;
+        overflow-x: auto;
+        width: 100%;
+        gap: 0.25rem;
+    }
+
+    .settings-sidebar .sidebar-nav-item {
+        flex-direction: column;
+        gap: 0.25rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .settings-sidebar.collapsed .sidebar-label {
+        opacity: 1;
+        max-width: 160px;
+    }
+
+    .settings-sidebar.collapsed .sidebar-nav-item {
+        justify-content: flex-start;
+    }
+
+    .settings-content {
+        width: 100%;
+    }
+}

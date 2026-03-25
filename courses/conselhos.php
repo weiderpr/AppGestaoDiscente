@@ -34,6 +34,7 @@ if ($action === 'save') {
     $descricao     = trim($_POST['descricao'] ?? '');
     $data_hora     = trim($_POST['data_hora'] ?? '');
     $local_reuniao = trim($_POST['local_reuniao'] ?? '');
+    $avaliacao_id  = (int)($_POST['avaliacao_id'] ?? 0);
     $etapas        = $_POST['etapas'] ?? [];
 
     if (empty($descricao) || empty($data_hora) || $course_id <= 0 || $turma_id <= 0) {
@@ -41,8 +42,8 @@ if ($action === 'save') {
     } else {
         if ($id > 0) {
             // Update
-            $st = $db->prepare('UPDATE conselhos_classe SET course_id=?, turma_id=?, descricao=?, data_hora=?, local_reuniao=? WHERE id=? AND institution_id=?');
-            $st->execute([$course_id, $turma_id, $descricao, $data_hora, $local_reuniao ?: null, $id, $instId]);
+            $st = $db->prepare('UPDATE conselhos_classe SET course_id=?, turma_id=?, descricao=?, data_hora=?, local_reuniao=?, avaliacao_id=? WHERE id=? AND institution_id=?');
+            $st->execute([$course_id, $turma_id, $descricao, $data_hora, $local_reuniao ?: null, $avaliacao_id > 0 ? $avaliacao_id : null, $id, $instId]);
             
             // Remove etapas antigas e insere novas
             $db->prepare('DELETE FROM conselhos_etapas WHERE conselho_id = ?')->execute([$id]);
@@ -53,8 +54,8 @@ if ($action === 'save') {
             $success = 'Conselho de Classe atualizado com sucesso!';
         } else {
             // Insert
-            $st = $db->prepare('INSERT INTO conselhos_classe (institution_id, course_id, turma_id, descricao, data_hora, local_reuniao) VALUES (?,?,?,?,?,?)');
-            $st->execute([$instId, $course_id, $turma_id, $descricao, $data_hora, $local_reuniao ?: null]);
+            $st = $db->prepare('INSERT INTO conselhos_classe (institution_id, course_id, turma_id, descricao, data_hora, local_reuniao, avaliacao_id) VALUES (?,?,?,?,?,?,?)');
+            $st->execute([$instId, $course_id, $turma_id, $descricao, $data_hora, $local_reuniao ?: null, $avaliacao_id > 0 ? $avaliacao_id : null]);
             $newId = $db->lastInsertId();
             
             // Insere etapas
@@ -109,6 +110,11 @@ if ($user['profile'] === 'Administrador') {
 }
 $availableCourses = $stCourses->fetchAll();
 
+// ---- AVALIAÇÕES DISPONÍVEIS ----
+$stAv = $db->prepare("SELECT id, nome FROM avaliacoes WHERE deleted_at IS NULL ORDER BY nome ASC");
+$stAv->execute();
+$availableAvaliacoes = $stAv->fetchAll();
+
 // ---- LISTAR ----
 $search = trim($_GET['search'] ?? '');
 $sort = $_GET['sort'] ?? 'data_hora';
@@ -124,7 +130,9 @@ $sortMap = [
 
 $sql    = "SELECT cc.*, t.description as turma_name, c.name as course_name, c.id as course_id,
            GROUP_CONCAT(e.id ORDER BY e.id SEPARATOR ',') as etapas_ids,
-           GROUP_CONCAT(e.description ORDER BY e.id SEPARATOR '||') as etapas_names
+           GROUP_CONCAT(e.description ORDER BY e.id SEPARATOR '||') as etapas_names,
+           (SELECT AVG(rp.nota) FROM respostas_perguntas rp JOIN respostas_avaliacao ra ON rp.resposta_id = ra.id WHERE ra.conselho_id = cc.id) as media_avaliacao,
+           (SELECT COUNT(ra.id) FROM respostas_avaliacao ra WHERE ra.conselho_id = cc.id) as total_respostas
            FROM conselhos_classe cc
            JOIN turmas t ON cc.turma_id = t.id
            JOIN courses c ON cc.course_id = c.id
@@ -148,6 +156,33 @@ $st->execute($params);
 $conselhos = $st->fetchAll();
 
 $pageTitle = 'Conselhos de Classe';
+
+/**
+ * Renderiza estrelas baseadas na nota (0-5)
+ */
+function renderRatingStars($rating, $count) {
+    if (!$count) return '<span style="color:var(--text-muted); font-size:.75rem;">Sem avaliações</span>';
+    
+    $stars = '';
+    $rating = round($rating, 1);
+    
+    // Design Premium: Estrelas preenchidas e vazias
+    for ($i = 1; $i <= 5; $i++) {
+        if ($i <= round($rating)) {
+            $stars .= '<span style="color:#fbbf24;">★</span>';
+        } else {
+            $stars .= '<span style="color:var(--star-off, #334155); opacity:0.3;">★</span>';
+        }
+    }
+    
+    return "
+        <div style='display:flex; flex-direction:column; gap:2px;' title='Média: $rating / 5 ($count respostas)'>
+            <div style='display:flex; gap:1px; font-size:1.1rem; line-height:1;'>$stars</div>
+            <div style='font-size:0.65rem; color:var(--text-muted); font-weight:600; text-transform:uppercase;'>$count RESPOSTAS</div>
+        </div>
+    ";
+}
+
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
@@ -277,6 +312,7 @@ require_once __DIR__ . '/../includes/header.php';
                     </th>
                     <?php endforeach; ?>
                     <th>Etapas</th>
+                    <th>Avaliação</th>
                     <th>Status</th>
                     <th style="text-align:center;">Ações</th>
                 </tr>
@@ -302,6 +338,9 @@ require_once __DIR__ . '/../includes/header.php';
                     </td>
                     <td style="color:var(--text-secondary);font-size:.8125rem;">
                         <?= !empty($c['etapas_names']) ? htmlspecialchars(str_replace('||', ', ', $c['etapas_names'])) : '—' ?>
+                    </td>
+                    <td>
+                        <?= renderRatingStars($c['media_avaliacao'], $c['total_respostas']) ?>
                     </td>
                     <td>
                         <span style="font-size:.8125rem;font-weight:600;color:<?= $c['is_active'] ? 'var(--color-success)' : 'var(--color-danger)' ?>;">
@@ -406,6 +445,20 @@ require_once __DIR__ . '/../includes/header.php';
                                    placeholder="Ex: Sala II">
                         </div>
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Pesquisa / Avaliação Associada</label>
+                    <div class="input-group">
+                        <span class="input-icon">🔍</span>
+                        <select name="avaliacao_id" id="conselho_avaliacao_id" class="form-control">
+                            <option value="0">Nenhuma pesquisa associada</option>
+                            <?php foreach ($availableAvaliacoes as $av): ?>
+                                <option value="<?= $av['id'] ?>"><?= htmlspecialchars($av['nome']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <small style="color:var(--text-muted);font-size:.75rem;">Selecione uma pesquisa para que os participantes respondam durante o conselho.</small>
                 </div>
 
             </div>
@@ -514,6 +567,7 @@ function openModal(data = null) {
     const descField = document.getElementById('conselho_descricao');
     const dateField = document.getElementById('conselho_data_hora');
     const localField = document.getElementById('conselho_local');
+    const avaliacaoField = document.getElementById('conselho_avaliacao_id');
 
     courseField.value = '';
     turmaField.innerHTML = '<option value="">Selecione...</option>';
@@ -538,6 +592,7 @@ function openModal(data = null) {
             }
         }
         localField.value = data.local_reuniao || '';
+        avaliacaoField.value = data.avaliacao_id || '0';
         
         // Impede que o navegador auto-preencha com data
         dateField.readOnly = true;
@@ -582,6 +637,7 @@ function openModal(data = null) {
         descField.value = '';
         dateField.value = '';
         localField.value = '';
+        avaliacaoField.value = '0';
         turmaField.value = '';
     }
 

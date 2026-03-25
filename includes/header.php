@@ -198,7 +198,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                     <?php endif; ?>
                     <?php endif; ?>
 
-                    <?php if ($user && $user['profile'] === 'Administrador'): ?>
+                    <?php if ($user && in_array($user['profile'], ['Administrador', 'Coordenador'])): ?>
                     <a href="/settings.php" class="dropdown-item" role="menuitem">
                         ⚙️ Configurações
                     </a>

@@ -48,17 +48,25 @@ $success = '';
 $error = '';
 $action = $_POST['action'] ?? '';
 
+if ($action === 'finalizar_conselho') {
+    $db->prepare('UPDATE conselhos_classe SET is_active = 0 WHERE id = ?')->execute([$conselhoId]);
+    header("Location: conselho_acao.php?id=$conselhoId&tab=avaliacao&success=" . urlencode('Conselho de Classe finalizado com sucesso!'));
+    exit;
+}
+
 if ($action === 'salvar_presenca') {
     $presentes = $_POST['presentes'] ?? [];
-    
     $db->prepare('DELETE FROM conselhos_presentes WHERE conselho_id = ?')->execute([$conselhoId]);
-    
     foreach ($presentes as $userId) {
         $db->prepare('INSERT INTO conselhos_presentes (conselho_id, user_id) VALUES (?, ?)')->execute([$conselhoId, (int)$userId]);
     }
-    
-    $success = 'Lista de presença salva com sucesso!';
+    header("Location: conselho_acao.php?id=$conselhoId&tab=presenca&success=" . urlencode('Lista de presença salva com sucesso!'));
+    exit;
 }
+
+// Mensagens passadas via GET (após redirect)
+if (isset($_GET['success'])) $success = $_GET['success'];
+if (isset($_GET['error']))   $error = $_GET['error'];
 
 $st = $db->prepare('SELECT user_id FROM conselhos_presentes WHERE conselho_id = ?');
 $st->execute([$conselhoId]);
@@ -171,7 +179,8 @@ if (!empty($etapasIds)) {
 $pageTitle = 'Conselho de Classe - ' . htmlspecialchars($conselho['descricao']);
 $extraJS = [
     '/assets/js/sentiment_system.js?v=1.2',
-    '/assets/js/performance_system.js?v=2.2'
+    '/assets/js/performance_system.js?v=2.2',
+    'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
 ];
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -307,26 +316,23 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
-<?php if ($success): ?>
-<div class="alert alert-success fade-in" style="margin-bottom:1.5rem;">
-    ✅ <?= htmlspecialchars($success) ?>
-    <button onclick="dismissAlert(this)" style="margin-left:auto;background:none;border:none;cursor:pointer;color:inherit;font-size:1.1rem;">✕</button>
-</div>
-<?php endif; ?>
-<?php if ($error): ?>
-<div class="alert alert-danger fade-in" style="margin-bottom:1.5rem;">
-    ⚠️ <?= htmlspecialchars($error) ?>
-    <button onclick="dismissAlert(this)" style="margin-left:auto;background:none;border:none;cursor:pointer;color:inherit;font-size:1.1rem;">✕</button>
-</div>
+<!-- Notifications handled via Toast.js -->
+<?php if ($success || $error): ?>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    <?php if ($success): ?> Toast.success(<?= json_encode($success) ?>); <?php endif; ?>
+    <?php if ($error): ?> Toast.error(<?= json_encode($error) ?>); <?php endif; ?>
+});
+</script>
 <?php endif; ?>
 
-<div class="tabs-nav fade-in">
-    <button class="tab-btn active" onclick="showTab('presenca')">1. Lista de Presença</button>
-    <button class="tab-btn" onclick="showTab('alunos')">2. Alunos</button>
-    <button class="tab-btn" onclick="showTab('alunos_detalhes')">2.1 Detalhes dos Alunos</button>
-    <button class="tab-btn" onclick="showTab('encaminhamentos')">3. Encaminhamentos</button>
-    <button class="tab-btn" onclick="showTab('ata')">4. Ata do Conselho</button>
-    <button class="tab-btn" onclick="showTab('avaliacao')">5. Avaliação do Processo</button>
+<div class="tabs-nav fade-in" id="mainTabsNav">
+    <button class="tab-btn active" data-tab="presenca" onclick="showTab('presenca')">1. Lista de Presença</button>
+    <button class="tab-btn" data-tab="alunos" onclick="showTab('alunos')">2. Alunos</button>
+    <button class="tab-btn" data-tab="alunos_detalhes" onclick="showTab('alunos_detalhes')">2.1 Detalhes dos Alunos</button>
+    <button class="tab-btn" data-tab="encaminhamentos" onclick="showTab('encaminhamentos')">3. Encaminhamentos</button>
+    <button class="tab-btn" data-tab="ata" onclick="showTab('ata')">4. Ata do Conselho</button>
+    <button class="tab-btn" data-tab="avaliacao" onclick="showTab('avaliacao')">5. Finalização</button>
 </div>
 
 <div id="presenca" class="tab-content active fade-in">
@@ -593,9 +599,44 @@ require_once __DIR__ . '/../includes/header.php';
 
 <div id="avaliacao" class="tab-content fade-in">
     <div class="card">
-        <div class="card-body" style="text-align:center;padding:3rem;color:var(--text-muted);">
-            <p style="font-size:3rem;margin-bottom:1rem;">✅</p>
-            <p>Avaliação do Processo em desenvolvimento.</p>
+        <div class="card-body" style="text-align:center;padding:3rem;">
+            <?php if ($conselho['is_active']): ?>
+                <div style="max-width:400px; margin:0 auto;">
+                    <p style="font-size:3rem;margin-bottom:1rem;">🏁</p>
+                    <h3 style="margin-bottom:1rem;color:var(--text-primary);">Finalizar Sessão</h3>
+                    <p style="color:var(--text-muted);margin-bottom:2rem;font-size:.875rem;">
+                        Ao finalizar, este conselho será marcado como concluído e não poderá mais receber novos encaminhamentos ou registros.
+                    </p>
+                    <form method="POST" id="formFinalizar">
+                        <input type="hidden" name="action" value="finalizar_conselho">
+                        <button type="button" class="btn btn-primary btn-lg" style="width:100%;" onclick="confirmFinalizar()">✨ Finalizar Conselho de Classe</button>
+                    </form>
+                </div>
+            <?php else: ?>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:2rem;">
+                    <div>
+                        <p style="font-size:3rem;margin-bottom:1rem;">✅</p>
+                        <h3 style="color:var(--text-primary);">Conselho Concluído</h3>
+                        <p style="color:var(--text-muted);font-size:.875rem;">Sessão encerrada em <?= date('d/m/Y H:i', strtotime($conselho['updated_at'])) ?></p>
+                    </div>
+
+                    <?php if ($conselho['avaliacao_id']): ?>
+                    <div style="background:var(--bg-surface-2nd); padding:2rem; border-radius:var(--radius-xl); border:1px solid var(--border-color); display:flex; flex-direction:column; align-items:center; gap:1.5rem; max-width:350px;">
+                        <div style="text-align:center;">
+                            <h4 style="color:var(--text-primary); margin-bottom:0.5rem;">Pesquisa de Satisfação</h4>
+                            <p style="color:var(--text-muted); font-size:0.75rem;">Aponte a câmera do celular para o QR Code abaixo para avaliar este conselho.</p>
+                        </div>
+                        
+                        <div id="qrcode" style="background:white; padding:15px; border-radius:12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);"></div>
+                        
+                        <a href="<?= (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://$_SERVER[HTTP_HOST]/survey.php?c=$conselhoId&a={$conselho['avaliacao_id']}" ?>" 
+                           target="_blank" style="font-size:0.875rem; color:var(--color-primary); font-weight:600; text-decoration:none;">
+                            Abrir Link Manualmente ↗
+                        </a>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -610,10 +651,13 @@ let studentsInDetail = [];
 
 function showTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#mainTabsNav .tab-btn').forEach(b => b.classList.remove('active'));
     
-    document.getElementById(tabId).classList.add('active');
-    document.querySelector(`[onclick="showTab('${tabId}')"]`).classList.add('active');
+    const contentEl = document.getElementById(tabId);
+    const btnEl = document.querySelector(`#mainTabsNav [data-tab="${tabId}"]`);
+    
+    if (contentEl) contentEl.classList.add('active');
+    if (btnEl) btnEl.classList.add('active');
 
     // Se for a aba de encaminhamentos, carrega a lista geral
     if (tabId === 'encaminhamentos' && typeof loadCouncilReferrals === 'function') {
@@ -1008,7 +1052,39 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.performance-trend-container').forEach(container => {
         VAPerformance.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId, true);
     });
+
+    // Restaurar aba ativa se houver na URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeTab = urlParams.get('tab');
+    if (activeTab) {
+        showTab(activeTab);
+    }
+
+    // Gera QR Code se necessário
+    const qrContainer = document.getElementById('qrcode');
+    if (qrContainer) {
+        const url = "<?= (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://$_SERVER[HTTP_HOST]/survey.php?c=$conselhoId&a={$conselho['avaliacao_id']}" ?>";
+        new QRCode(qrContainer, {
+            text: url,
+            width: 180,
+            height: 180,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.H
+        });
+    }
 });
+
+function confirmFinalizar() {
+    Modal.confirm({
+        title: '🏁 Finalizar Conselho',
+        message: 'Tem certeza que deseja encerrar este conselho de classe? Esta ação é irreversível.',
+        confirmText: 'Sim, Finalizar',
+        onConfirm: () => {
+            document.getElementById('formFinalizar').submit();
+        }
+    });
+}
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
