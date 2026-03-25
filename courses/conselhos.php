@@ -214,26 +214,7 @@ require_once __DIR__ . '/../includes/header.php';
 .action-btn.danger:hover { background:#fef2f2; color:var(--color-danger); border-color:var(--color-danger); }
 [data-theme="dark"] .action-btn.danger:hover { background:#450a0a; }
 
-.modal-backdrop { position:fixed; inset:0; z-index:3000; background:rgba(0,0,0,.5);
-    backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center;
-    padding:1rem; opacity:0; visibility:hidden; transition:all .25s ease; }
-.modal-backdrop.show { opacity:1; visibility:visible; }
-.modal { background:var(--bg-surface); border:1px solid var(--border-color);
-    border-radius:var(--radius-xl); width:100%; max-width:520px;
-    max-height:95vh; overflow-y:auto; box-shadow:0 25px 60px rgba(0,0,0,.3);
-    transform:translateY(20px) scale(.97); transition:all .25s ease; }
-.modal-backdrop.show .modal { transform:translateY(0) scale(1); }
-.modal-header { padding:1.5rem; border-bottom:1px solid var(--border-color);
-    display:flex; align-items:center; justify-content:space-between; }
-.modal-title { font-size:1.0625rem; font-weight:700; color:var(--text-primary); }
-.modal-close { width:32px; height:32px; border-radius:var(--radius-md);
-    border:1px solid var(--border-color); background:var(--bg-surface);
-    cursor:pointer; display:flex; align-items:center; justify-content:center;
-    color:var(--text-muted); font-size:1.125rem; transition:all var(--transition-fast); }
-.modal-close:hover { background:var(--bg-hover); }
-.modal-body { padding:1.5rem; display:flex; flex-direction:column; gap:1.25rem; }
-.modal-footer { padding:1rem 1.5rem; border-top:1px solid var(--border-color);
-    display:flex; gap:.75rem; justify-content:flex-end; }
+/* Modal styles are now handled by core CSS */
 </style>
 
 <!-- Page Header -->
@@ -354,34 +335,18 @@ require_once __DIR__ . '/../includes/header.php';
                             <button type="button" class="action-btn" title="Editar"
                                     onclick='openModal(<?= json_encode($c) ?>)'>✏️</button>
                             
-                            <form method="POST" style="display:inline;">
-                                <input type="hidden" name="action" value="toggle">
-                                <input type="hidden" name="id"     value="<?= $c['id'] ?>">
-                                <button type="submit" class="action-btn"
-                                        title="<?= $c['is_active'] ? 'Desativar' : 'Ativar' ?>"
-                                        onclick="return confirm('Alterar status deste conselho?')">
-                                    <?= $c['is_active'] ? '⏸' : '▶' ?>
-                                </button>
-                            </form>
+                            <button type="button" class="action-btn" title="Desativar"
+                                    onclick="confirmToggleStatus(<?= $c['id'] ?>, true)">⏸</button>
 
-                            <form method="POST" style="display:inline;">
-                                <input type="hidden" name="action" value="delete">
-                                <input type="hidden" name="id"     value="<?= $c['id'] ?>">
-                                <button type="submit" class="action-btn danger" title="Excluir"
-                                        onclick="return confirm('Excluir permanentemente este conselho?')">🗑</button>
-                            </form>
+                            <button type="button" class="action-btn danger" title="Excluir"
+                                    onclick="confirmDeleteConselho(<?= $c['id'] ?>)">🗑</button>
                             <?php else: ?>
                             <button type="button" class="action-btn" title="Editar" disabled
                                     style="opacity:0.4;cursor:not-allowed;">✏️</button>
-                            <form method="POST" style="display:inline;">
-                                <input type="hidden" name="action" value="toggle">
-                                <input type="hidden" name="id" value="<?= $c['id'] ?>">
-                                <button type="submit" class="action-btn"
-                                        title="Ativar"
-                                        onclick="return confirm('Ativar este conselho?')">
-                                    ▶
-                                </button>
-                            </form>
+                            
+                            <button type="button" class="action-btn" title="Ativar"
+                                    onclick="confirmToggleStatus(<?= $c['id'] ?>, false)">▶</button>
+
                             <button type="button" class="action-btn danger" title="Excluir" disabled
                                     style="opacity:0.4;cursor:not-allowed;">🗑</button>
                             <?php endif; ?>
@@ -394,95 +359,104 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<!-- Forms Ocultos para Ações -->
+<form id="formAction" method="POST" style="display:none;">
+    <input type="hidden" name="action" id="actionField">
+    <input type="hidden" name="id" id="idField">
+</form>
+
 <!-- Modal: Novo/Editar Conselho -->
-<div class="modal-backdrop" id="conselhoModal" role="dialog" aria-modal="true">
-    <div class="modal">
-        <div class="modal-header">
-            <span class="modal-title" id="modalTitle">🏠 Novo Conselho de Classe</span>
-            <button class="modal-close" onclick="closeModal()">✕</button>
+<div id="conselhoModal" class="modal-wrapper" role="dialog" aria-modal="true">
+    <div class="modal-overlay" onclick="closeModal()"></div>
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title" id="modalTitle">🏠 Novo Conselho de Classe</span>
+                <button type="button" class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <form method="POST" onsubmit="return prepareForm()">
+                <input type="hidden" name="action" value="save">
+                <input type="hidden" name="id" id="conselho_id" value="0">
+                <div class="modal-body">
+                    
+                    <!-- Seleção de Curso e Turma -->
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+                        <div class="form-group">
+                            <label class="form-label">Curso <span class="required">*</span></label>
+                            <select name="course_id" id="conselho_course_id" class="form-control" required onchange="loadTurmas()">
+                                <option value="">Selecione o curso...</option>
+                                <?php foreach ($availableCourses as $ac): ?>
+                                    <option value="<?= $ac['id'] ?>"><?= htmlspecialchars($ac['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Turma <span class="required">*</span></label>
+                            <select name="turma_id" id="conselho_turma_id" class="form-control" required disabled onchange="loadEtapas()">
+                                <option value="">Selecione...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Etapas Consideredas</label>
+                        <select name="etapas[]" id="conselho_etapas" class="form-control" multiple disabled style="min-height:100px;">
+                            <option value="">Selecione uma turma...</option>
+                        </select>
+                        <small style="color:var(--text-muted);font-size:.75rem;">Segure Ctrl (ou Cmd) para selecionar múltiplas etapas</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Descrição do Conselho <span class="required">*</span></label>
+                        <div class="input-group">
+                            <span class="input-icon">📝</span>
+                            <input type="text" name="descricao" id="conselho_descricao" class="form-control"
+                                placeholder="Ex: Conselho Final - 3º Ano A" required>
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
+                        <div class="form-group">
+                            <label class="form-label">Data e Hora <span class="required">*</span></label>
+                            <div class="input-group">
+                                <span class="input-icon">📅</span>
+                                <input type="text" name="data_hora" id="conselho_data_hora" class="form-control" 
+                                    placeholder="dd/mm/aaaa hh:mm" autocomplete="off" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Local da Reunião</label>
+                            <div class="input-group">
+                                <span class="input-icon">📍</span>
+                                <input type="text" name="local_reuniao" id="conselho_local" class="form-control"
+                                    placeholder="Ex: Sala II">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Pesquisa / Avaliação Associada</label>
+                        <div class="input-group">
+                            <span class="input-icon">🔍</span>
+                            <select name="avaliacao_id" id="conselho_avaliacao_id" class="form-control">
+                                <option value="0">Nenhuma pesquisa associada</option>
+                                <?php foreach ($availableAvaliacoes as $av): ?>
+                                    <option value="<?= $av['id'] ?>"><?= htmlspecialchars($av['nome']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <small style="color:var(--text-muted);font-size:.75rem;">Selecione uma pesquisa para que os participantes respondam durante o conselho.</small>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">💾 Salvar Conselho</button>
+                </div>
+            </form>
         </div>
-        <form method="POST" onsubmit="return prepareForm()">
-            <input type="hidden" name="action" value="save">
-            <input type="hidden" name="id" id="conselho_id" value="0">
-            <div class="modal-body">
-                
-                <!-- Seleção de Curso e Turma -->
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
-                    <div class="form-group">
-                        <label class="form-label">Curso <span class="required">*</span></label>
-                        <select name="course_id" id="conselho_course_id" class="form-control" required onchange="loadTurmas()">
-                            <option value="">Selecione o curso...</option>
-                            <?php foreach ($availableCourses as $ac): ?>
-                                <option value="<?= $ac['id'] ?>"><?= htmlspecialchars($ac['name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Turma <span class="required">*</span></label>
-                        <select name="turma_id" id="conselho_turma_id" class="form-control" required disabled onchange="loadEtapas()">
-                            <option value="">Selecione...</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Etapas Consideredas</label>
-                    <select name="etapas[]" id="conselho_etapas" class="form-control" multiple disabled style="min-height:100px;">
-                        <option value="">Selecione uma turma...</option>
-                    </select>
-                    <small style="color:var(--text-muted);font-size:.75rem;">Segure Ctrl (ou Cmd) para selecionar múltiplas etapas</small>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Descrição do Conselho <span class="required">*</span></label>
-                    <div class="input-group">
-                        <span class="input-icon">📝</span>
-                        <input type="text" name="descricao" id="conselho_descricao" class="form-control"
-                               placeholder="Ex: Conselho Final - 3º Ano A" required>
-                    </div>
-                </div>
-
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;">
-                    <div class="form-group">
-                        <label class="form-label">Data e Hora <span class="required">*</span></label>
-                        <div class="input-group">
-                            <span class="input-icon">📅</span>
-                            <input type="text" name="data_hora" id="conselho_data_hora" class="form-control" 
-                                   placeholder="dd/mm/aaaa hh:mm" autocomplete="off" required>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Local da Reunião</label>
-                        <div class="input-group">
-                            <span class="input-icon">📍</span>
-                            <input type="text" name="local_reuniao" id="conselho_local" class="form-control"
-                                   placeholder="Ex: Sala II">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Pesquisa / Avaliação Associada</label>
-                    <div class="input-group">
-                        <span class="input-icon">🔍</span>
-                        <select name="avaliacao_id" id="conselho_avaliacao_id" class="form-control">
-                            <option value="0">Nenhuma pesquisa associada</option>
-                            <?php foreach ($availableAvaliacoes as $av): ?>
-                                <option value="<?= $av['id'] ?>"><?= htmlspecialchars($av['nome']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <small style="color:var(--text-muted);font-size:.75rem;">Selecione uma pesquisa para que os participantes respondam durante o conselho.</small>
-                </div>
-
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-                <button type="submit" class="btn btn-primary">💾 Salvar Conselho</button>
-            </div>
-        </form>
     </div>
 </div>
 
@@ -527,6 +501,8 @@ function loadTurmas() {
     turmaSelect.innerHTML = '<option value="">Carregando...</option>';
     turmaSelect.disabled = true;
     
+    if (typeof Loading !== 'undefined') Loading.show();
+    
     fetch('/courses/conselhos_turmas_ajax.php?course_id=' + courseId)
         .then(res => res.json())
         .then(turmas => {
@@ -539,6 +515,9 @@ function loadTurmas() {
         })
         .catch(() => {
             turmaSelect.innerHTML = '<option value="">Erro ao carregar</option>';
+        })
+        .finally(() => {
+            if (typeof Loading !== 'undefined') Loading.hide();
         });
 }
 
@@ -555,6 +534,8 @@ function loadEtapas() {
     etapasSelect.innerHTML = '<option value="">Carregando...</option>';
     etapasSelect.disabled = true;
     
+    if (typeof Loading !== 'undefined') Loading.show();
+    
     fetch('/courses/conselhos_etapas_ajax.php?turma_id=' + turmaId)
         .then(res => res.json())
         .then(etapas => {
@@ -570,6 +551,9 @@ function loadEtapas() {
         })
         .catch(() => {
             etapasSelect.innerHTML = '<option value="">Erro ao carregar</option>';
+        })
+        .finally(() => {
+            if (typeof Loading !== 'undefined') Loading.hide();
         });
 }
 
@@ -657,21 +641,52 @@ function openModal(data = null) {
         turmaField.value = '';
     }
 
-    modal.classList.add('show');
+    modal.classList.add('modal-show');
     document.body.style.overflow = 'hidden';
 }
 
 function closeModal() {
-    document.getElementById('conselhoModal').classList.remove('show');
+    document.getElementById('conselhoModal').classList.remove('modal-show');
     document.body.style.overflow = '';
 }
 
-document.getElementById('conselhoModal').addEventListener('click', e => { 
-    if(e.target === document.getElementById('conselhoModal')) closeModal(); 
-});
-
 document.addEventListener('keydown', e => { 
     if(e.key === 'Escape') closeModal(); 
+});
+
+function confirmToggleStatus(id, active) {
+    const action = active ? 'desativar' : 'ativar';
+    Modal.confirm({
+        title: '⏹ ' + (active ? 'Desativar' : 'Ativar') + ' Conselho',
+        message: `Tem certeza que deseja ${action} este conselho de classe?`,
+        confirmText: active ? 'Sim, Desativar' : 'Sim, Ativar',
+        confirmClass: active ? 'btn-danger' : 'btn-success',
+        onConfirm: () => {
+            document.getElementById('actionField').value = 'toggle';
+            document.getElementById('idField').value = id;
+            document.getElementById('formAction').submit();
+        }
+    });
+}
+
+function confirmDeleteConselho(id) {
+    Modal.confirm({
+        title: '🗑 Excluir Conselho',
+        message: 'Tem certeza que deseja excluir permanentemente este conselho de classe? Todos os registros e encaminhamentos vinculados serão removidos.',
+        confirmText: 'Sim, Excluir Para Sempre',
+        confirmClass: 'btn-danger',
+        onConfirm: () => {
+            document.getElementById('actionField').value = 'delete';
+            document.getElementById('idField').value = id;
+            document.getElementById('formAction').submit();
+        }
+    });
+}
+
+// Notificações via Toast
+document.addEventListener('DOMContentLoaded', () => {
+    <?php if ($success): ?> Toast.success(<?= json_encode($success) ?>); <?php endif; ?>
+    <?php if ($error): ?> Toast.error(<?= json_encode($error) ?>); <?php endif; ?>
 });
 </script>
 

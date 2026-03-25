@@ -116,26 +116,7 @@ require_once __DIR__ . '/../includes/header.php';
 .action-btn.danger:hover { background: #fef2f2; color: var(--color-danger); border-color: var(--color-danger); }
 [data-theme="dark"] .action-btn.danger:hover { background: #450a0a; }
 
-.modal-backdrop { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,.5);
-    backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center;
-    padding: 1rem; opacity: 0; visibility: hidden; transition: all .25s ease; }
-.modal-backdrop.show { opacity: 1; visibility: visible; }
-.modal { background: var(--bg-surface); border: 1px solid var(--border-color);
-    border-radius: var(--radius-xl); width: 100%; max-width: 480px;
-    max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,.3);
-    transform: translateY(20px) scale(.97); transition: all .25s ease; }
-.modal-backdrop.show .modal { transform: translateY(0) scale(1); }
-.modal-header { padding: 1.5rem; border-bottom: 1px solid var(--border-color);
-    display: flex; align-items: center; justify-content: space-between; }
-.modal-title { font-size: 1.0625rem; font-weight: 700; color: var(--text-primary); }
-.modal-close { width: 32px; height: 32px; border-radius: var(--radius-md);
-    border: 1px solid var(--border-color); background: var(--bg-surface);
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    color: var(--text-muted); font-size: 1.125rem; transition: all var(--transition-fast); }
-.modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
-.modal-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
-.modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);
-    display: flex; gap: .75rem; justify-content: flex-end; }
+/* Modal styles are now handled by core CSS */
 </style>
 
 <!-- Page Header -->
@@ -151,19 +132,6 @@ require_once __DIR__ . '/../includes/header.php';
         <button class="btn btn-primary" onclick="openAddModal()">➕ Nova Categoria</button>
     </div>
 </div>
-
-<?php if ($success): ?>
-<div class="alert alert-success fade-in" style="margin-bottom:1.5rem;">
-    ✅ <?= htmlspecialchars($success) ?>
-    <button onclick="dismissAlert(this)" style="margin-left:auto;background:none;border:none;cursor:pointer;color:inherit;font-size:1.1rem;">✕</button>
-</div>
-<?php endif; ?>
-<?php if ($error): ?>
-<div class="alert alert-danger fade-in" style="margin-bottom:1.5rem;">
-    ⚠️ <?= htmlspecialchars($error) ?>
-    <button onclick="dismissAlert(this)" style="margin-left:auto;background:none;border:none;cursor:pointer;color:inherit;font-size:1.1rem;">✕</button>
-</div>
-<?php endif; ?>
 
 <!-- Filtro -->
 <div class="card fade-in" style="margin-bottom:1.25rem;">
@@ -233,109 +201,125 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- Modal: Adicionar Categoria -->
-<div class="modal-backdrop" id="addModal" role="dialog" aria-modal="true">
-    <div class="modal">
-        <div class="modal-header">
-            <span class="modal-title">➕ Nova Categoria</span>
-            <button class="modal-close" onclick="closeAddModal()">✕</button>
-        </div>
-        <form method="POST" action="?action=add">
-            <?= csrf_field() ?>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Nome da Categoria <span class="required">*</span></label>
-                    <div class="input-group">
-                        <span class="input-icon">📂</span>
-                        <input type="text" name="nome" id="add_nome" class="form-control" 
-                               placeholder="Ex: Ciências Exatas" required autofocus>
+<div id="addModal" class="modal-wrapper" role="dialog" aria-modal="true">
+    <div class="modal-overlay" onclick="closeAddModal()"></div>
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">➕ Nova Categoria</span>
+                <button type="button" class="modal-close" onclick="closeAddModal()">✕</button>
+            </div>
+            <form method="POST" action="?action=add">
+                <?= csrf_field() ?>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Nome da Categoria <span class="required">*</span></label>
+                        <div class="input-group">
+                            <span class="input-icon">📂</span>
+                            <input type="text" name="nome" id="add_nome" class="form-control" 
+                                placeholder="Ex: Ciências Exatas" required autofocus>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeAddModal()">Cancelar</button>
-                <button type="submit" class="btn btn-primary">💾 Salvar</button>
-            </div>
-        </form>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeAddModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">💾 Salvar</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
 <!-- Modal: Editar Categoria -->
-<div class="modal-backdrop" id="editModal" role="dialog" aria-modal="true">
-    <div class="modal">
-        <div class="modal-header">
-            <span class="modal-title">✏️ Editar Categoria</span>
-            <button class="modal-close" onclick="closeEditModal()">✕</button>
-        </div>
-        <form method="POST" action="?action=edit">
-            <input type="hidden" name="id" id="edit_id">
-            <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Nome da Categoria <span class="required">*</span></label>
-                    <div class="input-group">
-                        <span class="input-icon">📂</span>
-                        <input type="text" name="nome" id="edit_nome" class="form-control" required>
+<div id="editModal" class="modal-wrapper" role="dialog" aria-modal="true">
+    <div class="modal-overlay" onclick="closeEditModal()"></div>
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">✏️ Editar Categoria</span>
+                <button type="button" class="modal-close" onclick="closeEditModal()">✕</button>
+            </div>
+            <form method="POST" action="?action=edit">
+                <input type="hidden" name="id" id="edit_id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Nome da Categoria <span class="required">*</span></label>
+                        <div class="input-group">
+                            <span class="input-icon">📂</span>
+                            <input type="text" name="nome" id="edit_nome" class="form-control" required>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
-                <button type="submit" class="btn btn-primary">💾 Atualizar</button>
-            </div>
-        </form>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">💾 Atualizar</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
 <script>
 function openAddModal() {
     document.getElementById('add_nome').value = '';
-    document.getElementById('addModal').classList.add('show');
+    document.getElementById('addModal').classList.add('modal-show');
     document.body.style.overflow = 'hidden';
     document.getElementById('add_nome').focus();
 }
 
 function closeAddModal() {
-    document.getElementById('addModal').classList.remove('show');
+    document.getElementById('addModal').classList.remove('modal-show');
     document.body.style.overflow = '';
 }
 
 function editCategory(cat) {
     document.getElementById('edit_id').value = cat.id;
     document.getElementById('edit_nome').value = cat.nome;
-    document.getElementById('editModal').classList.add('show');
+    document.getElementById('editModal').classList.add('modal-show');
     document.body.style.overflow = 'hidden';
 }
 
 function closeEditModal() {
-    document.getElementById('editModal').classList.remove('show');
+    document.getElementById('editModal').classList.remove('modal-show');
     document.body.style.overflow = '';
 }
 
 function deleteCategory(id, name) {
-    if (confirm('Excluir permanentemente a categoria «' + name + '»?\n\nNota: Disciplinas vinculadas a esta categoria também serão afetadas.')) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '?action=delete';
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'id';
-        input.value = id;
-        form.appendChild(input);
-        document.body.appendChild(form);
-        form.submit();
-    }
+    Modal.confirm({
+        title: 'Excluir Categoria',
+        message: `Excluir permanentemente a categoria «${name}»?\n\nNota: Disciplinas vinculadas a esta categoria também serão afetadas.`,
+        confirmText: 'Sim, Excluir',
+        confirmClass: 'btn-danger',
+        onConfirm: () => {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '?action=delete';
+            const inputId = document.createElement('input');
+            inputId.type = 'hidden';
+            inputId.name = 'id';
+            inputId.value = id;
+            form.appendChild(inputId);
+            const inputCsrf = document.createElement('input');
+            inputCsrf.type = 'hidden';
+            inputCsrf.name = 'csrf_token';
+            inputCsrf.value = '<?= csrf_token() ?>';
+            form.appendChild(inputCsrf);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
 }
 
-document.getElementById('addModal').addEventListener('click', function(e) {
-    if (e.target === this) closeAddModal();
-});
-document.getElementById('editModal').addEventListener('click', function(e) {
-    if (e.target === this) closeEditModal();
-});
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeAddModal();
         closeEditModal();
     }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    <?php if ($success): ?> Toast.success(<?= json_encode($success) ?>); <?php endif; ?>
+    <?php if ($error): ?> Toast.error(<?= json_encode($error) ?>); <?php endif; ?>
 });
 </script>
 

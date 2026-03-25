@@ -140,26 +140,7 @@ require_once __DIR__ . '/../includes/header.php';
 .action-btn:hover { background:var(--bg-hover); color:var(--text-primary); }
 .action-btn.danger:hover { background:#fef2f2; color:var(--color-danger); border-color:var(--color-danger); }
 [data-theme="dark"] .action-btn.danger:hover { background:#450a0a; }
-.modal-backdrop { position:fixed; inset:0; z-index:3000; background:rgba(0,0,0,.5);
-    backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center;
-    padding:1rem; opacity:0; visibility:hidden; transition:all .25s ease; }
-.modal-backdrop.show { opacity:1; visibility:visible; }
-.modal { background:var(--bg-surface); border:1px solid var(--border-color);
-    border-radius:var(--radius-xl); width:100%; max-width:480px;
-    max-height:90vh; overflow-y:auto; box-shadow:0 25px 60px rgba(0,0,0,.3);
-    transform:translateY(20px) scale(.97); transition:all .25s ease; }
-.modal-backdrop.show .modal { transform:translateY(0) scale(1); }
-.modal-header { padding:1.5rem; border-bottom:1px solid var(--border-color);
-    display:flex; align-items:center; justify-content:space-between; }
-.modal-title { font-size:1.0625rem; font-weight:700; color:var(--text-primary); }
-.modal-close { width:32px; height:32px; border-radius:var(--radius-md);
-    border:1px solid var(--border-color); background:var(--bg-surface);
-    cursor:pointer; display:flex; align-items:center; justify-content:center;
-    color:var(--text-muted); font-size:1.125rem; transition:all var(--transition-fast); }
-.modal-close:hover { background:var(--bg-hover); }
-.modal-body { padding:1.5rem; display:flex; flex-direction:column; gap:1rem; }
-.modal-footer { padding:1rem 1.5rem; border-top:1px solid var(--border-color);
-    display:flex; gap:.75rem; justify-content:flex-end; }
+/* Modal styles are now handled by core CSS */
 
 /* Avatares dos Coordenadores */
 .coord-stack { display:flex; align-items:center; margin-top:.375rem; }
@@ -186,19 +167,6 @@ require_once __DIR__ . '/../includes/header.php';
     <button class="btn btn-primary" onclick="openModal()">➕ Novo Curso</button>
     <?php endif; ?>
 </div>
-
-<?php if ($success): ?>
-<div class="alert alert-success fade-in" style="margin-bottom:1.5rem;">
-    ✅ <?= htmlspecialchars($success) ?>
-    <button onclick="dismissAlert(this)" style="margin-left:auto;background:none;border:none;cursor:pointer;color:inherit;font-size:1.1rem;">✕</button>
-</div>
-<?php endif; ?>
-<?php if ($error): ?>
-<div class="alert alert-danger fade-in" style="margin-bottom:1.5rem;">
-    ⚠️ <?= htmlspecialchars($error) ?>
-    <button onclick="dismissAlert(this)" style="margin-left:auto;background:none;border:none;cursor:pointer;color:inherit;font-size:1.1rem;">✕</button>
-</div>
-<?php endif; ?>
 
 <!-- Filtro -->
 <div class="card fade-in" style="margin-bottom:1.25rem;">
@@ -317,85 +285,91 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- Modal: Novo Curso -->
-<div class="modal-backdrop" id="courseModal" role="dialog" aria-modal="true">
-    <div class="modal">
-        <div class="modal-header">
-            <span class="modal-title">📚 Novo Curso</span>
-            <button class="modal-close" onclick="closeModal()">✕</button>
+<div id="courseModal" class="modal-wrapper" role="dialog" aria-modal="true">
+    <div class="modal-overlay" onclick="closeModal()"></div>
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">📚 Novo Curso</span>
+                <button type="button" class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <form method="POST" id="createCourseForm">
+                <input type="hidden" name="action" value="create">
+                <?= csrf_field() ?>
+                <div class="modal-body">
+
+                    <div style="padding:.625rem .875rem;border-radius:var(--radius-md);background:var(--color-primary-light);color:var(--color-primary);font-size:.875rem;font-weight:500;">
+                        🏫 Será cadastrado em: <strong><?= htmlspecialchars($inst['name']) ?></strong>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Nome do Curso <span class="required">*</span></label>
+                        <div class="input-group">
+                            <span class="input-icon">📚</span>
+                            <input type="text" name="name" class="form-control"
+                                placeholder="Ex: Técnico em Informática" required autofocus>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Local</label>
+                        <div class="input-group">
+                            <span class="input-icon">📍</span>
+                            <input type="text" name="location" class="form-control"
+                                placeholder="Ex: Bloco A — Sala 101">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">💾 Cadastrar</button>
+                </div>
+            </form>
         </div>
-        <form method="POST" id="createCourseForm">
-            <input type="hidden" name="action" value="create">
-            <?= csrf_field() ?>
-            <div class="modal-body">
-
-                <div style="padding:.625rem .875rem;border-radius:var(--radius-md);background:var(--color-primary-light);color:var(--color-primary);font-size:.875rem;font-weight:500;">
-                    🏫 Será cadastrado em: <strong><?= htmlspecialchars($inst['name']) ?></strong>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Nome do Curso <span class="required">*</span></label>
-                    <div class="input-group">
-                        <span class="input-icon">📚</span>
-                        <input type="text" name="name" class="form-control"
-                               placeholder="Ex: Técnico em Informática" required autofocus>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Local</label>
-                    <div class="input-group">
-                        <span class="input-icon">📍</span>
-                        <input type="text" name="location" class="form-control"
-                               placeholder="Ex: Bloco A — Sala 101">
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-                <button type="submit" class="btn btn-primary">💾 Cadastrar</button>
-            </div>
-        </form>
     </div>
 </div>
 
 <!-- Modal: Importar Notas -->
-<div class="modal-backdrop" id="importGradesModal" role="dialog" aria-modal="true">
-    <div class="modal">
-        <div class="modal-header">
-            <span class="modal-title">📊 Importar Notas via Arquivo</span>
-            <button class="modal-close" onclick="closeImportGradesModal()">✕</button>
-        </div>
-        <form action="/courses/import_notas.php" method="POST" enctype="multipart/form-data">
-            <input type="hidden" name="course_id" id="import_grades_course_id">
-            <div class="modal-body">
-                
-                <div style="padding:.625rem .875rem;border-radius:var(--radius-md);background:var(--color-primary-light);color:var(--color-primary);font-size:.875rem;font-weight:500;margin-bottom:.5rem;">
-                    🏫 Curso: <strong id="import_grades_course_name">...</strong>
-                </div>
+<div id="importGradesModal" class="modal-wrapper" role="dialog" aria-modal="true">
+    <div class="modal-overlay" onclick="closeImportGradesModal()"></div>
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">📊 Importar Notas via Arquivo</span>
+                <button type="button" class="modal-close" onclick="closeImportGradesModal()">✕</button>
+            </div>
+            <form action="/courses/import_notas.php" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="course_id" id="import_grades_course_id">
+                <div class="modal-body">
+                    
+                    <div style="padding:.625rem .875rem;border-radius:var(--radius-md);background:var(--color-primary-light);color:var(--color-primary);font-size:.875rem;font-weight:500;margin-bottom:.5rem;">
+                        🏫 Curso: <strong id="import_grades_course_name">...</strong>
+                    </div>
 
-                <div style="padding:1rem; border-radius:var(--radius-md); background:var(--bg-surface-2nd); border:1px dashed var(--border-color); margin-bottom:0.5rem;">
-                    <p style="font-size:0.875rem; font-weight:600; margin-bottom:0.5rem; color:var(--text-primary);">📝 Instruções do Arquivo:</p>
-                    <ul style="font-size:0.8125rem; color:var(--text-muted); padding-left:1.25rem;">
-                        <li>O arquivo deve ser um <strong>CSV</strong> (separador , ou ;).</li>
-                        <li>Colunas: <strong>Etapa, Matrícula, Disciplina, Nota, Faltas</strong>.</li>
-                        <li>A primeira linha (cabeçalho) será ignorada.</li>
-                        <li>Exemplo: <br><code style="background:var(--bg-surface);padding:.2rem;border-radius:4px;display:inline-block;margin-top:.25rem;">1º Bimestre;2024001;MAT-101;8.5;2</code></li>
-                    </ul>
-                </div>
+                    <div style="padding:1rem; border-radius:var(--radius-md); background:var(--bg-surface-2nd); border:1px dashed var(--border-color); margin-bottom:0.5rem;">
+                        <p style="font-size:0.875rem; font-weight:600; margin-bottom:0.5rem; color:var(--text-primary);">📝 Instruções do Arquivo:</p>
+                        <ul style="font-size:0.8125rem; color:var(--text-muted); padding-left:1.25rem;">
+                            <li>O arquivo deve ser um <strong>CSV</strong> (separador , ou ;).</li>
+                            <li>Colunas: <strong>Etapa, Matrícula, Disciplina, Nota, Faltas</strong>.</li>
+                            <li>A primeira linha (cabeçalho) será ignorada.</li>
+                            <li>Exemplo: <br><code style="background:var(--bg-surface);padding:.2rem;border-radius:4px;display:inline-block;margin-top:.25rem;">1º Bimestre;2024001;MAT-101;8.5;2</code></li>
+                        </ul>
+                    </div>
 
-                <div class="form-group">
-                    <label class="form-label">Selecione o arquivo (.csv) <span class="required">*</span></label>
-                    <div class="input-group">
-                        <span class="input-icon">📄</span>
-                        <input type="file" name="import_file" class="form-control" accept=".csv" required style="padding-left:2.75rem;">
+                    <div class="form-group">
+                        <label class="form-label">Selecione o arquivo (.csv) <span class="required">*</span></label>
+                        <div class="input-group">
+                            <span class="input-icon">📄</span>
+                            <input type="file" name="import_file" class="form-control" accept=".csv" required style="padding-left:2.75rem;">
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeImportGradesModal()">Cancelar</button>
-                <button type="submit" class="btn btn-primary">🚀 Abrir Processador</button>
-            </div>
-        </form>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeImportGradesModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">🚀 Abrir Processador</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -405,13 +379,13 @@ var importGradesModal = document.getElementById('importGradesModal');
 
 function openModal() { 
     if (courseModal) {
-        courseModal.classList.add('show'); 
+        courseModal.classList.add('modal-show'); 
         document.body.style.overflow='hidden';
     }
 }
 function closeModal() { 
     if (courseModal) {
-        courseModal.classList.remove('show'); 
+        courseModal.classList.remove('modal-show'); 
         document.body.style.overflow='';
     }
 }
@@ -420,45 +394,56 @@ function openImportGradesModal(cid, cname) {
     document.getElementById('import_grades_course_id').value = cid;
     document.getElementById('import_grades_course_name').innerText = cname;
     if (importGradesModal) {
-        importGradesModal.classList.add('show');
+        importGradesModal.classList.add('modal-show');
         document.body.style.overflow = 'hidden';
     }
 }
 function closeImportGradesModal() {
     if (importGradesModal) {
-        importGradesModal.classList.remove('show');
+        importGradesModal.classList.remove('modal-show');
         document.body.style.overflow = '';
     }
 }
 
-// Toggle e Delete com confirm modal
 function toggleCourse(id, name, isActive) {
     const action = isActive ? 'Desativar' : 'Ativar';
-    if (confirm(`Tem certeza que deseja ${action.toLowerCase()} o curso "${name}"?`)) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.innerHTML = `
-            <input type="hidden" name="action" value="toggle">
-            <input type="hidden" name="course_id" value="${id}">
-            <input type="hidden" name="csrf_token" value="${(el = document.querySelector('[name=csrf_token]')) ? el.value : ''}">
-        `;
-        document.body.appendChild(form);
-        form.submit();
-    }
+    Modal.confirm({
+        title: action + ' Curso',
+        message: `Tem certeza que deseja ${action.toLowerCase()} o curso «${name}»?`,
+        confirmText: 'Sim, ' + action,
+        confirmClass: isActive ? 'btn-danger' : 'btn-primary',
+        onConfirm: () => {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="toggle">
+                <input type="hidden" name="course_id" value="${id}">
+                <input type="hidden" name="csrf_token" value="${(el = document.querySelector('[name=csrf_token]')) ? el.value : ''}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
 }
 
 function deleteCourse(id, name) {
-    if (confirm(`Tem certeza que deseja excluir permanentemente o curso "${name}"?`)) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.innerHTML = `
-            <input type="hidden" name="action" value="delete">
-            <input type="hidden" name="course_id" value="${id}">
-            <input type="hidden" name="csrf_token" value="${(el = document.querySelector('[name=csrf_token]')) ? el.value : ''}">
-        `;
-        document.body.appendChild(form);
-        form.submit();
-    }
+    Modal.confirm({
+        title: 'Excluir Curso',
+        message: `Tem certeza que deseja excluir permanentemente o curso «${name}»? Esta ação não pode ser desfeita.`,
+        confirmText: 'Sim, Excluir',
+        confirmClass: 'btn-danger',
+        onConfirm: () => {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.innerHTML = `
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="course_id" value="${id}">
+                <input type="hidden" name="csrf_token" value="${(el = document.querySelector('[name=csrf_token]')) ? el.value : ''}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
 }
 
 // Submit AJAX do formulário de criar
@@ -466,11 +451,17 @@ const createCourseForm = document.getElementById('createCourseForm');
 if (createCourseForm) createCourseForm.addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(this);
-    showLoading('Criando curso...');
+    if (typeof Loading !== 'undefined') Loading.show();
     fetch('', { method: 'POST', body: formData })
     .then(res => res.text())
-    .then(html => { hideLoading(); window.location.reload(); })
-    .catch(err => { hideLoading(); showError('Erro ao criar curso.'); });
+    .then(html => { 
+        if (typeof Loading !== 'undefined') Loading.hide();
+        window.location.reload(); 
+    })
+    .catch(err => { 
+        if (typeof Loading !== 'undefined') Loading.hide();
+        Toast.error('Erro ao criar curso.'); 
+    });
 });
 
 document.getElementById('courseModal').addEventListener('click', e => { if(e.target===document.getElementById('courseModal')) closeModal(); });
@@ -480,16 +471,10 @@ document.addEventListener('keydown', e => {
 });
 
 // Toasts para feedback
-<?php if ($success || $error): ?>
 document.addEventListener('DOMContentLoaded', function() {
-    <?php if ($success): ?>
-    showSuccess(<?= json_encode($success) ?>);
-    <?php endif; ?>
-    <?php if ($error): ?>
-    showError(<?= json_encode($error) ?>);
-    <?php endif; ?>
+    <?php if ($success): ?> Toast.success(<?= json_encode($success) ?>); <?php endif; ?>
+    <?php if ($error): ?> Toast.error(<?= json_encode($error) ?>); <?php endif; ?>
 });
-<?php endif; ?>
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

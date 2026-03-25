@@ -744,9 +744,11 @@ function showDetailTab(tabId) {
     document.querySelectorAll('.detail-tab-item').forEach(t => t.classList.remove('active'));
     const tabEl = document.querySelector('[data-tab-id="' + tabId + '"]');
     if (tabEl) tabEl.classList.add('active');
-    
+
     const content = document.getElementById('detail-content');
     content.innerHTML = '<p style="text-align:center;color:var(--text-muted);">Carregando detalhes de ' + tab.aluno.nome + '...</p>';
+    
+    if (typeof Loading !== 'undefined') Loading.show();
     
     fetch('conselho_aluno_detalhes_ajax.php?aluno_id=' + tab.aluno.id + '&conselho_id=' + conselhoId)
         .then(res => res.json())
@@ -937,6 +939,9 @@ function showDetailTab(tabId) {
         .catch((err) => {
             console.error('Erro ao carregar detalhes:', err);
             content.innerHTML = '<p style="text-align:center;color:var(--color-danger);padding:2rem;"><b>Erro ao carregar detalhes.</b><br><small>' + (err.message || 'Erro desconhecido') + '</small></p>';
+        })
+        .finally(() => {
+            if (typeof Loading !== 'undefined') Loading.hide();
         });
 }
 
