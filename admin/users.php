@@ -489,7 +489,7 @@ function toggleUser(userId, userName, isActive) {
             form.innerHTML = `
                 <input type="hidden" name="action" value="toggle">
                 <input type="hidden" name="user_id" value="${userId}">
-                <input type="hidden" name="csrf_token" value="${document.querySelector('[name=csrf_token]')?.value || ''}">
+                <input type="hidden" name="csrf_token" value="${(el = document.querySelector('[name=csrf_token]')) ? el.value : ''}">
             `;
             document.body.appendChild(form);
             form.submit();
@@ -509,7 +509,7 @@ function deleteUser(userId, userName) {
             form.innerHTML = `
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="user_id" value="${userId}">
-                <input type="hidden" name="csrf_token" value="${document.querySelector('[name=csrf_token]')?.value || ''}">
+                <input type="hidden" name="csrf_token" value="${(el = document.querySelector('[name=csrf_token]')) ? el.value : ''}">
             `;
             document.body.appendChild(form);
             form.submit();
@@ -518,7 +518,8 @@ function deleteUser(userId, userName) {
 }
 
 // Submeter formulário de criar usuário via AJAX
-document.getElementById('createUserForm')?.addEventListener('submit', function(e) {
+const createUserForm = document.getElementById('createUserForm');
+if (createUserForm) createUserForm.addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(this);
     

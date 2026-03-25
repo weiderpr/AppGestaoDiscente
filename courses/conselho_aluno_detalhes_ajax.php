@@ -1,4 +1,6 @@
 <?php
+ini_set('display_errors', 0);
+error_reporting(0);
 /**
  * AJAX - Detalhes do aluno para conselho de classe
  */
@@ -122,8 +124,50 @@ foreach ($todasDisciplinas as $d) {
     $disciplinasAgrupadas[] = $agrupada;
 }
 
+// 4. Buscar médias da turma para comparação
+$mediasTurmaRaw = [];
+try {
+    // Busca contagem de alunos separadamente para evitar subqueries complexas no SELECT
+    $stCount = $db->prepare("SELECT COUNT(*) FROM turma_alunos WHERE turma_id = ?");
+    $stCount->execute([$targetTurmaId]);
+    $totalAlunosTurma = (int)$stCount->fetchColumn() ?: 1;
+
+    $sqlMediaTurma = "
+        SELECT en.disciplina_codigo, SUM(en.nota) as soma_total
+        FROM etapa_notas en
+        WHERE en.etapa_id IN ($placeholders) 
+          AND en.aluno_id IN (SELECT aluno_id FROM turma_alunos WHERE turma_id = ?)
+        GROUP BY en.disciplina_codigo
+    ";
+    $stMedia = $db->prepare($sqlMediaTurma);
+    $stMedia->execute(array_merge($etapasIds, [$targetTurmaId]));
+    $somasTurmaRaw = $stMedia->fetchAll(PDO::FETCH_KEY_PAIR) ?: [];
+    
+    foreach ($somasTurmaRaw as $codigo => $soma) {
+        $mediasTurmaRaw[$codigo] = $soma / $totalAlunosTurma;
+    }
+} catch (Throwable $e) {
+    // Silently fail for averages if query fails
+    $mediasTurmaRaw = [];
+}
+
+// Adicionar a média da turma ao array de disciplinas
+foreach ($disciplinasAgrupadas as &$disc) {
+    $disc['media_turma'] = isset($mediasTurmaRaw[$disc['codigo']]) ? (float)$mediasTurmaRaw[$disc['codigo']] : 0;
+}
+unset($disc);
+
+// 5. Soma de médias de aprovação (Target)
+$somaMediaAprovacao = 0;
+foreach ($etapasConselho as $e) {
+    if (isset($e['media_nota'])) {
+        $somaMediaAprovacao += (float)$e['media_nota'];
+    }
+}
+
 echo json_encode([
     'aluno' => $aluno,
     'etapas' => $etapasConselho,
+    'soma_media_aprovacao' => $somaMediaAprovacao,
     'disciplinas' => array_values($disciplinasAgrupadas)
 ]);

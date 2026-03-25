@@ -21,7 +21,7 @@ const VAPerformance = {
             let count = 0;
             const max = parseFloat(stage.nota_maxima) || 10;
             disciplines.forEach(disc => {
-                const grade = disc.etapas[stage.id]?.nota;
+                const grade = (disc.etapas && disc.etapas[stage.id]) ? disc.etapas[stage.id].nota : undefined;
                 if (grade !== null && grade !== undefined) {
                     // Normalizamos para base 10 para manter a consistência dos cálculos de tendência
                     sumRel += (parseFloat(grade) / max) * 10;
@@ -375,5 +375,110 @@ const VAPerformance = {
             console.error('Erro na renderização de tendência quantitativa:', e);
             target.innerHTML = '';
         }
+    },
+
+    /**
+     * Render a Comparison Chart (Student vs Class Average)
+     */
+    renderComparisonChart: function(containerId, disciplines, passGrade = 0) {
+        const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+        if (!container || !disciplines || disciplines.length === 0) return;
+
+        const width = container.offsetWidth || 300;
+        const height = 340;
+        const paddingLeft = 50;
+        const paddingRight = 30;
+        const paddingTop = 40;
+        const paddingBottom = 70;
+        const chartWidth = width - paddingLeft - paddingRight;
+        const chartHeight = height - paddingTop - paddingBottom;
+
+        // Calculate max value for Y axis
+        const maxScore = Math.max(...disciplines.map(d => Math.max(parseFloat(d.soma_nota) || 0, parseFloat(d.media_turma) || 0, parseFloat(passGrade) || 0, 10)));
+        const yMax = Math.ceil(maxScore / 10) * 10;
+
+        const barWidth = Math.min(40, (chartWidth / disciplines.length) * 0.5);
+        const gap = (chartWidth - (barWidth * disciplines.length)) / (disciplines.length + 1);
+
+        let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="overflow:visible;">`;
+
+        // 1. Grid lines and Y labels
+        const gridSteps = 5;
+        for (let i = 0; i <= gridSteps; i++) {
+            const val = (yMax / gridSteps) * i;
+            const y = height - paddingBottom - (val / yMax * chartHeight);
+            svg += `<line x1="${paddingLeft}" y1="${y}" x2="${width - paddingRight}" y2="${y}" stroke="var(--border-color)" stroke-width="1" stroke-dasharray="2,2" opacity="0.3" />`;
+            svg += `<text x="${paddingLeft - 8}" y="${y + 4}" font-size="10" text-anchor="end" fill="var(--text-muted)">${val.toFixed(0)}</text>`;
+        }
+
+        // 2. Reference Lines (Passing Grade & Class Average)
+        // Passing Grade Line (Dashed Orange)
+        if (passGrade > 0) {
+            const passY = height - paddingBottom - (passGrade / yMax * chartHeight);
+            svg += `
+                <line x1="${paddingLeft}" y1="${passY}" x2="${width - paddingRight}" y2="${passY}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5,3" opacity="0.8" />
+                <text x="${width - paddingRight + 5}" y="${passY + 4}" font-size="10" font-weight="700" fill="#d97706">Média: ${passGrade.toFixed(1)}</text>
+            `;
+        }
+
+        // 3. Bars
+        disciplines.forEach((d, i) => {
+            const x = paddingLeft + gap + i * (barWidth + gap);
+            const studentScore = parseFloat(d.soma_nota) || 0;
+            const classAvg = parseFloat(d.media_turma) || 0;
+            
+            // Student Bar
+            const studentH = (studentScore / yMax) * chartHeight;
+            const studentY = height - paddingBottom - studentH;
+            
+            // Lógica de Cores Intuível:
+            // Azul se >= Média de Aprovação
+            // Vermelho se < Média de Aprovação
+            const passed = studentScore >= (passGrade - 0.01);
+            const barColor = passed ? '#3b82f6' : 'var(--color-danger)';
+            
+            svg += `
+                <rect x="${x}" y="${studentY}" width="${barWidth}" height="${studentH}" fill="${barColor}" rx="4" opacity="0.9">
+                    <title>${d.descricao}\nAluno: ${studentScore.toFixed(2)}\nMédia Turma: ${classAvg.toFixed(2)}\nMédia Aprovação: ${passGrade.toFixed(2)}</title>
+                    <animate attributeName="height" from="0" to="${studentH}" dur="0.6s" begin="${i * 0.05}s" fill="freeze" />
+                    <animate attributeName="y" from="${height - paddingBottom}" to="${studentY}" dur="0.6s" begin="${i * 0.05}s" fill="freeze" />
+                </rect>
+            `;
+
+            // Class Average Marker (Solid Line/Indicator)
+            const avgY = height - paddingBottom - (classAvg / yMax * chartHeight);
+            svg += `
+                <line x1="${x - 5}" y1="${avgY}" x2="${x + barWidth + 5}" y2="${avgY}" stroke="var(--text-primary)" stroke-width="3" stroke-linecap="round" opacity="0.6">
+                    <title>Média da Turma: ${classAvg.toFixed(1)}</title>
+                </line>
+            `;
+
+            // X Labels (Disciplinas) - Rotated if too many
+            const labelText = d.descricao.length > 20 ? d.descricao.substring(0, 18) + '..' : d.descricao;
+            svg += `
+                <text x="${x + barWidth / 2}" y="${height - paddingBottom + 15}" font-size="9" font-weight="600" text-anchor="start" transform="rotate(35, ${x + barWidth / 2}, ${height - paddingBottom + 15})" fill="var(--text-secondary)">${labelText}</text>
+            `;
+        });
+
+        // 4. Legend
+        const legendY = height - 15;
+        svg += `
+            <g transform="translate(${paddingLeft}, ${legendY})">
+                <rect width="12" height="12" fill="#3b82f6" rx="2" />
+                <text x="18" y="10" font-size="10" fill="var(--text-muted)">Aluno (Aprovado)</text>
+                
+                <rect x="110" width="12" height="12" fill="var(--color-danger)" rx="2" />
+                <text x="128" y="10" font-size="10" fill="var(--text-muted)">Aluno (Reprovado)</text>
+
+                <line x1="230" y1="6" x2="250" y2="6" stroke="#f59e0b" stroke-width="2" stroke-dasharray="3,2" />
+                <text x="255" y="10" font-size="10" fill="var(--text-muted)">Média Mínima</text>
+                
+                <line x1="330" y1="6" x2="350" y2="6" stroke="var(--text-primary)" stroke-width="3" stroke-linecap="round" opacity="0.6" />
+                <text x="355" y="10" font-size="10" fill="var(--text-muted)">Média Turma</text>
+            </g>
+        `;
+
+        svg += `</svg>`;
+        container.innerHTML = svg;
     }
 };

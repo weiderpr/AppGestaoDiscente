@@ -124,14 +124,16 @@ require_once __DIR__ . '/../includes/header.php';
 .action-btn:hover { background:var(--bg-hover); color:var(--text-primary); }
 .action-btn.danger:hover { background:#fef2f2; color:var(--color-danger); border-color:var(--color-danger); }
 [data-theme="dark"] .action-btn.danger:hover { background:#450a0a; }
-/* Modal - centralizado */
-.modal-backdrop { position:fixed; top:0; left:0; right:0; bottom:0; z-index:3000; background:rgba(0,0,0,.5);
-    backdrop-filter:blur(4px); display:none; }
-.modal-backdrop.show { display:block; }
-.modal-backdrop.show .modal { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
+/* Modal - padrão */
+.modal-backdrop { position:fixed; inset:0; z-index:3000; background:rgba(0,0,0,.5);
+    backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center;
+    padding:1rem; opacity:0; visibility:hidden; transition:all .25s ease; }
+.modal-backdrop.show { opacity:1; visibility:visible; }
 .modal { background:var(--bg-surface); border:1px solid var(--border-color);
     border-radius:var(--radius-xl); width:100%; max-width:560px;
-    max-height:90vh; overflow-y:auto; box-shadow:0 25px 60px rgba(0,0,0,.3); display:flex; flex-direction:column; }
+    max-height:90vh; overflow-y:auto; box-shadow:0 25px 60px rgba(0,0,0,.3);
+    transform:translateY(20px) scale(.97); transition:all .25s ease; }
+.modal-backdrop.show .modal { transform:translateY(0) scale(1); }
 .modal-header { padding:1.5rem; border-bottom:1px solid var(--border-color);
     display:flex; align-items:center; justify-content:space-between; }
 .modal-title { font-size:1.0625rem; font-weight:700; color:var(--text-primary); }
@@ -337,8 +339,8 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
-function openModal()  { document.getElementById('instModal').style.display='flex'; document.body.style.overflow='hidden'; }
-function closeModal() { document.getElementById('instModal').style.display='none'; document.body.style.overflow=''; }
+function openModal()  { document.getElementById('instModal').classList.add('show'); document.body.style.overflow='hidden'; }
+function closeModal() { document.getElementById('instModal').classList.remove('show'); document.body.style.overflow=''; }
 document.getElementById('instModal').addEventListener('click', e => { if(e.target===document.getElementById('instModal')) closeModal(); });
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
 
@@ -368,7 +370,7 @@ function toggleInst(id, name, isActive) {
             form.innerHTML = `
                 <input type="hidden" name="action" value="toggle">
                 <input type="hidden" name="inst_id" value="${id}">
-                <input type="hidden" name="csrf_token" value="${document.querySelector('[name=csrf_token]')?.value || ''}">
+                <input type="hidden" name="csrf_token" value="${(el = document.querySelector('[name=csrf_token]')) ? el.value : ''}">
             `;
             document.body.appendChild(form);
             form.submit();
@@ -388,7 +390,7 @@ function deleteInst(id, name) {
             form.innerHTML = `
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="inst_id" value="${id}">
-                <input type="hidden" name="csrf_token" value="${document.querySelector('[name=csrf_token]')?.value || ''}">
+                <input type="hidden" name="csrf_token" value="${(el = document.querySelector('[name=csrf_token]')) ? el.value : ''}">
             `;
             document.body.appendChild(form);
             form.submit();
@@ -397,7 +399,8 @@ function deleteInst(id, name) {
 }
 
 // Submit AJAX do formulário de criar
-document.getElementById('createInstForm')?.addEventListener('submit', function(e) {
+const createInstForm = document.getElementById('createInstForm');
+if (createInstForm) createInstForm.addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(this);
     showLoading('Criando instituição...');
@@ -418,7 +421,8 @@ document.getElementById('instPhoto').addEventListener('change', function(e) {
 });
 
 // Máscara CNPJ
-document.getElementById('cnpjInput')?.addEventListener('input', function() {
+const cnpjInput = document.getElementById('cnpjInput');
+if (cnpjInput) cnpjInput.addEventListener('input', function() {
     let v = this.value.replace(/\D/g,'').substring(0,14);
     if (v.length>12) v = v.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{1,2})/,'$1.$2.$3/$4-$5');
     else if (v.length>8) v = v.replace(/(\d{2})(\d{3})(\d{3})(\d{1,4})/,'$1.$2.$3/$4');

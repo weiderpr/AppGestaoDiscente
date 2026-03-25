@@ -9,8 +9,7 @@
 
 </div><!-- /app-wrapper -->
 
-<!-- Scripts -->
-<script src="/assets/js/main.js"></script>
+<!-- Scripts (extraJS definido pela página) -->
 <?php if (isset($extraJS)): foreach ($extraJS as $js): ?>
 <script src="<?= $js ?>"></script>
 <?php endforeach; endif; ?>

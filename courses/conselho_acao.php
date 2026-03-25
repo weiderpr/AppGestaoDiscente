@@ -169,6 +169,10 @@ if (!empty($etapasIds)) {
 }
 
 $pageTitle = 'Conselho de Classe - ' . htmlspecialchars($conselho['descricao']);
+$extraJS = [
+    '/assets/js/sentiment_system.js?v=1.2',
+    '/assets/js/performance_system.js?v=2.0'
+];
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
@@ -397,8 +401,8 @@ require_once __DIR__ . '/../includes/header.php';
                             <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Médias Perdidas</th>
                             <th style="padding:.75rem 1rem;text-align:left;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Disciplinas</th>
                             <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Total Faltas</th>
-                            <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Quant</th>
-                            <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Quali</th>
+                            <th style="padding:.75rem .5rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);white-space:nowrap;width:1%;">Quant</th>
+                            <th style="padding:.75rem .5rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);white-space:nowrap;width:1%;">Quali</th>
                             <th style="padding:.75rem 1rem;text-align:center;font-size:.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border-color);">Ação</th>
                         </tr>
                     </thead>
@@ -465,7 +469,16 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div id="trend-<?= $aluno['id'] ?>" class="sentiment-trend-container" data-aluno-id="<?= $aluno['id'] ?>" data-turma-id="<?= $turmaId ?>"></div>
                             </td>
                             <td style="padding:.75rem 1rem;text-align:center;vertical-align:middle;">
-                                <button type="button" class="action-btn" title="Ver Detalhes" onclick='openAlunoModal(<?= json_encode($aluno) ?>)'>👁️</button>
+                                <button type="button" title="Ver Detalhes" 
+                                        style="background:var(--color-primary-light); color:var(--color-primary); border:none; width:34px; height:34px; display:inline-flex; align-items:center; justify-content:center; border-radius:var(--radius-md); transition:all .2s; cursor:pointer;"
+                                        onmouseover="this.style.background='var(--color-primary)'; this.style.color='white'; this.style.transform='scale(1.05)';" 
+                                        onmouseout="this.style.background='var(--color-primary-light)'; this.style.color='var(--color-primary)'; this.style.transform='scale(1)';"
+                                        onclick='openAlunoModal(<?= json_encode($aluno) ?>)'>
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </button>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -647,7 +660,8 @@ function showDetailTab(tabId) {
     if (!tab) return;
     
     document.querySelectorAll('.detail-tab-item').forEach(t => t.classList.remove('active'));
-    document.querySelector(`[data-tab-id="${tabId}"]`)?.classList.add('active');
+    const tabEl = document.querySelector('[data-tab-id="' + tabId + '"]');
+    if (tabEl) tabEl.classList.add('active');
     
     const content = document.getElementById('detail-content');
     content.innerHTML = '<p style="text-align:center;color:var(--text-muted);">Carregando detalhes de ' + tab.aluno.nome + '...</p>';
@@ -727,8 +741,8 @@ function showDetailTab(tabId) {
                     }
                 });
                 
-                tbodyHtml += '<td style="text-align:center;padding:.5rem .75rem;font-size:.8125rem;' + mediaStyle + '">' + disc.soma_nota.toFixed(1) + '</td>';
-                tbodyHtml += '<td style="text-align:center;padding:.5rem .75rem;font-size:.8125rem;">' + disc.soma_faltas + '</td>';
+                tbodyHtml += '<td style="text-align:center;padding:.5rem .375rem;font-size:.8125rem;white-space:nowrap;' + mediaStyle + '">' + disc.soma_nota.toFixed(1) + '</td>';
+                tbodyHtml += '<td style="text-align:center;padding:.5rem .375rem;font-size:.8125rem;white-space:nowrap;">' + disc.soma_faltas + '</td>';
                 
                 let trendIcon = '';
                 let trendStyle = '';
@@ -759,7 +773,7 @@ function showDetailTab(tabId) {
                     trendIcon = '—';
                     trendStyle = 'color:var(--text-muted);';
                 }
-                tbodyHtml += '<td style="text-align:center;padding:.5rem .75rem;font-size:.8125rem;' + trendStyle + '">' + trendIcon + '</td>';
+                tbodyHtml += '<td style="text-align:center;padding:.5rem .375rem;font-size:.8125rem;white-space:nowrap;' + trendStyle + '">' + trendIcon + '</td>';
                 tbodyHtml += '</tr>';
             });
             tbodyHtml += '</tbody>';
@@ -769,7 +783,17 @@ function showDetailTab(tabId) {
             // Tabela de notas - 2/3
             html += '<div style="flex:2;overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-color);">';
             html += '<table style="width:100%;border-collapse:collapse;font-size:.8125rem;">' + theadHtml + tbodyHtml + '</table>';
+
+            // Card 4: Comparação com a Turma (MOVIDO PARA BAIXO DA TABELA)
+            html += '<div style="margin-top:2rem;padding:1.5rem;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);">';
+            html += '<div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;">';
+            html += '<span style="font-size:1.25rem;">⚖️</span>';
+            html += '<div style="font-size:.875rem;font-weight:700;color:var(--text-primary);text-transform:uppercase;">Desempenho: Aluno vs Média da Turma</div>';
             html += '</div>';
+            html += '<div id="perf-comparison-' + a.id + '" style="min-height:340px;width:100%;"></div>';
+            html += '</div>';
+            
+            html += '</div>'; // Fecha container flex:2 (principal)
             
             // Área de gráficos - 1/3
             html += '<div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:1rem;">';
@@ -791,15 +815,16 @@ function showDetailTab(tabId) {
             
             content.innerHTML = html;
             
-            // Renderiza as análises
+            // Renderiza as análises no banner lateral e nos cards de detalhes
             VASentiment.renderTrend('banner-trend-' + a.id, a.id, conselho.turma_id);
             VAPerformance.renderPerformanceTrend('banner-perf-' + a.id, dados.etapas, dados.disciplinas);
-            VAPerformance.renderPerformanceTrend('perf-trend-' + a.id, dados.etapas, dados.disciplinas);
             VAPerformance.renderPerformanceChart('perf-chart-' + a.id, dados.etapas, dados.disciplinas);
             VAPerformance.renderCategoryChart('perf-categories-' + a.id, dados.disciplinas);
+            VAPerformance.renderComparisonChart('perf-comparison-' + a.id, dados.disciplinas, dados.soma_media_aprovacao);
         })
-        .catch(() => {
-            content.innerHTML = '<p style="text-align:center;color:var(--color-danger);">Erro ao carregar detalhes.</p>';
+        .catch((err) => {
+            console.error('Erro ao carregar detalhes:', err);
+            content.innerHTML = '<p style="text-align:center;color:var(--color-danger);padding:2rem;"><b>Erro ao carregar detalhes.</b><br><small>' + (err.message || 'Erro desconhecido') + '</small></p>';
         });
 }
 
@@ -808,7 +833,8 @@ function renderDetailTabs() {
     container.innerHTML = '';
     
     detailTabs.forEach(tab => {
-        const isActive = document.querySelector('.detail-tab-item[data-tab-id="' + tab.id + '"]')?.classList.contains('active');
+            const tabItem = document.querySelector('.detail-tab-item[data-tab-id="' + tab.id + '"]');
+            const isActive = tabItem ? tabItem.classList.contains('active') : false;
         const div = document.createElement('div');
         div.className = 'detail-tab-item' + (isActive ? ' active' : '');
         div.setAttribute('data-tab-id', tab.id);

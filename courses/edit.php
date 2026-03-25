@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user    = getCurrentUser();
-$allowed = ['Administrador'];
+$allowed = ['Administrador', 'Coordenador'];
 if (!$user || !in_array($user['profile'], $allowed)) {
     header('Location: /dashboard.php');
     exit;
@@ -169,6 +169,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                 <!-- Toggle ativo/inativo -->
                 <form method="POST" action="/courses/index.php" style="margin-top:1rem;">
+                    <?= csrf_field() ?>
                     <input type="hidden" name="action"    value="toggle">
                     <input type="hidden" name="course_id" value="<?= $course['id'] ?>">
                     <button type="submit"

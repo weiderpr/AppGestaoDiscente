@@ -3,6 +3,7 @@
  * Vértice Acadêmico — Cursos (Administrador e Coordenador)
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user = getCurrentUser();
@@ -25,6 +26,13 @@ if (!$instId) {
 $success = '';
 $error   = '';
 $action  = $_POST['action'] ?? '';
+
+// Verificação CSRF para ações POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action) {
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        die('Token de segurança inválido. Tente novamente.');
+    }
+}
 
 // ---- CRIAR ----
 if ($action === 'create' && $user['profile'] === 'Administrador') {
@@ -59,14 +67,6 @@ if ($action === 'toggle' && !empty($_POST['course_id']) && $user['profile'] === 
     $db->prepare('UPDATE courses SET is_active = !is_active WHERE id=? AND institution_id=?')
        ->execute([$cid, $instId]);
     $success = 'Status do curso atualizado.';
-}
-
-// ---- EXCLUIR ----
-if ($action === 'delete' && !empty($_POST['course_id']) && $user['profile'] === 'Administrador') {
-    $cid = (int)$_POST['course_id'];
-    $db->prepare('DELETE FROM courses WHERE id=? AND institution_id=?')
-       ->execute([$cid, $instId]);
-    $success = 'Curso removido.';
 }
 
 // ---- EXCLUIR ----
@@ -299,21 +299,13 @@ require_once __DIR__ . '/../includes/header.php';
                             <?php endif; ?>
                             <?php if ($user['profile'] === 'Administrador'): ?>
                                 <a href="/courses/edit.php?id=<?= $c['id'] ?>" class="action-btn" title="Editar">✏️</a>
-                                <form method="POST" style="display:inline;">
-                                    <input type="hidden" name="action"    value="toggle">
-                                    <input type="hidden" name="course_id" value="<?= $c['id'] ?>">
-                                    <button type="submit" class="action-btn"
-                                            title="<?= $c['is_active'] ? 'Desativar' : 'Ativar' ?>"
-                                            onclick="return confirm('<?= $c['is_active'] ? 'Desativar' : 'Ativar' ?> «<?= htmlspecialchars($c['name']) ?>»?')">
-                                        <?= $c['is_active'] ? '⏸' : '▶' ?>
-                                    </button>
-                                </form>
-                                <form method="POST" style="display:inline;">
-                                    <input type="hidden" name="action"    value="delete">
-                                    <input type="hidden" name="course_id" value="<?= $c['id'] ?>">
-                                    <button type="submit" class="action-btn danger" title="Excluir"
-                                            onclick="return confirm('Excluir permanentemente «<?= htmlspecialchars($c['name']) ?>»?')">🗑</button>
-                                </form>
+                                <button type="button" class="action-btn"
+                                        title="<?= $c['is_active'] ? 'Desativar' : 'Ativar' ?>"
+                                        onclick='toggleCourse(<?= $c['id'] ?>, <?= json_encode($c['name']) ?>, <?= $c['is_active'] ? 'true' : 'false' ?>)'>
+                                    <?= $c['is_active'] ? '⏸' : '▶' ?>
+                                </button>
+                                <button type="button" class="action-btn danger" title="Excluir"
+                                        onclick='deleteCourse(<?= $c['id'] ?>, <?= json_encode($c['name']) ?>)'>🗑</button>
                             <?php endif; ?>
                         </div>
                     </td>
@@ -331,8 +323,9 @@ require_once __DIR__ . '/../includes/header.php';
             <span class="modal-title">📚 Novo Curso</span>
             <button class="modal-close" onclick="closeModal()">✕</button>
         </div>
-        <form method="POST">
+        <form method="POST" id="createCourseForm">
             <input type="hidden" name="action" value="create">
+            <?= csrf_field() ?>
             <div class="modal-body">
 
                 <div style="padding:.625rem .875rem;border-radius:var(--radius-md);background:var(--color-primary-light);color:var(--color-primary);font-size:.875rem;font-weight:500;">
@@ -407,25 +400,96 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
-function openModal()  { document.getElementById('courseModal').classList.add('show'); document.body.style.overflow='hidden'; }
-function closeModal() { document.getElementById('courseModal').classList.remove('show'); document.body.style.overflow=''; }
+var courseModal = document.getElementById('courseModal');
+var importGradesModal = document.getElementById('importGradesModal');
+
+function openModal() { 
+    if (courseModal) {
+        courseModal.classList.add('show'); 
+        document.body.style.overflow='hidden';
+    }
+}
+function closeModal() { 
+    if (courseModal) {
+        courseModal.classList.remove('show'); 
+        document.body.style.overflow='';
+    }
+}
 
 function openImportGradesModal(cid, cname) {
     document.getElementById('import_grades_course_id').value = cid;
     document.getElementById('import_grades_course_name').innerText = cname;
-    document.getElementById('importGradesModal').classList.add('show');
-    document.body.style.overflow = 'hidden';
+    if (importGradesModal) {
+        importGradesModal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
 }
 function closeImportGradesModal() {
-    document.getElementById('importGradesModal').classList.remove('show');
-    document.body.style.overflow = '';
+    if (importGradesModal) {
+        importGradesModal.classList.remove('show');
+        document.body.style.overflow = '';
+    }
 }
+
+// Toggle e Delete com confirm modal
+function toggleCourse(id, name, isActive) {
+    const action = isActive ? 'Desativar' : 'Ativar';
+    if (confirm(`Tem certeza que deseja ${action.toLowerCase()} o curso "${name}"?`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="action" value="toggle">
+            <input type="hidden" name="course_id" value="${id}">
+            <input type="hidden" name="csrf_token" value="${(el = document.querySelector('[name=csrf_token]')) ? el.value : ''}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function deleteCourse(id, name) {
+    if (confirm(`Tem certeza que deseja excluir permanentemente o curso "${name}"?`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="course_id" value="${id}">
+            <input type="hidden" name="csrf_token" value="${(el = document.querySelector('[name=csrf_token]')) ? el.value : ''}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Submit AJAX do formulário de criar
+const createCourseForm = document.getElementById('createCourseForm');
+if (createCourseForm) createCourseForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    showLoading('Criando curso...');
+    fetch('', { method: 'POST', body: formData })
+    .then(res => res.text())
+    .then(html => { hideLoading(); window.location.reload(); })
+    .catch(err => { hideLoading(); showError('Erro ao criar curso.'); });
+});
 
 document.getElementById('courseModal').addEventListener('click', e => { if(e.target===document.getElementById('courseModal')) closeModal(); });
 document.getElementById('importGradesModal').addEventListener('click', function(e) { if(e.target===this) closeImportGradesModal(); });
 document.addEventListener('keydown', e => { 
     if(e.key==='Escape') { closeModal(); closeImportGradesModal(); } 
 });
+
+// Toasts para feedback
+<?php if ($success || $error): ?>
+document.addEventListener('DOMContentLoaded', function() {
+    <?php if ($success): ?>
+    showSuccess(<?= json_encode($success) ?>);
+    <?php endif; ?>
+    <?php if ($error): ?>
+    showError(<?= json_encode($error) ?>);
+    <?php endif; ?>
+});
+<?php endif; ?>
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

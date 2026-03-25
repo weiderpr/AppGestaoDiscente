@@ -349,6 +349,10 @@ $unlinkedCount = $db->query("
 ")->fetchColumn();
 
 $pageTitle = 'Alunos — ' . $turma['description'];
+$extraJS = [
+    '/assets/js/sentiment_system.js?v=1.2',
+    '/assets/js/performance_system.js?v=1.6'
+];
 require_once __DIR__ . '/../includes/header.php';
 ?>
 

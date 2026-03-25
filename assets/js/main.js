@@ -208,7 +208,7 @@ function initRegisterValidation() {
         }
 
         const confirm = form.querySelector('#password_confirm');
-        if (confirm && confirm.value !== password?.value) {
+        if (confirm && confirm.value !== (password ? password.value : '')) {
             showError(confirm, 'As senhas não coincidem.');
             valid = false;
         }

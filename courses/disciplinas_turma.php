@@ -452,7 +452,8 @@ function openProfessorModal(tdId, disciplinaNome) {
     document.body.style.overflow = 'hidden';
     
     // Carregar conteúdo via AJAX
-    const csrfToken = document.querySelector('[name=csrf_token]')?.value || '';
+    const csrfEl = document.querySelector('[name=csrf_token]');
+    const csrfToken = csrfEl ? csrfEl.value : '';
     fetch('disciplinas_turma_ajax.php?td_id=' + tdId + '&disciplina_nome=' + encodeURIComponent(disciplinaNome) + '&csrf_token=' + encodeURIComponent(csrfToken))
         .then(r => r.text())
         .then(html => {

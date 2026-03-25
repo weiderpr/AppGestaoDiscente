@@ -455,7 +455,7 @@ function toggleTurma(id, desc, isActive) {
             form.innerHTML = `
                 <input type="hidden" name="action" value="toggle">
                 <input type="hidden" name="turma_id" value="${id}">
-                <input type="hidden" name="csrf_token" value="${document.querySelector('[name=csrf_token]')?.value || ''}">
+                <input type="hidden" name="csrf_token" value="${(el = document.querySelector('[name=csrf_token]')) ? el.value : ''}">
             `;
             document.body.appendChild(form);
             form.submit();
@@ -475,7 +475,7 @@ function deleteTurma(id, desc) {
             form.innerHTML = `
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="turma_id" value="${id}">
-                <input type="hidden" name="csrf_token" value="${document.querySelector('[name=csrf_token]')?.value || ''}">
+                <input type="hidden" name="csrf_token" value="${(el = document.querySelector('[name=csrf_token]')) ? el.value : ''}">
             `;
             document.body.appendChild(form);
             form.submit();
@@ -484,7 +484,8 @@ function deleteTurma(id, desc) {
 }
 
 // Submit AJAX do formulário de criar
-document.getElementById('createTurmaForm')?.addEventListener('submit', function(e) {
+const createTurmaForm = document.getElementById('createTurmaForm');
+if (createTurmaForm) createTurmaForm.addEventListener('submit', function(e) {
     e.preventDefault();
     const formData = new FormData(this);
     showLoading('Criando turma...');
