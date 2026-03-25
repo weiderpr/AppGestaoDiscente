@@ -482,5 +482,117 @@ const VAPerformance = {
 
         svg += `</svg>`;
         container.innerHTML = svg;
+    },
+
+    /**
+     * Render a Boxplot chart to visualize grade distribution
+     */
+    renderBoxPlot: function(containerId, disciplines, distribution) {
+        const container = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+        if (!container || !disciplines || !distribution) return;
+
+        const width = container.offsetWidth || 300;
+        const height = 340;
+        const paddingLeft = 50;
+        const paddingRight = 30;
+        const paddingTop = 40;
+        const paddingBottom = 70;
+        const chartWidth = width - paddingLeft - paddingRight;
+        const chartHeight = height - paddingTop - paddingBottom;
+
+        // Find overall max for Y axis
+        let yMax = 10;
+        Object.values(distribution).forEach(grades => {
+            grades.forEach(g => { if (g > yMax) yMax = g; });
+        });
+        yMax = Math.ceil(yMax / 10) * 10;
+
+        const boxWidth = Math.min(30, (chartWidth / disciplines.length) * 0.4);
+        const gap = (chartWidth - (boxWidth * disciplines.length)) / (disciplines.length + 1);
+
+        let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="overflow:visible;">`;
+
+        // 1. Grid
+        const gridSteps = 5;
+        for (let i = 0; i <= gridSteps; i++) {
+            const val = (yMax / gridSteps) * i;
+            const y = height - paddingBottom - (val / yMax * chartHeight);
+            svg += `<line x1="${paddingLeft}" y1="${y}" x2="${width - paddingRight}" y2="${y}" stroke="var(--border-color)" stroke-width="1" stroke-dasharray="2,2" opacity="0.3" />`;
+            svg += `<text x="${paddingLeft - 8}" y="${y + 4}" font-size="10" text-anchor="end" fill="var(--text-muted)">${val.toFixed(0)}</text>`;
+        }
+
+        // 2. Render boxes per discipline
+        disciplines.forEach((d, i) => {
+            const grades = (distribution[d.codigo] || []).sort((a, b) => a - b);
+            if (grades.length === 0) return;
+
+            const x = paddingLeft + gap + i * (boxWidth + gap);
+
+            // Calculate Box Plot stats
+            const q1 = this.getPercentile(grades, 25);
+            const median = this.getPercentile(grades, 50);
+            const q3 = this.getPercentile(grades, 75);
+            const iqr = q3 - q1;
+            const minAllowed = q1 - 1.5 * iqr;
+            const maxAllowed = q3 + 1.5 * iqr;
+
+            const min = Math.max(grades[0], minAllowed);
+            const max = Math.min(grades[grades.length - 1], maxAllowed);
+            const outliers = grades.filter(g => g < minAllowed || g > maxAllowed);
+
+            const scaleY = val => height - paddingBottom - (val / yMax * chartHeight);
+
+            const yMin = scaleY(min);
+            const yMaxBox = scaleY(max);
+            const yQ1 = scaleY(q1);
+            const yQ3 = scaleY(q3);
+            const yMedian = scaleY(median);
+
+            // Whisker line (vertical)
+            svg += `<line x1="${x + boxWidth / 2}" y1="${yMin}" x2="${x + boxWidth / 2}" y2="${yMaxBox}" stroke="var(--text-primary)" stroke-width="1.5" />`;
+            
+            // Whisker caps (horizontal)
+            svg += `<line x1="${x + boxWidth * 0.2}" y1="${yMin}" x2="${x + boxWidth * 0.8}" y2="${yMin}" stroke="var(--text-primary)" stroke-width="1.5" />`;
+            svg += `<line x1="${x + boxWidth * 0.2}" y1="${yMaxBox}" x2="${x + boxWidth * 0.8}" y2="${yMaxBox}" stroke="var(--text-primary)" stroke-width="1.5" />`;
+
+            // Box (Q1 to Q3)
+            svg += `
+                <rect x="${x}" y="${yQ3}" width="${boxWidth}" height="${yQ1 - yQ3}" fill="#3b82f6" fill-opacity="0.3" stroke="#3b82f6" stroke-width="2">
+                    <title>${d.descricao}\nQ3: ${q3.toFixed(2)}\nMediana: ${median.toFixed(2)}\nQ1: ${q1.toFixed(2)}</title>
+                </rect>
+            `;
+
+            // Median line
+            svg += `<line x1="${x}" y1="${yMedian}" x2="${x + boxWidth}" y2="${yMedian}" stroke="#3b82f6" stroke-width="3" />`;
+
+            // Outliers
+            outliers.forEach(g => {
+                svg += `<circle cx="${x + boxWidth / 2}" cy="${scaleY(g)}" r="3" fill="var(--color-danger)" opacity="0.7">
+                    <title>Outlier: ${g.toFixed(2)}</title>
+                </circle>`;
+            });
+
+            // X Labels
+            const labelText = d.descricao.length > 20 ? d.descricao.substring(0, 18) + '..' : d.descricao;
+            svg += `
+                <text x="${x + boxWidth / 2}" y="${height - paddingBottom + 15}" font-size="9" font-weight="600" text-anchor="start" transform="rotate(25, ${x + boxWidth / 2}, ${height - paddingBottom + 15})" fill="var(--text-secondary)">${labelText}</text>
+            `;
+        });
+
+        svg += `</svg>`;
+        container.innerHTML = svg;
+    },
+
+    /**
+     * Helper to calculate percentile
+     */
+    getPercentile: function(data, percentile) {
+        if (data.length === 0) return 0;
+        const index = (percentile / 100) * (data.length - 1);
+        const lower = Math.floor(index);
+        const upper = Math.ceil(index);
+        const weight = index - lower;
+        if (upper === lower) return data[lower];
+        return data[lower] * (1 - weight) + data[upper] * weight;
     }
 };

@@ -171,7 +171,7 @@ if (!empty($etapasIds)) {
 $pageTitle = 'Conselho de Classe - ' . htmlspecialchars($conselho['descricao']);
 $extraJS = [
     '/assets/js/sentiment_system.js?v=1.2',
-    '/assets/js/performance_system.js?v=2.1'
+    '/assets/js/performance_system.js?v=2.2'
 ];
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -811,6 +811,7 @@ function showDetailTab(tabId) {
             html += '<div class="sub-tabs-nav">';
             html += '<button class="sub-tab-btn active" onclick="switchSubTab(this, \'pane-chart-' + a.id + '\', \'' + a.id + '\')">📊 Comparativo</button>';
             html += '<button class="sub-tab-btn" onclick="switchSubTab(this, \'pane-table-' + a.id + '\', \'' + a.id + '\')">📋 Planilha de Notas</button>';
+            html += '<button class="sub-tab-btn" onclick="switchSubTab(this, \'pane-boxplot-' + a.id + '\', \'' + a.id + '\')">📦 Boxplot</button>';
             html += '</div>';
 
             // Pane 1: Gráfico de Comparação (Ativo por padrão)
@@ -826,6 +827,20 @@ function showDetailTab(tabId) {
             html += '<div id="pane-table-' + a.id + '" class="sub-tab-pane" style="display:none;">';
             html += '<div style="overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-color);">';
             html += '<table style="width:100%;border-collapse:collapse;font-size:.8125rem;">' + theadHtml + tbodyHtml + '</table>';
+            html += '</div>'; // Fecha overflow-x
+            html += '</div>'; // Fecha pane-table
+            
+            // Pane 3: Boxplot (Escondido por padrão)
+            html += '<div id="pane-boxplot-' + a.id + '" class="sub-tab-pane" style="display:none;">';
+            html += '<div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;">';
+            html += '<span style="font-size:1.25rem;">📦</span>';
+            html += '<div style="font-size:.875rem;font-weight:700;color:var(--text-primary);text-transform:uppercase;">Distribuição: Dispersão de Notas (Boxplot)</div>';
+            html += '</div>';
+            html += '<div id="perf-boxplot-' + a.id + '" style="min-height:360px;width:100%;"></div>';
+            html += '<div style="margin-top:1rem;font-size:0.75rem;color:var(--text-muted);display:flex;gap:1.5rem;justify-content:center;">';
+            html += '<span><b style="color:#3b82f6">—</b> Caixa: 50% central (Q1-Q3)</span>';
+            html += '<span><b>—</b> Mediana: Centro da Distribuição</span>';
+            html += '<span><b style="color:var(--color-danger)">●</b> Outliers: Notas Discrepantes</span>';
             html += '</div>';
             html += '</div>';
             
@@ -885,6 +900,10 @@ function switchSubTab(btn, paneId, alunoId) {
     if (paneId.startsWith('pane-chart')) {
         setTimeout(() => {
             VAPerformance.renderComparisonChart('perf-comparison-' + alunoId, dados.disciplinas, dados.soma_media_aprovacao);
+        }, 50);
+    } else if (paneId.startsWith('pane-boxplot')) {
+        setTimeout(() => {
+            VAPerformance.renderBoxPlot('perf-boxplot-' + alunoId, dados.disciplinas, dados.distribuicao_turma);
         }, 50);
     }
 }

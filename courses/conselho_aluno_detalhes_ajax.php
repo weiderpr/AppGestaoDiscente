@@ -165,9 +165,31 @@ foreach ($etapasConselho as $e) {
     }
 }
 
+// 6. Distribuição das notas da turma (para Boxplot)
+$distribuicaoTurma = [];
+try {
+    $sqlDist = "
+        SELECT en.disciplina_codigo, en.aluno_id, SUM(en.nota) as soma_aluno
+        FROM etapa_notas en
+        WHERE en.etapa_id IN ($placeholders)
+          AND en.aluno_id IN (SELECT aluno_id FROM turma_alunos WHERE turma_id = ?)
+        GROUP BY en.disciplina_codigo, en.aluno_id
+    ";
+    $stDist = $db->prepare($sqlDist);
+    $stDist->execute(array_merge($etapasIds, [$targetTurmaId]));
+    $resDist = $stDist->fetchAll(PDO::FETCH_ASSOC);
+    
+    foreach ($resDist as $row) {
+        $distribuicaoTurma[$row['disciplina_codigo']][] = (float)$row['soma_aluno'];
+    }
+} catch (Throwable $e) {
+    // Silently fail if query fails
+}
+
 echo json_encode([
     'aluno' => $aluno,
     'etapas' => $etapasConselho,
     'soma_media_aprovacao' => $somaMediaAprovacao,
-    'disciplinas' => array_values($disciplinasAgrupadas)
+    'disciplinas' => array_values($disciplinasAgrupadas),
+    'distribuicao_turma' => $distribuicaoTurma
 ]);
