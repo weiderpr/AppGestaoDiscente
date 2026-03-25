@@ -194,6 +194,8 @@ require_once __DIR__ . '/../includes/header.php';
 }
 .tab-btn:hover { color:var(--text-primary); }
 .tab-btn.active { color:var(--color-primary); border-bottom-color:var(--color-primary); }
+.tab-btn.inactive { opacity:0.5; cursor:not-allowed; text-decoration:line-through; }
+.tab-btn.inactive:hover { color:var(--text-muted); }
 .tab-content { display:none; }
 .tab-content.active { display:block; }
 
@@ -326,16 +328,17 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <?php endif; ?>
 
+<?php $conselhoConcluido = !$conselho['is_active']; ?>
 <div class="tabs-nav fade-in" id="mainTabsNav">
-    <button class="tab-btn active" data-tab="presenca" onclick="showTab('presenca')">1. Lista de Presença</button>
-    <button class="tab-btn" data-tab="alunos" onclick="showTab('alunos')">2. Alunos</button>
-    <button class="tab-btn" data-tab="alunos_detalhes" onclick="showTab('alunos_detalhes')">2.1 Detalhes dos Alunos</button>
-    <button class="tab-btn" data-tab="encaminhamentos" onclick="showTab('encaminhamentos')">3. Encaminhamentos</button>
-    <button class="tab-btn" data-tab="ata" onclick="showTab('ata')">4. Ata do Conselho</button>
-    <button class="tab-btn" data-tab="avaliacao" onclick="showTab('avaliacao')">5. Finalização</button>
+    <button class="tab-btn <?= $conselhoConcluido ? 'inactive' : 'active' ?>" data-tab="presenca" onclick="showTab('presenca')">1. Lista de Presença</button>
+    <button class="tab-btn <?= $conselhoConcluido ? 'inactive' : '' ?>" data-tab="alunos" onclick="showTab('alunos')">2. Alunos</button>
+    <button class="tab-btn <?= $conselhoConcluido ? 'inactive' : '' ?>" data-tab="alunos_detalhes" onclick="showTab('alunos_detalhes')">2.1 Detalhes dos Alunos</button>
+    <button class="tab-btn <?= $conselhoConcluido ? 'inactive' : '' ?>" data-tab="encaminhamentos" onclick="showTab('encaminhamentos')">3. Encaminhamentos</button>
+    <button class="tab-btn <?= $conselhoConcluido ? 'active' : '' ?>" data-tab="ata" onclick="showTab('ata')">4. Ata do Conselho</button>
+    <button class="tab-btn <?= $conselhoConcluido ? 'active' : '' ?>" data-tab="avaliacao" onclick="showTab('avaliacao')">5. Finalização</button>
 </div>
 
-<div id="presenca" class="tab-content active fade-in">
+<div id="presenca" class="tab-content <?= $conselhoConcluido ? '' : 'active' ?> fade-in">
     <div class="card">
         <div class="card-header">
             <span class="card-title">Lista de Presença</span>
@@ -646,10 +649,21 @@ const presentesAtuais = [<?= implode(',', $presentesAtuais) ?>];
 const usuariosPorPerfil = <?= json_encode($usuariosPorPerfil) ?>;
 const conselhoId = <?= $conselhoId ?>;
 const conselho = { turma_id: <?= $conselho['turma_id'] ?> };
+const conselhoConcluido = <?= $conselhoConcluido ? 'true' : 'false' ?>;
 let detailTabs = [];
 let studentsInDetail = [];
 
+document.addEventListener('DOMContentLoaded', function() {
+    if (conselhoConcluido) {
+        showTab('ata');
+    }
+});
+
 function showTab(tabId) {
+    const btn = document.querySelector(`#mainTabsNav [data-tab="${tabId}"]`);
+    if (btn && btn.classList.contains('inactive')) {
+        return;
+    }
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('#mainTabsNav .tab-btn').forEach(b => b.classList.remove('active'));
     

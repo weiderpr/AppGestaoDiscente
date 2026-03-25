@@ -350,6 +350,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <td>
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
                             <a href="/courses/conselho_acao.php?id=<?= $c['id'] ?>" class="action-btn" title="Acessar Conselho">📋</a>
+                            <?php if ($c['is_active']): ?>
                             <button type="button" class="action-btn" title="Editar"
                                     onclick='openModal(<?= json_encode($c) ?>)'>✏️</button>
                             
@@ -369,6 +370,21 @@ require_once __DIR__ . '/../includes/header.php';
                                 <button type="submit" class="action-btn danger" title="Excluir"
                                         onclick="return confirm('Excluir permanentemente este conselho?')">🗑</button>
                             </form>
+                            <?php else: ?>
+                            <button type="button" class="action-btn" title="Editar" disabled
+                                    style="opacity:0.4;cursor:not-allowed;">✏️</button>
+                            <form method="POST" style="display:inline;">
+                                <input type="hidden" name="action" value="toggle">
+                                <input type="hidden" name="id" value="<?= $c['id'] ?>">
+                                <button type="submit" class="action-btn"
+                                        title="Ativar"
+                                        onclick="return confirm('Ativar este conselho?')">
+                                    ▶
+                                </button>
+                            </form>
+                            <button type="button" class="action-btn danger" title="Excluir" disabled
+                                    style="opacity:0.4;cursor:not-allowed;">🗑</button>
+                            <?php endif; ?>
                         </div>
                     </td>
                 </tr>
