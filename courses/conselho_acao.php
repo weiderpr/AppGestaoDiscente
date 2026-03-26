@@ -313,7 +313,7 @@ require_once __DIR__ . '/../includes/header.php';
         <a href="/courses/conselhos.php" style="color:var(--text-muted);text-decoration:none;font-size:.875rem;">← Voltar para Conselhos</a>
         <h1 class="page-title">📋 <?= htmlspecialchars($conselho['descricao']) ?></h1>
         <p class="page-subtitle">
-            <strong><?= htmlspecialchars($conselho['turma_name']) ?></strong> — <?= htmlspecialchars($conselho['course_name']) ?>
+            <strong><?= htmlspecialchars($conselho['turma_name']) ?></strong> — <?= htmlspecialchars($conselho['course_name']) ?> (<?= htmlspecialchars($conselho['descricao']) ?>)
             <span style="color:var(--text-muted);"> | <?= date('d/m/Y H:i', strtotime($conselho['data_hora'])) ?></span>
         </p>
     </div>

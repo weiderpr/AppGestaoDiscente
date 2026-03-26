@@ -140,8 +140,15 @@ $sql    = "SELECT cc.*, t.description as turma_name, c.name as course_name, c.id
            LEFT JOIN etapas e ON ce.etapa_id = e.id
            WHERE cc.institution_id = ?";
 
-$sql .= " GROUP BY cc.id";
 $params = [$instId];
+
+// Coordenador só vê os conselhos dos seus cursos
+if ($user['profile'] === 'Coordenador') {
+    $sql .= " AND c.id IN (SELECT course_id FROM course_coordinators WHERE user_id = ?)";
+    $params[] = $user['id'];
+}
+
+$sql .= " GROUP BY cc.id";
 
 if ($search) {
     $sql .= " AND (cc.descricao LIKE ? OR t.description LIKE ? OR c.name LIKE ?)";

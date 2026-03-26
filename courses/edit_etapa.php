@@ -79,8 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (strlen($description) < 2) {
         $error = 'Informe a descrição da etapa.';
-    } elseif ($nota_maxima <= 0) {
-        $error = 'A nota máxima deve ser maior que zero.';
+    } elseif ($nota_maxima < 0) {
+        $error = 'A nota máxima não pode ser negativa.';
     } elseif ($nota_maxima > $turma['nota_maxima']) {
         $error = 'A nota máxima da etapa não pode ser maior que a nota máxima da turma (' . number_format($turma['nota_maxima'], 2, ',', '.') . ').';
     } elseif ($media_nota < 0 || $media_nota > $nota_maxima) {
@@ -195,7 +195,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <span class="input-icon">🏆</span>
                             <input type="number" id="nota_maxima" name="nota_maxima" class="form-control"
                                    value="<?= number_format($etapa['nota_maxima'], 2, '.', '') ?>"
-                                   min="0.01" max="<?= $turma['nota_maxima'] ?>" step="0.01" required>
+                                   min="0" max="<?= $turma['nota_maxima'] ?>" step="0.01" required>
                         </div>
                     </div>
                     <div class="form-group">

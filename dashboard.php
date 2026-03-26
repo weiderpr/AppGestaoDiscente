@@ -6,6 +6,15 @@ require_once __DIR__ . '/includes/auth.php';
 requireLogin();
 
 $user      = getCurrentUser();
+
+// --- REDIRECIONAMENTO MOBILE ---
+// Perfis que usam a interface simplificada no mobile
+$mobileProfiles = ['Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'];
+if (isMobileDevice() && in_array($user['profile'], $mobileProfiles)) {
+    header('Location: /mobile/index.php');
+    exit;
+}
+
 $pageTitle = 'Dashboard';
 $firstName = explode(' ', $user['name'])[0];
 

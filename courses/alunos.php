@@ -452,16 +452,16 @@ require_once __DIR__ . '/../includes/header.php';
                     <th style="width:70px;">Foto</th>
                     <th>Matrícula</th>
                     <th>Nome Completo</th>
-                    <?php if ($isAdmin || $isCoord): ?>
+                    <?php if ($isAdmin || $isCoord || $isPedagogo): ?>
                     <th style="width:200px;">Tendência (Análise Quantitativa)</th>
                     <?php endif; ?>
                     <th style="width:200px;">Tendência (Análise Qualitativa)</th>
-                    <th style="text-align:center; width:<?= ($isAdmin || $isCoord) ? '160px' : '80px' ?>;">Ações</th>
+                    <th style="text-align:center; width:<?= ($isAdmin || $isCoord || $isPedagogo) ? '160px' : '80px' ?>;">Ações</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($alunos)): ?>
-                <tr><td colspan="<?= ($isAdmin || $isCoord) ? '5' : '4' ?>" style="text-align:center;padding:3rem;color:var(--text-muted);">Nenhum aluno vinculado a esta turma.</td></tr>
+                <tr><td colspan="<?= ($isAdmin || $isCoord || $isPedagogo) ? '5' : '4' ?>" style="text-align:center;padding:3rem;color:var(--text-muted);">Nenhum aluno vinculado a esta turma.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($alunos as $a): ?>
                 <tr>
@@ -475,11 +475,11 @@ require_once __DIR__ . '/../includes/header.php';
                     <td style="font-weight:600;color:var(--color-primary);"><?= htmlspecialchars($a['matricula']) ?></td>
                     <td style="font-weight:600;">
                         <div><?= htmlspecialchars($a['nome']) ?></div>
-                        <?php if ($isAdmin || $isCoord): ?>
+                        <?php if ($isAdmin || $isCoord || $isPedagogo): ?>
                         <div style="font-size:.75rem;color:var(--text-muted);font-weight:400;"><?= htmlspecialchars($a['email']) ?></div>
                         <?php endif; ?>
                     </td>
-                    <?php if ($isAdmin || $isCoord): ?>
+                    <?php if ($isAdmin || $isCoord || $isPedagogo): ?>
                     <td>
                         <div id="perf-trend-<?= $a['id'] ?>" class="performance-trend-container" data-aluno-id="<?= $a['id'] ?>" data-turma-id="<?= $turmaId ?>"></div>
                     </td>
@@ -489,7 +489,7 @@ require_once __DIR__ . '/../includes/header.php';
                     </td>
                     <td style="text-align:center;">
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
-<button type="button" class="action-btn" title="Adicionar Comentário" onclick="openCommentModal(<?= htmlspecialchars(json_encode(['id' => $a['id'], 'nome' => $a['nome'], 'photo' => $a['photo'], 'photo_url' => ($a['photo'] && file_exists(__DIR__.'/../'.$a['photo']) ? '/'.$a['photo'] : null)]), ENT_QUOTES) ?>, <?= $turmaId ?>)">💬</button>
+                            <button type="button" class="action-btn" title="Adicionar Comentário" onclick="openCommentModal(<?= htmlspecialchars(json_encode(['id' => $a['id'], 'nome' => $a['nome'], 'photo' => $a['photo'], 'photo_url' => ($a['photo'] && file_exists(__DIR__.'/../'.$a['photo']) ? '/'.$a['photo'] : null)]), ENT_QUOTES) ?>, <?= $turmaId ?>)">💬</button>
                             
                             <?php if ($isAdmin || $isCoord): ?>
                             <button type="button" class="action-btn" title="Editar"

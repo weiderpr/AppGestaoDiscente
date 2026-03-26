@@ -41,13 +41,14 @@ async function loadCouncilAta(conselhoId) {
                     <div style="text-align:center; margin-bottom:3rem;">
                         <h2 style="margin:0; text-transform:uppercase; letter-spacing:3px; font-size:1.6rem; font-family:sans-serif; font-weight:800;">ATA DE CONSELHO DE CLASSE</h2>
                         <div style="font-size:1.1rem; margin-top:0.4rem; font-weight:700; color:#333;">${info.course_name} — ${info.turma_name}</div>
+                        ${info.descricao ? `<div style="font-size:0.95rem; margin-top:0.3rem; font-weight:600; color:#555;">${info.descricao}</div>` : ''}
                     </div>
 
                     <!-- Seção 1: Participantes (Narrativa) -->
                     <section style="margin-bottom:2.5rem;">
                         <h3 style="font-size:1.1rem; border-bottom:1px solid #333; padding-bottom:5px; margin-bottom:1.25rem; color:#000; text-transform:uppercase; font-weight:800;">1. ABERTURA E PARTICIPANTES</h3>
                         <p style="text-indent:2rem; margin:0;">
-                            Estiveram presentes no conselho de classe do dia <b>${dataStr}</b>, referente à turma <b>${info.turma_name}</b>, com início às <b>${horaStr}</b> horas, os(as) seguintes servidores(as): ${listaPresentes}.
+                            Estiveram presentes no conselho de classe <b>${info.descricao}</b> do dia <b>${dataStr}</b>, referente à turma <b>${info.turma_name}</b>, com início às <b>${horaStr}</b> horas, os(as) seguintes servidores(as): ${listaPresentes}.
                         </p>
                     </section>
 

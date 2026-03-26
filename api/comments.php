@@ -3,7 +3,7 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $user = getCurrentUser();
-$allowedProfiles = ['Professor', 'Coordenador', 'Administrador'];
+$allowedProfiles = ['Professor', 'Coordenador', 'Administrador', 'Pedagogo', 'Assistente Social', 'Psicólogo'];
 if (!$user || !in_array($user['profile'], $allowedProfiles)) {
     http_response_code(403);
     header('Content-Type: application/json');
@@ -30,6 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $isProfessor = ($user['profile'] === 'Professor');
         $isCoord = ($user['profile'] === 'Coordenador');
         $isAdmin = ($user['profile'] === 'Administrador');
+        $isPedagogo = in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo']);
 
         if ($isProfessor) {
             $stCheck = $db->prepare('
@@ -42,7 +43,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 echo json_encode(['error' => 'Acesso negado: Você não leciona nesta turma']);
                 exit;
             }
-        } else if ($isCoord) {
+        } elseif ($isPedagogo) {
+            // Pedagogo e similares têm acesso a todas as turmas da instituição
+        } elseif ($isCoord) {
             $stCheckCoord = $db->prepare('
                 SELECT 1 FROM course_coordinators cc
                 JOIN courses c ON c.id = cc.course_id
