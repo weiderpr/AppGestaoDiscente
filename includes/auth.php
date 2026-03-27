@@ -46,7 +46,7 @@ function getCurrentUser(): ?array {
     if (!isLoggedIn()) return null;
 
     $db = getDB();
-    $stmt = $db->prepare('SELECT id, name, email, phone, photo, profile, theme FROM users WHERE id = ? AND is_active = 1');
+    $stmt = $db->prepare('SELECT id, name, email, phone, photo, profile, is_teacher, theme FROM users WHERE id = ? AND is_active = 1');
     $stmt->execute([$_SESSION['user_id']]);
     return $stmt->fetch() ?: null;
 }

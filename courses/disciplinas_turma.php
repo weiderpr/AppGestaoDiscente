@@ -161,12 +161,12 @@ $stDisponiveis = $db->prepare('
 $stDisponiveis->execute([$instId, $turmaId]);
 $disciplinasDisponiveis = $stDisponiveis->fetchAll();
 
-// Professores disponíveis
+// Professores disponíveis (profile='Professor' OU is_teacher=1)
 $stProfessores = $db->prepare('
     SELECT u.id, u.name, u.email, u.photo
     FROM users u
     JOIN user_institutions ui ON ui.user_id = u.id
-    WHERE ui.institution_id = ? AND u.profile = "Professor" AND u.is_active = 1
+    WHERE ui.institution_id = ? AND (u.profile = "Professor" OR u.is_teacher = 1) AND u.is_active = 1
     ORDER BY u.name
 ');
 $stProfessores->execute([$instId]);

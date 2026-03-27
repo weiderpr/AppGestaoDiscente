@@ -60,9 +60,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !csrf_verify($_POST['csrf_token'] ?
                     }
                 }
             }
+            $isTeacher = ($profile !== 'Professor' && !empty($_POST['is_teacher'])) ? 1 : 0;
             $hash = password_hash($pass, PASSWORD_BCRYPT);
-            $st   = $db->prepare('INSERT INTO users (name,email,password,phone,photo,profile,theme) VALUES(?,?,?,?,?,?,?)');
-            $st->execute([$name, strtolower($email), $hash, $phone, $photoPath, $profile, 'light']);
+            $st   = $db->prepare('INSERT INTO users (name,email,password,phone,photo,profile,is_teacher,theme) VALUES(?,?,?,?,?,?,?,?)');
+            $st->execute([$name, strtolower($email), $hash, $phone, $photoPath, $profile, $isTeacher, 'light']);
             $newUserId = (int)$db->lastInsertId();
 
             // Vincula às instituições selecionadas
@@ -382,12 +383,25 @@ require_once __DIR__ . '/../includes/header.php';
 
                 <div class="form-group">
                     <label class="form-label">Perfil de Acesso <span class="required">*</span></label>
-                    <select name="profile" class="form-control" required>
+                    <select name="profile" class="form-control" id="newUserProfile" required onchange="toggleTeacherField()">
                         <option value="" disabled selected>Selecione o perfil...</option>
                         <?php foreach (PROFILES as $p): ?>
                         <option value="<?= $p ?>"><?= htmlspecialchars($p) ?></option>
                         <?php endforeach; ?>
                     </select>
+                </div>
+
+                <!-- Campo para indicar que também é professor (só aparece se perfil não for Professor) -->
+                <div class="form-group" id="teacherFieldGroup" style="display:none;">
+                    <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;padding:.5rem;border:1.5px solid var(--color-primary);border-radius:var(--radius-md);background:rgba(79,70,229,0.05);">
+                        <input type="checkbox" name="is_teacher" id="newUserIsTeacher" value="1" style="width:18px;height:18px;accent-color:var(--color-primary);">
+                        <span style="font-size:.9375rem;color:var(--text-primary);">
+                            👨‍🏫 Este usuário <strong>também é professor</strong>
+                        </span>
+                    </label>
+                    <small style="color:var(--text-muted);display:block;margin-top:.375rem;">
+                        Ao marcar, o usuário poderá ser vinculado a disciplinas e turmas como professor.
+                    </small>
                 </div>
 
                 <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:.875rem;">
@@ -462,6 +476,27 @@ document.getElementById('modalPhoto').addEventListener('change', function(e) {
     };
     reader.readAsDataURL(file);
 });
+
+// Mostrar/esconder campo "também é professor" conforme perfil
+function toggleTeacherField() {
+    const profile = document.getElementById('newUserProfile').value;
+    const teacherGroup = document.getElementById('teacherFieldGroup');
+    if (profile && profile !== 'Professor') {
+        teacherGroup.style.display = 'block';
+    } else {
+        teacherGroup.style.display = 'none';
+        document.getElementById('newUserIsTeacher').checked = false;
+    }
+}
+
+// Reset do campo ao fechar modal
+function closeModal() {
+    document.getElementById('userModal').classList.remove('show');
+    document.body.style.overflow = '';
+    document.getElementById('newUserProfile').selectedIndex = 0;
+    document.getElementById('teacherFieldGroup').style.display = 'none';
+    document.getElementById('newUserIsTeacher').checked = false;
+}
 
 <?php if ($success || $error): ?>
 // Mostrar toast após ação

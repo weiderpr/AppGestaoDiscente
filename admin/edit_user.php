@@ -52,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (!in_array($profile, PROFILES)) {
             $error = 'Selecione um perfil válido.';
         } else {
+            $isTeacher = ($profile !== 'Professor' && !empty($_POST['is_teacher'])) ? 1 : 0;
             // Upload de foto
             $photoPath = $editUser['photo'];
             if (!empty($_FILES['photo']['tmp_name'])) {
@@ -73,8 +74,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if (!$error) {
-                $stmt = $db->prepare('UPDATE users SET name=?, phone=?, photo=?, profile=?, theme=? WHERE id=?');
-                $stmt->execute([$name, $phone, $photoPath, $profile, $theme, $uid]);
+                $stmt = $db->prepare('UPDATE users SET name=?, phone=?, photo=?, profile=?, is_teacher=?, theme=? WHERE id=?');
+                $stmt->execute([$name, $phone, $photoPath, $profile, $isTeacher, $theme, $uid]);
 
                 // Atualiza vínculos de instituições
                 $selectedInsts = $_POST['institutions'] ?? [];
@@ -223,13 +224,26 @@ require_once __DIR__ . '/../includes/header.php';
                     </div>
                     <div class="form-group">
                         <label for="profile" class="form-label">Perfil de Acesso <span class="required">*</span></label>
-                        <select id="profile" name="profile" class="form-control" required>
+                        <select id="profile" name="profile" class="form-control" required onchange="toggleTeacherFieldEdit()">
                             <?php foreach (PROFILES as $p): ?>
                             <option value="<?= $p ?>" <?= $editUser['profile'] === $p ? 'selected' : '' ?>>
                                 <?= htmlspecialchars($p) ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
+                    </div>
+
+                    <!-- Campo para indicar que também é professor (só aparece se perfil não for Professor) -->
+                    <div class="form-group" id="teacherFieldGroup" style="<?= $editUser['profile'] === 'Professor' ? 'display:none;' : 'display:block;' ?>">
+                        <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;padding:.5rem;border:1.5px solid var(--color-primary);border-radius:var(--radius-md);background:rgba(79,70,229,0.05);">
+                            <input type="checkbox" name="is_teacher" id="editUserIsTeacher" value="1" <?= !empty($editUser['is_teacher']) ? 'checked' : '' ?> style="width:18px;height:18px;accent-color:var(--color-primary);">
+                            <span style="font-size:.9375rem;color:var(--text-primary);">
+                                👨‍🏫 Este usuário <strong>também é professor</strong>
+                            </span>
+                        </label>
+                        <small style="color:var(--text-muted);display:block;margin-top:.375rem;">
+                            Ao marcar, o usuário poderá ser vinculado a disciplinas e turmas como professor.
+                        </small>
                     </div>
                 </div>
 
@@ -345,5 +359,18 @@ require_once __DIR__ . '/../includes/header.php';
 
     </div><!-- /coluna direita -->
 </div><!-- /dashboard-grid -->
+
+<script>
+function toggleTeacherFieldEdit() {
+    const profile = document.getElementById('profile').value;
+    const teacherGroup = document.getElementById('teacherFieldGroup');
+    if (profile && profile !== 'Professor') {
+        teacherGroup.style.display = 'block';
+    } else {
+        teacherGroup.style.display = 'none';
+        document.getElementById('editUserIsTeacher').checked = false;
+    }
+}
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

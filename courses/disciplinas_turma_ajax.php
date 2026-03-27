@@ -82,11 +82,12 @@ $stCurrent->execute([$tdId]);
 $currentProfs = $stCurrent->fetchAll();
 
 // ---- PROFESSORES DISPONÍVEIS ----
+// Inclui usuários com profile='Professor' OU is_teacher=1
 $stAvailable = $db->prepare('
     SELECT u.id, u.name, u.email, u.photo
     FROM users u
     JOIN user_institutions ui ON ui.user_id = u.id
-    WHERE ui.institution_id = ? AND u.profile = "Professor" AND u.is_active = 1
+    WHERE ui.institution_id = ? AND (u.profile = "Professor" OR u.is_teacher = 1) AND u.is_active = 1
       AND u.id NOT IN (SELECT professor_id FROM turma_disciplina_professores WHERE turma_disciplina_id = ?)
     ORDER BY u.name
 ');
