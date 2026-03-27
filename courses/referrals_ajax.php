@@ -3,6 +3,7 @@
  * AJAX API for Referrals (Encaminhamentos)
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/atendimentos_functions.php';
 requireLogin();
 
 header('Content-Type: application/json; charset=UTF-8');
@@ -58,8 +59,11 @@ try {
 
             $sql = "
                 SELECT ce.*, u.name as author_name, u.profile as author_profile,
-                       GROUP_CONCAT(target_u.name SEPARATOR ', ') as target_users
+                       GROUP_CONCAT(target_u.name SEPARATOR ', ') as target_users,
+                       (SELECT id FROM atendimentos WHERE encaminhamento_id = ce.id AND deleted_at IS NULL LIMIT 1) as atendimento_id,
+                       cc.is_active as conselho_is_active
                 FROM conselho_encaminhamentos ce
+                JOIN conselhos_classe cc ON ce.conselho_id = cc.id
                 JOIN users u ON ce.author_id = u.id
                 LEFT JOIN conselho_encaminhamento_usuarios ceu ON ce.id = ceu.encaminhamento_id
                 LEFT JOIN users target_u ON ceu.user_id = target_u.id
@@ -99,8 +103,11 @@ try {
 
             $stmt = $db->prepare("
                 SELECT ce.*, a.nome as aluno_name, u.name as author_name, u.profile as author_profile,
-                       GROUP_CONCAT(target_u.name SEPARATOR ', ') as target_users
+                       GROUP_CONCAT(target_u.name SEPARATOR ', ') as target_users,
+                       (SELECT id FROM atendimentos WHERE encaminhamento_id = ce.id AND deleted_at IS NULL LIMIT 1) as atendimento_id,
+                       cc.is_active as conselho_is_active
                 FROM conselho_encaminhamentos ce
+                JOIN conselhos_classe cc ON ce.conselho_id = cc.id
                 LEFT JOIN alunos a ON ce.aluno_id = a.id
                 JOIN users u ON ce.author_id = u.id
                 LEFT JOIN conselho_encaminhamento_usuarios ceu ON ce.id = ceu.encaminhamento_id
@@ -119,12 +126,21 @@ try {
             $referralId = (int)($_GET['id'] ?? 0);
             if (!$referralId) throw new Exception('ID do encaminhamento ausente');
 
-            // Verifica se o encaminhamento existe e quem é o autor
-            $stCheck = $db->prepare("SELECT author_id FROM conselho_encaminhamentos WHERE id = ?");
+            // Verifica se o encaminhamento existe, quem é o autor e se o conselho está ativo
+            $stCheck = $db->prepare("
+                SELECT ce.author_id, cc.is_active 
+                FROM conselho_encaminhamentos ce
+                JOIN conselhos_classe cc ON ce.conselho_id = cc.id
+                WHERE ce.id = ?
+            ");
             $stCheck->execute([$referralId]);
             $referral = $stCheck->fetch();
 
             if (!$referral) throw new Exception('Encaminhamento não encontrado');
+
+            if ($referral['is_active'] == 0) {
+                throw new Exception('Não é possível excluir encaminhamentos de um conselho finalizado');
+            }
 
             // Permissões: Admin, Coordenador ou o Autor
             $allowed = ['Administrador', 'Coordenador'];
@@ -140,6 +156,16 @@ try {
             $db->commit();
 
             echo json_encode(['success' => true, 'message' => 'Encaminhamento removido com sucesso']);
+            break;
+
+        case 'get_atendimento':
+            $referralId = (int)($_GET['id'] ?? 0);
+            if (!$referralId) throw new Exception('ID do encaminhamento ausente');
+
+            $atendimento = getAtendimentoByReferral($referralId);
+            if (!$atendimento) throw new Exception('Atendimento não encontrado');
+
+            echo json_encode(['success' => true, 'atendimento' => $atendimento]);
             break;
 
         default:

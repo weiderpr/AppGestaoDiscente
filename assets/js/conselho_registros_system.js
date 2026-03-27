@@ -52,6 +52,16 @@ function openCouncilRecordModal(conselhoId, aluno = null) {
         modal.classList.add('show');
         document.body.style.overflow = 'hidden';
     }
+
+    // Hide registration form if council is completed
+    const form = modal.querySelector('form');
+    if (form) {
+        if (typeof conselhoConcluido !== 'undefined' && conselhoConcluido) {
+            form.style.display = 'none';
+        } else {
+            form.style.display = 'block';
+        }
+    }
 }
 
 /**
@@ -128,6 +138,13 @@ async function loadCouncilRecords(conselhoId, alunoId = null) {
             data.list.forEach(item => {
                 const date = new Date(item.created_at).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
                 
+                const isGlobalConcluido = (window.conselhoIsConcluido === true) || (typeof conselhoConcluido !== 'undefined' && conselhoConcluido === true);
+                const isItemConcluido = item.conselho_is_active == 0;
+                
+                const deleteBtnHtml = (isGlobalConcluido || isItemConcluido)
+                    ? '' 
+                    : `<button type="button" class="action-btn danger" onclick="deleteRecord(${item.id})" style="position:absolute; top:1.25rem; right:-0.5rem; width:28px; height:28px; font-size:0.75rem; opacity:0; transition:all 0.2s;" title="Excluir">🗑</button>`;
+
                 html += `
                     <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1.25rem; position:relative; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
@@ -138,7 +155,7 @@ async function loadCouncilRecords(conselhoId, alunoId = null) {
                         </div>
                         <div style="font-size:0.9375rem; line-height:1.6; color:var(--text-primary);">${item.texto}</div>
                         
-                        <button type="button" class="action-btn danger" onclick="deleteRecord(${item.id})" style="position:absolute; top:1.25rem; right:-0.5rem; width:28px; height:28px; font-size:0.75rem; opacity:0; transition:all 0.2s;" title="Excluir">🗑</button>
+                        ${deleteBtnHtml}
                     </div>
                 `;
             });
@@ -161,6 +178,11 @@ async function loadCouncilRecords(conselhoId, alunoId = null) {
  * Exclui um registro
  */
 async function deleteRecord(id) {
+    if (window.conselhoIsConcluido === true || (typeof conselhoConcluido !== 'undefined' && conselhoConcluido === true)) {
+        alert('Este conselho já foi finalizado. Não é permitido excluir registros.');
+        return;
+    }
+
     if (!confirm('Deseja realmente excluir este registro?')) return;
 
     try {

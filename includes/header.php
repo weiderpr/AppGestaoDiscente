@@ -84,11 +84,6 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 
         <!-- Menu de Navegação -->
         <nav class="navbar-menu" aria-label="Menu principal">
-            <a href="/dashboard.php"
-               class="nav-link <?= $currentPage === 'dashboard' ? 'active' : '' ?>"
-               aria-current="<?= $currentPage === 'dashboard' ? 'page' : 'false' ?>">
-                📊 Dashboard
-            </a>
             <?php if ($user && $user['profile'] === 'Administrador'): ?>
             <a href="/admin/users.php"
                class="nav-link <?= $currentPage === 'users' ? 'active' : '' ?>">
@@ -116,11 +111,18 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/courses/conselhos') !== false ? 'active' : '' ?>">
                 🏠 Conselhos
             </a>
+            <a href="/atendimentos/index.php"
+               class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/atendimentos/') !== false ? 'active' : '' ?>">
+                📝 Atendimentos
+            </a>
             <?php endif; ?>
         </nav>
 
         <!-- Ações (direita) -->
         <div class="navbar-actions">
+
+            <!-- Language Switcher -->
+            <?php include_once __DIR__ . '/language_switcher.php'; ?>
 
             <!-- Toggle de Tema -->
             <button class="theme-toggle"
@@ -130,9 +132,6 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                     aria-label="Alternar tema claro/escuro">
                 🌙
             </button>
-
-            <!-- Language Switcher -->
-            <?php include_once __DIR__ . '/language_switcher.php'; ?>
 
             <!-- Menu do Usuário -->
             <div class="user-menu" id="userMenu" role="navigation" aria-label="Menu do usuário">

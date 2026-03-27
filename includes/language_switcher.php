@@ -14,12 +14,11 @@ $currentFlag = $locales[$current]['flag'] ?? '🌐';
 $currentName = $locales[$current]['name'] ?? $current;
 ?>
 
-<div class="language-switcher" style="position: relative; display: inline-flex; align-items: center; margin-right: 8px;">
+<div class="language-switcher" style="position: relative; display: inline-flex; align-items: center;">
     <button type="button" 
             id="langToggleBtn"
-            style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 4px 10px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-primary); height: 36px; white-space: nowrap;">
+            style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 4px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--text-primary); width: 32px; height: 32px;">
         <span><?php echo $currentFlag; ?></span>
-        <span><?php echo $currentName; ?></span>
     </button>
     
     <div id="langDropdown" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 4px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 130px; z-index: 9999; overflow: hidden;">

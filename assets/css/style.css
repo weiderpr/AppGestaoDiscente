@@ -363,8 +363,8 @@ button, input, select, textarea {
 
 /* Botão de tema */
 .theme-toggle {
-    width: 38px;
-    height: 38px;
+    width: 32px;
+    height: 32px;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-color);
     background: var(--bg-surface);
@@ -374,7 +374,7 @@ button, input, select, textarea {
     align-items: center;
     justify-content: center;
     transition: all var(--transition-fast);
-    font-size: 1.0625rem;
+    font-size: 1rem;
 }
 
 .theme-toggle:hover {

@@ -489,6 +489,7 @@ require_once __DIR__ . '/../includes/header.php';
                     </td>
                     <td style="text-align:center;">
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
+                            <button type="button" class="action-btn" title="Atendimento Profissional" onclick="openAtendimentoModal({aluno_id: <?= $a['id'] ?>, target_name: '<?= addslashes($a['nome']) ?>', aluno_photo: '<?= $a['photo'] ?>', turma_id: <?= $turmaId ?>})">📝</button>
                             <button type="button" class="action-btn" title="Adicionar Comentário" onclick="openCommentModal(<?= htmlspecialchars(json_encode(['id' => $a['id'], 'nome' => $a['nome'], 'photo' => $a['photo'], 'photo_url' => ($a['photo'] && file_exists(__DIR__.'/../'.$a['photo']) ? '/'.$a['photo'] : null)]), ENT_QUOTES) ?>, <?= $turmaId ?>)">💬</button>
                             
                             <?php if ($isAdmin || $isCoord): ?>
@@ -797,6 +798,7 @@ function openEditModal(aluno) {
 </script>
 <script src="/assets/js/student_comments.js?v=1.1"></script>
 <?php require_once __DIR__ . '/../includes/student_comment_modal.php'; ?>
+<?php require_once __DIR__ . '/../includes/atendimento_modal.php'; ?>
 
 
 <?php if ($openCommentModal && $commentAlunoId): ?>

@@ -39,6 +39,16 @@ function openReferralModal(alunoId, alunoNome, conselhoId) {
         modal.classList.add('show');
         document.body.style.overflow = 'hidden';
     }
+
+    // Hide registration form if council is completed
+    const form = modal.querySelector('form');
+    if (form) {
+        if (typeof conselhoConcluido !== 'undefined' && conselhoConcluido) {
+            form.style.display = 'none';
+        } else {
+            form.style.display = 'block';
+        }
+    }
 }
 
 /**
@@ -162,12 +172,26 @@ async function loadReferrals(alunoId, conselhoId = null) {
                 const statusColors = {
                     'Pendente': 'var(--color-warning)',
                     'Em Andamento': 'var(--color-primary)',
-                    'Concluído': 'var(--color-success)'
+                    'Concluído': 'var(--color-success)',
+                    'Atendido': 'var(--color-purple)' // Presumindo que exista var(--color-purple) ou usando valor fixo
                 };
+                if (!statusColors['Atendido']) statusColors['Atendido'] = '#8b5cf6';
 
+                const displayStatus = item.atendimento_id ? 'Atendido' : item.status;
+                const isReferralActive = item.conselho_is_active == 1;
+
+                const isGlobalCouncilFinished = (window.conselhoIsConcluido === true) || (typeof conselhoConcluido !== 'undefined' && conselhoConcluido === true);
+                const isItemFinished = item.conselho_is_active == 0;
+                
+                const deleteBtn = (isReferralActive && !isGlobalCouncilFinished && !isItemFinished)
+                    ? `<button type="button" onclick="deleteReferral(${item.id}, ${alunoId})" style="position:absolute; top:0.75rem; right:0.75rem; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1rem; transition:color 0.2s;" onmouseover="this.style.color='var(--color-danger)'" onmouseout="this.style.color='var(--text-muted)'" title="Excluir encaminhamento">🗑</button>`
+                    : (item.atendimento_id ? `<button type="button" onclick="viewAtendimentoByReferral(${item.id})" style="position:absolute; top:0.75rem; right:0.75rem; background:none; border:none; color:var(--text-primary); cursor:pointer; font-size:1.1rem;" title="Ver Atendimento">👁️</button>` : '');
+
+                const bgStyle = item.atendimento_id ? 'background:#f0fdf4; border:1px solid #dcfce7;' : 'background:var(--bg-surface); border:1px solid var(--border-color);';
+                
                 html += `
-                    <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1rem; position:relative; margin-bottom:1rem;">
-                        <button type="button" onclick="deleteReferral(${item.id}, ${alunoId})" style="position:absolute; top:0.75rem; right:0.75rem; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1rem; transition:color 0.2s;" onmouseover="this.style.color='var(--color-danger)'" onmouseout="this.style.color='var(--text-muted)'" title="Excluir encaminhamento">🗑</button>
+                    <div style="${bgStyle} border-radius:var(--radius-md); padding:1rem; position:relative; margin-bottom:1rem;">
+                        ${deleteBtn}
                         
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.75rem; padding-right:2rem;">
                             <div>
@@ -176,7 +200,7 @@ async function loadReferrals(alunoId, conselhoId = null) {
                             </div>
                             <div style="text-align:right;">
                                 <div style="font-size:0.625rem; color:var(--text-muted);">${date}</div>
-                                <span style="font-size:0.625rem; font-weight:700; color:${statusColors[item.status] || 'gray'}; text-transform:uppercase;">● ${item.status}</span>
+                                <span style="font-size:0.625rem; font-weight:700; color:${statusColors[displayStatus] || 'gray'}; text-transform:uppercase;">● ${displayStatus}</span>
                             </div>
                         </div>
                         
@@ -202,7 +226,7 @@ async function loadReferrals(alunoId, conselhoId = null) {
 /**
  * Carrega todos os encaminhamentos de um conselho específico (Visão Geral)
  */
-async function loadCouncilReferrals(conselhoId) {
+async function loadCouncilReferrals(conselhoId, isConcluidoOverride = null) {
     const container = document.getElementById('council_referrals_list');
     if (!container) return;
 
@@ -247,11 +271,35 @@ async function loadCouncilReferrals(conselhoId) {
                 const statusColors = {
                     'Pendente': '#f59e0b',
                     'Em Andamento': '#3b82f6',
-                    'Concluído': '#10b981'
+                    'Concluído': '#10b981',
+                    'Atendido': '#8b5cf6'
                 };
+                
+                const displayStatus = item.atendimento_id ? 'Atendido' : item.status;
+
+                const isReferralActive = item.conselho_is_active == 1;
+
+                const isItemFinished = item.conselho_is_active == 0;
+                const isConcluidoGlobal = (window.conselhoIsConcluido === true);
+                const isConcluidoParam = (isConcluidoOverride === true);
+                
+                const isConcluido = isConcluidoParam || isConcluidoGlobal || isItemFinished;
+
+                let actionContent;
+                if (isConcluido) {
+                    actionContent = item.atendimento_id 
+                        ? `<button type="button" class="btn btn-ghost btn-sm" onclick="viewAtendimentoByReferral(${item.id})" style="color:var(--color-primary); padding:4px 8px; min-width:unset; font-size:1.1rem;" title="Ver Atendimento">👁️</button>` 
+                        : '—';
+                } else {
+                    actionContent = isReferralActive 
+                        ? `<button type="button" class="btn btn-ghost btn-sm" onclick="deleteReferral(${item.id}, null, true)" style="color:var(--color-danger); padding:4px 8px; min-width:unset; font-size:1rem;" title="Remover encaminhamento">🗑</button>`
+                        : (item.atendimento_id ? `<button type="button" class="btn btn-ghost btn-sm" onclick="viewAtendimentoByReferral(${item.id})" style="color:var(--color-primary); padding:4px 8px; min-width:unset; font-size:1.1rem;" title="Ver Atendimento">👁️</button>` : '—');
+                }
+
+                const rowBg = item.atendimento_id ? 'background-color:#f0fdf4;' : '';
 
                 html += `
-                    <tr>
+                    <tr style="${rowBg}">
                         <td style="padding:1rem; border-bottom:1px solid var(--border-color); vertical-align:middle;">
                             <div style="font-weight:700; color:${item.aluno_name ? 'var(--text-primary)' : 'var(--color-primary)'};">${item.aluno_name || '👥 Turma (Geral)'}</div>
                             <div style="font-size:0.7rem; color:var(--text-muted);">Registrado em ${date}</div>
@@ -265,17 +313,15 @@ async function loadCouncilReferrals(conselhoId) {
                             <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.4rem;">Por: <b>${item.author_name}</b></div>
                         </td>
                         <td style="padding:1rem; border-bottom:1px solid var(--border-color); vertical-align:middle; text-align:center;">
-                            <span style="display:inline-block; padding:.25rem .75rem; border-radius:12px; font-size:.6875rem; font-weight:700; text-transform:uppercase; background:${statusColors[item.status] + '22'}; color:${statusColors[item.status]}; border:1px solid ${statusColors[item.status] + '44'};">
-                                ${item.status}
+                            <span style="display:inline-block; padding:.25rem .75rem; border-radius:12px; font-size:.6875rem; font-weight:700; text-transform:uppercase; background:${statusColors[displayStatus] + '22'}; color:${statusColors[displayStatus]}; border:1px solid ${statusColors[displayStatus] + '44'};">
+                                ${displayStatus}
                             </span>
                         </td>
                         <td style="padding:1rem; border-bottom:1px solid var(--border-color); vertical-align:middle; text-align:center;">
                             <div style="font-size:0.8125rem; font-weight:600; color:var(--text-secondary);">${expDate}</div>
                         </td>
                         <td style="padding:1rem; border-bottom:1px solid var(--border-color); vertical-align:middle; text-align:center;">
-                            <button type="button" class="btn btn-ghost btn-sm" onclick="deleteReferral(${item.id}, null, true)" style="color:var(--color-danger); padding:4px 8px; min-width:unset; font-size:1rem;" title="Remover encaminhamento">
-                                🗑
-                            </button>
+                            ${actionContent}
                         </td>
                     </tr>
                 `;
@@ -298,6 +344,11 @@ async function loadCouncilReferrals(conselhoId) {
  * Exclui um encaminhamento
  */
 async function deleteReferral(referralId, alunoId = null, isCouncilView = false) {
+    if (window.conselhoIsConcluido === true || (typeof conselhoConcluido !== 'undefined' && conselhoConcluido === true)) {
+        alert('Este conselho já foi finalizado. Não é permitido excluir encaminhamentos.');
+        return;
+    }
+    
     if (!confirm('Deseja realmente excluir este encaminhamento?')) return;
 
     try {
@@ -310,7 +361,7 @@ async function deleteReferral(referralId, alunoId = null, isCouncilView = false)
             
             // Reload appropriate view
             if (isCouncilView && typeof conselhoId !== 'undefined') {
-                loadCouncilReferrals(conselhoId);
+                loadCouncilReferrals(conselhoId, window.conselhoIsConcluido);
             } else {
                 loadReferrals(alunoId, currentReferralConselhoId);
             }
@@ -323,9 +374,54 @@ async function deleteReferral(referralId, alunoId = null, isCouncilView = false)
 }
 
 /**
- * Rich Text Helpers
+ * Abre modal com detalhes do atendimento vinculado a um encaminhamento
  */
-function formatReferralText(command) {
-    document.execCommand(command, false, null);
-    document.getElementById('referral_text').focus();
+async function viewAtendimentoByReferral(referralId) {
+    if (typeof Loading !== 'undefined') Loading.show();
+    
+    try {
+        const resp = await fetch(`/courses/referrals_ajax.php?action=get_atendimento&id=${referralId}`);
+        const data = await resp.json();
+        
+        if (data.success) {
+            const atend = data.atendimento;
+            
+            // Check ownership for editing
+            const isOwner = typeof currentUserId !== 'undefined' && atend.user_id == currentUserId;
+            const editBtn = isOwner ? `<button type="button" class="btn btn-primary btn-sm" onclick="this.closest('.modal-wrapper').querySelector('.modal-close')?.click(); openAtendimentoModal(${JSON.stringify(atend).replace(/"/g, '&quot;')})" style="margin-left:auto;">✏️ Editar Atendimento</button>` : '';
+
+            if (typeof Modal !== 'undefined') {
+                Modal.open({
+                    title: `Detalhes do Atendimento — ${atend.data_atendimento} ${editBtn}`,
+                    content: `
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1.5rem; padding:1.5rem;">
+                            <div>
+                                <h4 style="margin-bottom:0.5rem; color:var(--color-primary);">🔒 Profissional (Privado)</h4>
+                                <div class="privacy-blur" onclick="this.classList.add('revealed')" title="Clique para revelar conteúdo" style="background:var(--bg-surface-2nd); padding:1rem; border-radius:var(--radius-md); font-size:0.875rem; max-height:300px; overflow-y:auto; position:relative;">
+                                    <div class="privacy-overlay">⚠️ Conteúdo restrito. Clique para visualizar.</div>
+                                    ${atend.professional_text || '<em>Sem conteúdo registrado.</em>'}
+                                </div>
+                            </div>
+                            <div>
+                                <h4 style="margin-bottom:0.5rem; color:var(--color-primary);">📢 Público / Encaminhamento</h4>
+                                <div style="background:var(--bg-surface-2nd); padding:1rem; border-radius:var(--radius-md); font-size:0.875rem; max-height:300px; overflow-y:auto;">
+                                    ${atend.public_text || '<em>Sem conteúdo registrado.</em>'}
+                                </div>
+                            </div>
+                        </div>
+                    `,
+                    size: 'lg'
+                });
+            } else {
+                alert('Atendimento:\n\n' + atend.public_text);
+            }
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    } catch (e) {
+        console.error('Erro ao buscar atendimento:', e);
+        alert('Erro ao carregar detalhes do atendimento.');
+    } finally {
+        if (typeof Loading !== 'undefined') Loading.hide();
+    }
 }

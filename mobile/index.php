@@ -119,14 +119,6 @@ require_once __DIR__ . '/header.php';
 
 <div class="m-content" style="padding-top: 1rem;">
     
-    <!-- Stats Scroller -->
-    <div class="m-stats-scroller">
-        <div class="m-stat-pill">
-            <span class="m-stat-val">320</span>
-            <span class="m-stat-label">Alunos</span>
-        </div>
-    </div>
-
     <h2 class="m-section-title">Ações Rápidas</h2>
 
     <div class="m-feature-grid">

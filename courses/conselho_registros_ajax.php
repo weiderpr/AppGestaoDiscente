@@ -63,12 +63,21 @@ try {
             $id = (int)($_POST['id'] ?? 0);
             if (!$id) throw new Exception('ID ausente');
 
-            // Verificar se o usuário pode excluir (autor ou admin)
-            $stmt = $db->prepare("SELECT user_id FROM conselho_registros WHERE id = ?");
+            // Verificar se o usuário pode excluir (autor ou admin) e se o conselho está ativo
+            $stmt = $db->prepare("
+                SELECT cr.user_id, cc.is_active 
+                FROM conselho_registros cr
+                JOIN conselhos_classe cc ON cr.conselho_id = cc.id
+                WHERE cr.id = ?
+            ");
             $stmt->execute([$id]);
             $reg = $stmt->fetch();
             
             if (!$reg) throw new Exception('Registro não encontrado');
+
+            if ($reg['is_active'] == 0) {
+                throw new Exception('Não é possível excluir registros de um conselho finalizado');
+            }
             
             if ($reg['user_id'] != $user['id'] && !in_array($user['profile'], ['Administrador', 'Coordenador'])) {
                 throw new Exception('Sem permissão para excluir este registro.');

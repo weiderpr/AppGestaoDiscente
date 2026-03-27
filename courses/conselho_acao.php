@@ -42,6 +42,8 @@ if (!$conselho) {
     exit;
 }
 
+$conselhoConcluido = !$conselho['is_active'];
+
 $turmaId = $conselho['turma_id'];
 
 $success = '';
@@ -306,6 +308,45 @@ require_once __DIR__ . '/../includes/header.php';
 
 
 /* Modal styles moved to shared component student_comment_modal.php */
+
+/* Privacy Blur Effect */
+.privacy-blur {
+    filter: blur(8px);
+    transition: filter 0.3s ease;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+.privacy-blur:hover {
+    filter: blur(4px);
+}
+.privacy-blur.revealed {
+    filter: blur(0);
+    cursor: default;
+    user-select: text;
+}
+.privacy-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.8125rem;
+    z-index: 10;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    text-align: center;
+    padding: 1rem;
+}
+.privacy-blur.revealed .privacy-overlay {
+    opacity: 0;
+    visibility: hidden;
+}
 </style>
 
 <div class="page-header fade-in" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
@@ -318,10 +359,10 @@ require_once __DIR__ . '/../includes/header.php';
         </p>
     </div>
     <div style="display:flex; gap:0.75rem;">
-        <button type="button" class="btn btn-primary" onclick="openReferralModal(0, 'Encaminhamento para a Turma', conselhoId)" style="display:inline-flex; align-items:center; gap:0.5rem;">
+        <button type="button" class="btn btn-primary" onclick="<?= $conselhoConcluido ? '' : "openReferralModal(0, 'Encaminhamento para a Turma', conselhoId)" ?>" <?= $conselhoConcluido ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '' ?> style="display:inline-flex; align-items:center; gap:0.5rem;">
             <span>📌 Encaminhamento Turma</span>
         </button>
-        <button type="button" class="btn btn-secondary" onclick="openCouncilRecordModal(conselhoId, null)" style="display:inline-flex; align-items:center; gap:0.5rem; background:var(--bg-surface); border:1px solid var(--border-color); color:var(--text-primary);">
+        <button type="button" class="btn btn-secondary" onclick="<?= $conselhoConcluido ? '' : "openCouncilRecordModal(conselhoId, null)" ?>" <?= $conselhoConcluido ? 'disabled style="opacity:0.5; cursor:not-allowed; background:var(--bg-surface); border:1px solid var(--border-color); color:var(--text-primary);"' : 'style="display:inline-flex; align-items:center; gap:0.5rem; background:var(--bg-surface); border:1px solid var(--border-color); color:var(--text-primary);"' ?>>
             <span>📝 Registros Gerais</span>
         </button>
     </div>
@@ -337,15 +378,13 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <?php endif; ?>
 
-<?php $conselhoConcluido = !$conselho['is_active']; ?>
 <div class="tabs-nav fade-in" id="mainTabsNav">
     <button class="tab-btn <?= $conselhoConcluido ? 'inactive' : 'active' ?>" data-tab="presenca" onclick="showTab('presenca')">1. Lista de Presença</button>
     <button class="tab-btn <?= $conselhoConcluido ? 'inactive' : '' ?>" data-tab="alunos" onclick="showTab('alunos')">2. Alunos</button>
     <button class="tab-btn <?= $conselhoConcluido ? 'inactive' : '' ?>" data-tab="alunos_detalhes" onclick="showTab('alunos_detalhes')">2.1 Detalhes dos Alunos</button>
-    <button class="tab-btn <?= $conselhoConcluido ? 'inactive' : '' ?>" data-tab="encaminhamentos" onclick="showTab('encaminhamentos')">3. Encaminhamentos</button>
+    <button class="tab-btn" data-tab="encaminhamentos" onclick="showTab('encaminhamentos')">3. Encaminhamentos</button>
     <button class="tab-btn <?= $conselhoConcluido ? 'active' : '' ?>" data-tab="ata" onclick="showTab('ata')">4. Ata do Conselho</button>
     <button class="tab-btn <?= $conselhoConcluido ? 'active' : '' ?>" data-tab="avaliacao" onclick="showTab('avaliacao')">5. Finalização</button>
-    <button class="tab-btn <?= $conselhoConcluido ? 'active' : 'inactive' ?>" data-tab="feedbacks" onclick="showTab('feedbacks')">5.1 Feedbacks</button>
 </div>
 
 <div id="presenca" class="tab-content <?= $conselhoConcluido ? '' : 'active' ?> fade-in">
@@ -654,41 +693,15 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
 </div>
 
-<div id="feedbacks" class="tab-content fade-in">
-    <div class="card">
-        <div class="card-header">
-            <span class="card-title">💬 Feedbacks dos Alunos</span>
-            <span style="font-size:.875rem;color:var(--text-muted);"><?= count($feedbacks) ?> feedback(s) recebido(s)</span>
-        </div>
-        <div class="card-body">
-            <?php if (empty($feedbacks)): ?>
-            <div style="text-align:center;padding:3rem;color:var(--text-muted);">
-                <p style="font-size:3rem;margin-bottom:1rem;">📭</p>
-                <p>Nenhum feedback recebido ainda.</p>
-            </div>
-            <?php else: ?>
-            <div style="display:flex;flex-direction:column;gap:1rem;">
-                <?php foreach ($feedbacks as $fb): ?>
-                <div style="background:var(--bg-surface-2nd);padding:1.25rem;border-radius:var(--radius-lg);border:1px solid var(--border-color);">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
-                        <span style="font-weight:600;color:var(--text-primary);">Feedback #<?= $fb['resposta_id'] ?></span>
-                        <span style="font-size:.75rem;color:var(--text-muted);"><?= date('d/m/Y H:i', strtotime($fb['created_at'])) ?></span>
-                    </div>
-                    <p style="color:var(--text-secondary);font-size:.875rem;line-height:1.6;margin:0;"><?= htmlspecialchars($fb['comentario']) ?></p>
-                </div>
-                <?php endforeach; ?>
-            </div>
-            <?php endif; ?>
-        </div>
-    </div>
-</div>
 
 <script>
+window.conselhoIsConcluido = <?= $conselhoConcluido ? 'true' : 'false' ?>;
+const conselhoConcluido = window.conselhoIsConcluido;
 const presentesAtuais = [<?= implode(',', $presentesAtuais) ?>];
 const usuariosPorPerfil = <?= json_encode($usuariosPorPerfil) ?>;
 const conselhoId = <?= $conselhoId ?>;
+const currentUserId = <?= getCurrentUser()['id'] ?>;
 const conselho = { turma_id: <?= $conselho['turma_id'] ?> };
-const conselhoConcluido = <?= $conselhoConcluido ? 'true' : 'false' ?>;
 let detailTabs = [];
 let studentsInDetail = [];
 
@@ -714,7 +727,7 @@ function showTab(tabId) {
 
     // Se for a aba de encaminhamentos, carrega a lista geral
     if (tabId === 'encaminhamentos' && typeof loadCouncilReferrals === 'function') {
-        loadCouncilReferrals(conselhoId);
+        loadCouncilReferrals(conselhoId, conselhoConcluido);
     }
 
     // Se for a aba de Ata, carrega consolidado
@@ -1086,18 +1099,18 @@ function openAlunoModal(aluno) {
 }
 </script>
 
-<script src="/assets/js/student_comments.js?v=1.1"></script>
+<script src="/assets/js/student_comments.js?v=2.0"></script>
 <?php require_once __DIR__ . '/../includes/student_comment_modal.php'; ?>
 
 <!-- Componente de Encaminhamentos -->
 <?php require_once __DIR__ . '/../includes/encaminhamento_modal.php'; ?>
 
 <!-- Componente de Registros do Conselho -->
-<script src="/assets/js/conselho_registros_system.js?v=1.1"></script>
+<script src="/assets/js/conselho_registros_system.js?v=2.0"></script>
 <?php require_once __DIR__ . '/../includes/conselho_registro_modal.php'; ?>
 
 <!-- Componente de Ata do Conselho -->
-<script src="/assets/js/conselho_ata_system.js?v=1.3"></script>
+<script src="/assets/js/conselho_ata_system.js?v=2.0"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
