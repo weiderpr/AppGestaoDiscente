@@ -3,15 +3,9 @@
  * Vértice Acadêmico — Listagem de Atendimentos
  */
 require_once __DIR__ . '/../includes/auth.php';
-requireLogin();
+hasDbPermission('atendimentos.index'); // Já redireciona internamente se não houver acesso
 
 $user = getCurrentUser();
-// Perfis que podem acessar esta tela
-$allowed = ['Administrador', 'Coordenador', 'Pedagogo', 'Assistente Social', 'Psicólogo'];
-if (!$user || !in_array($user['profile'], $allowed)) {
-    header('Location: /dashboard.php');
-    exit;
-}
 
 $db      = getDB();
 $inst    = getCurrentInstitution();

@@ -32,14 +32,18 @@ $navItems = [
             ['sub' => 'lista', 'icon' => '📋', 'label' => 'Avaliações', 'url' => '/settings.php?section=avaliacoes&sub=lista'],
         ],
     ],
+    [
+        'section'  => 'permissoes',
+        'icon'     => '🔐',
+        'label'    => 'Permissões',
+        'desc'     => 'Gerenciamento de acesso por perfil',
+        'url'      => '/settings.php?section=permissoes',
+    ],
 ];
 
-// Filtrar itens por perfil
-$navItems = array_filter($navItems, function($item) use ($user) {
-    if ($item['section'] === 'backup') {
-        return $user['profile'] === 'Administrador';
-    }
-    return true;
+// Filtrar itens por perfil (dinâmico via RBAC)
+$navItems = array_filter($navItems, function($item) {
+    return hasDbPermission('settings.' . $item['section'], false);
 });
 ?>
 <aside class="settings-sidebar" id="settingsSidebar" aria-expanded="true" role="navigation" aria-label="Menu de configurações">

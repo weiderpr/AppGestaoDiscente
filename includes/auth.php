@@ -180,3 +180,43 @@ function isMobileDevice(): bool {
     
     return preg_match($mobileShortMatch, $userAgent) || preg_match($mobileFullMatch, substr($userAgent, 0, 4));
 }
+
+/**
+ * Verifica se o usuário tem permissão para um recurso via Banco de Dados
+ * Utilizado por arquivos legados (não-Router)
+ */
+function hasDbPermission(string $resource, bool $redirect = true): bool {
+    $user = getCurrentUser();
+    if (!$user) {
+        if ($redirect) {
+            header('Location: /login.php');
+            exit;
+        }
+        return false;
+    }
+
+    // Administrador sempre tem acesso
+    if ($user['profile'] === 'Administrador') {
+        return true;
+    }
+
+    // Importante: Como PermissionService usa namespace, precisamos do autoload ou incluir manualmente
+    require_once __DIR__ . '/../src/App/Services/Service.php';
+    require_once __DIR__ . '/../src/App/Services/PermissionService.php';
+    
+    $permissionService = new \App\Services\PermissionService();
+    $hasAccess = $permissionService->canAccess($user['profile'], $resource);
+
+    if (!$hasAccess && $redirect) {
+        if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest') {
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Acesso negado: Perfil insuficiente.']);
+            exit;
+        }
+        header('Location: /dashboard.php?error=access_denied');
+        exit;
+    }
+
+    return $hasAccess;
+}

@@ -4,18 +4,22 @@
  */
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
-requireLogin();
+hasDbPermission('settings.index');
 
 $user = getCurrentUser();
-if (!$user || !in_array($user['profile'], ['Administrador', 'Coordenador'])) {
-    header('Location: /dashboard.php');
-    exit;
-}
 
-// Proteção: Somente Administrador acessa Backup
-$requestedSection = $_GET['section'] ?? 'backup';
-if ($requestedSection === 'backup' && $user['profile'] !== 'Administrador') {
-    header('Location: /settings.php?section=avaliacoes');
+$requestedSection = $_GET['section'] ?? 'avaliacoes';
+if (!hasDbPermission('settings.' . $requestedSection, false)) {
+    // Tenta encontrar a primeira área disponível para este usuário
+    $availableSections = ['avaliacoes', 'backup', 'permissoes'];
+    foreach ($availableSections as $sec) {
+        if (hasDbPermission('settings.' . $sec, false)) {
+            header('Location: /settings.php?section=' . $sec);
+            exit;
+        }
+    }
+    // Se não tiver nada de Configurações, manda pro dashboard
+    header('Location: /dashboard.php');
     exit;
 }
 
@@ -240,14 +244,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     }
 }
 
-// Seção e sub-seção ativas
-$activeSection = $_GET['section'] ?? 'backup';
-if (!in_array($activeSection, ['backup', 'avaliacoes'])) $activeSection = 'backup';
+// --- AÇÕES: PERMISSÕES ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_permissions') {
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança expirado.';
+    } else {
+        $profiles = ['Coordenador', 'Diretor', 'Professor', 'Pedagogo', 'Assistente Social', 'Naapi', 'Psicólogo', 'Outro'];
+        $resources = $_POST['resources'] ?? [];
+        $perms = $_POST['perms'] ?? []; // format: [profile][resource] = 1
+
+        try {
+            $db->beginTransaction();
+            foreach ($profiles as $p) {
+                foreach ($resources as $r) {
+                    $val = isset($perms[$p][$r]) ? 1 : 0;
+                    $st = $db->prepare("INSERT INTO profile_permissions (profile, resource, can_access) 
+                                       VALUES (?, ?, ?) 
+                                       ON DUPLICATE KEY UPDATE can_access = ?");
+                    $st->execute([$p, $r, $val, $val]);
+                }
+            }
+            $db->commit();
+            $success = 'Permissões atualizadas com sucesso!';
+        } catch (PDOException $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            $error = 'Erro ao atualizar: ' . $e->getMessage();
+        }
+    }
+}
+
+// Seção ativa para renderização
+$activeSection = $requestedSection; 
 
 $activeSub = $_GET['sub'] ?? 'backup';
 $allowedSubs = [
     'backup'     => ['backup', 'restore', 'logs'],
-    'avaliacoes' => ['dashboard', 'tipos', 'lista', 'create']
+    'avaliacoes' => ['dashboard', 'tipos', 'lista', 'create'],
+    'permissoes' => ['manage']
 ];
 if (!in_array($activeSub, $allowedSubs[$activeSection] ?? [])) {
     $activeSub = $allowedSubs[$activeSection][0];
@@ -572,6 +605,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     ?>
 </div><!-- /settings-section avaliacoes -->
+
+<!-- ===== SEÇÃO: PERMISSÕES ===== -->
+<div class="settings-section <?= $activeSection === 'permissoes' ? 'active' : '' ?>">
+    <?php include __DIR__ . '/includes/settings/permissoes.php'; ?>
+</div>
 
 </div><!-- /settings-content -->
 </div><!-- /settings-shell -->

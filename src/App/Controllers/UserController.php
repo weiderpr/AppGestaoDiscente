@@ -16,11 +16,6 @@ class UserController extends Controller {
     }
 
     public function index(array $params): void {
-        $this->requireLogin();
-        
-        $user = $this->getCurrentUser();
-        $this->hasPermission(['Administrador']);
-
         $institution = $this->getCurrentInstitution();
         $institutionId = $institution['id'] ?? null;
 
@@ -43,8 +38,6 @@ class UserController extends Controller {
     }
 
     public function show(array $params): void {
-        $this->requireLogin();
-        
         $id = (int) ($params['id'] ?? 0);
         
         if (!$id) {
@@ -61,9 +54,6 @@ class UserController extends Controller {
     }
 
     public function create(array $params): void {
-        $this->requireLogin();
-        $this->hasPermission(['Administrador']);
-
         $data = [
             'name' => $this->post('name'),
             'email' => $this->post('email'),
@@ -86,9 +76,6 @@ class UserController extends Controller {
     }
 
     public function update(array $params): void {
-        $this->requireLogin();
-        $this->hasPermission(['Administrador']);
-
         $id = (int) ($params['id'] ?? 0);
 
         if (!$id) {
@@ -112,9 +99,6 @@ class UserController extends Controller {
     }
 
     public function delete(array $params): void {
-        $this->requireLogin();
-        $this->hasPermission(['Administrador']);
-
         $id = (int) ($params['id'] ?? 0);
 
         if (!$id) {

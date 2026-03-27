@@ -8,6 +8,8 @@ namespace Core;
 class Router {
     private array $routes = [];
     private array $namedRoutes = [];
+    private string $currentRoutePath = '';
+    private string $currentRouteMethod = '';
 
     public function get(string $path, callable|array $handler, string $name = ''): self {
         return $this->addRoute('GET', $path, $handler, $name);
@@ -26,12 +28,26 @@ class Router {
     }
 
     private function addRoute(string $method, string $path, callable|array $handler, string $name): self {
-        $this->routes[$method][$path] = $handler;
+        $this->routes[$method][$path] = [
+            'handler' => $handler,
+            'middlewares' => [],
+            'name' => $name
+        ];
         
+        $this->currentRouteMethod = $method;
+        $this->currentRoutePath = $path;
+
         if ($name) {
             $this->namedRoutes[$name] = ['method' => $method, 'path' => $path];
         }
 
+        return $this;
+    }
+
+    public function middleware(string|object $middleware): self {
+        if ($this->currentRouteMethod && $this->currentRoutePath) {
+            $this->routes[$this->currentRouteMethod][$this->currentRoutePath]['middlewares'][] = $middleware;
+        }
         return $this;
     }
 
@@ -40,15 +56,15 @@ class Router {
         $uri = rtrim($uri, '/') ?: '/';
 
         if (isset($this->routes[$method][$uri])) {
-            $handler = $this->routes[$method][$uri];
-            $this->executeHandler($handler);
+            $route = $this->routes[$method][$uri];
+            $this->executeChain($route['handler'], $route['middlewares'], [], $route['name']);
             return;
         }
 
-        foreach ($this->routes[$method] ?? [] as $path => $handler) {
+        foreach ($this->routes[$method] ?? [] as $path => $route) {
             $params = $this->matchRoute($path, $uri);
             if ($params !== false) {
-                $this->executeHandler($handler, $params);
+                $this->executeChain($route['handler'], $route['middlewares'], $params, $route['name']);
                 return;
             }
         }
@@ -65,6 +81,33 @@ class Router {
         }
 
         return false;
+    }
+
+    private function executeChain(callable|array $handler, array $middlewares, array $params = [], string $name = ''): void {
+        $next = function(array $params) use ($handler) {
+            $this->executeHandler($handler, $params);
+        };
+
+        foreach (array_reverse($middlewares) as $middleware) {
+            $prevNext = $next;
+            $next = function(array $params) use ($middleware, $prevNext, $name) {
+                if (is_string($middleware)) {
+                    $middleware = new $middleware();
+                }
+
+                if ($middleware instanceof Middleware) {
+                    // Se for RoleMiddleware, podemos passar o nome da rota se ele suportar
+                    if (method_exists($middleware, 'setResource')) {
+                        $middleware->setResource($name);
+                    }
+                    $middleware->handle($params, $prevNext);
+                } else {
+                    $prevNext($params);
+                }
+            };
+        }
+
+        $next($params);
     }
 
     private function executeHandler(callable|array $handler, array $params = []): void {

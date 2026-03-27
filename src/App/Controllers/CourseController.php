@@ -16,8 +16,6 @@ class CourseController extends Controller {
     }
 
     public function index(array $params): void {
-        $this->requireLogin();
-        
         $institution = $this->getCurrentInstitution();
         $institutionId = $institution['id'] ?? null;
 
@@ -36,8 +34,6 @@ class CourseController extends Controller {
     }
 
     public function show(array $params): void {
-        $this->requireLogin();
-
         $id = (int) ($params['id'] ?? 0);
         
         if (!$id) {
@@ -61,9 +57,6 @@ class CourseController extends Controller {
     }
 
     public function create(array $params): void {
-        $this->requireLogin();
-        $this->hasPermission(['Administrador', 'Coordenador']);
-
         $institution = $this->getCurrentInstitution();
         $institutionId = $institution['id'] ?? null;
 
@@ -90,9 +83,6 @@ class CourseController extends Controller {
     }
 
     public function update(array $params): void {
-        $this->requireLogin();
-        $this->hasPermission(['Administrador', 'Coordenador']);
-
         $id = (int) ($params['id'] ?? 0);
 
         if (!$id) {
@@ -115,9 +105,6 @@ class CourseController extends Controller {
     }
 
     public function delete(array $params): void {
-        $this->requireLogin();
-        $this->hasPermission(['Administrador']);
-
         $id = (int) ($params['id'] ?? 0);
 
         if (!$id) {

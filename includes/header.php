@@ -84,33 +84,42 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 
         <!-- Menu de Navegação -->
         <nav class="navbar-menu" aria-label="Menu principal">
-            <?php if ($user && $user['profile'] === 'Administrador'): ?>
+            <?php if (hasDbPermission('users.index', false)): ?>
             <a href="/admin/users.php"
                class="nav-link <?= $currentPage === 'users' ? 'active' : '' ?>">
                 👥 Usuários
             </a>
+            <?php endif; ?>
+
+            <?php if (hasDbPermission('institutions.index', false)): ?>
             <a href="/admin/institutions.php"
                class="nav-link <?= $currentPage === 'institutions' ? 'active' : '' ?>">
                 🏫 Instituições
             </a>
             <?php endif; ?>
-            <?php if ($user && in_array($user['profile'], ['Administrador', 'Coordenador', 'Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo']) && !empty($curInst['id'])): ?>
+
+            <?php if (hasDbPermission('courses.index', false)): ?>
             <a href="/courses/index.php"
                class="nav-link <?= $currentPage === 'index' && strpos($_SERVER['PHP_SELF'], '/courses/') !== false ? 'active' : '' ?>">
                 📚 Cursos
             </a>
-            <?php if ($user && $user['profile'] === 'Administrador' && !empty($curInst['id'])): ?>
+            <?php endif; ?>
+
+            <?php if (hasDbPermission('subjects.index', false)): ?>
             <a href="/subjects/index.php"
                class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/subjects/') !== false ? 'active' : '' ?>">
                 📖 Disciplinas
             </a>
             <?php endif; ?>
-            <?php endif; ?>
-            <?php if ($user && in_array($user['profile'], ['Administrador', 'Coordenador', 'Pedagogo', 'Assistente Social', 'Psicólogo']) && !empty($curInst['id'])): ?>
+
+            <?php if (hasDbPermission('conselhos.index', false)): ?>
             <a href="/courses/conselhos.php"
                class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/courses/conselhos') !== false ? 'active' : '' ?>">
                 🏠 Conselhos
             </a>
+            <?php endif; ?>
+
+            <?php if (hasDbPermission('atendimentos.index', false)): ?>
             <a href="/atendimentos/index.php"
                class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/atendimentos/') !== false ? 'active' : '' ?>">
                 📝 Atendimentos
@@ -199,7 +208,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                     <?php endif; ?>
                     <?php endif; ?>
 
-                    <?php if ($user && in_array($user['profile'], ['Administrador', 'Coordenador'])): ?>
+                    <?php if (hasDbPermission('settings.index', false)): ?>
                     <a href="/settings.php" class="dropdown-item" role="menuitem">
                         ⚙️ Configurações
                     </a>

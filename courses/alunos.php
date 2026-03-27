@@ -395,20 +395,16 @@ require_once __DIR__ . '/../includes/header.php';
         <h1 class="page-title">👤 Alunos da Turma</h1>
         <p class="page-subtitle">Turma: <strong><?= htmlspecialchars($turma['description']) ?> (<?= $turma['ano'] ?>)</strong></p>
     </div>
-    <?php if (!in_array($user['profile'], ['Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'])): ?>
+    <?php if (hasDbPermission('students.manage', false)): ?>
     <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
         <a href="/courses/turmas.php?course_id=<?= $courseId ?>" class="btn btn-secondary">← Voltar</a>
         <button class="btn btn-secondary" onclick="openModal('importFileModal')">📊 Importar Excel/CSV</button>
         <button class="btn btn-secondary" onclick="openModal('importModal')">📥 Importar de Turma</button>
         <button class="btn btn-primary" onclick="openModal('alunoModal')">➕ Novo Aluno</button>
     </div>
-    <?php elseif (in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo'])): ?>
-    <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
-        <a href="/courses/turmas.php?course_id=<?= $courseId ?>" class="btn btn-secondary">← Voltar para Turmas</a>
-    </div>
     <?php else: ?>
     <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
-        <a href="/courses/turmas.php?course_id=<?= $courseId ?>" class="btn btn-secondary">← Voltar para Turmas</a>
+        <a href="/courses/turmas.php?course_id=<?= $courseId ?>" class="btn btn-secondary">← Voltar</a>
     </div>
     <?php endif; ?>
 </div>
@@ -492,7 +488,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <button type="button" class="action-btn" title="Atendimento Profissional" onclick="openAtendimentoModal({aluno_id: <?= $a['id'] ?>, target_name: '<?= addslashes($a['nome']) ?>', aluno_photo: '<?= $a['photo'] ?>', turma_id: <?= $turmaId ?>})">📝</button>
                             <button type="button" class="action-btn" title="Adicionar Comentário" onclick="openCommentModal(<?= htmlspecialchars(json_encode(['id' => $a['id'], 'nome' => $a['nome'], 'photo' => $a['photo'], 'photo_url' => ($a['photo'] && file_exists(__DIR__.'/../'.$a['photo']) ? '/'.$a['photo'] : null)]), ENT_QUOTES) ?>, <?= $turmaId ?>)">💬</button>
                             
-                            <?php if ($isAdmin || $isCoord): ?>
+                            <?php if (hasDbPermission('students.manage', false)): ?>
                             <button type="button" class="action-btn" title="Editar"
                                     onclick="openEditModal(<?= htmlspecialchars(json_encode($a), ENT_QUOTES) ?>)">✏️</button>
                             <form method="POST" style="display:inline;" onsubmit="return confirm('Desvincular aluno da turma?')">

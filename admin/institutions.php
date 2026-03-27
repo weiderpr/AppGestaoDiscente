@@ -4,13 +4,9 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
-requireLogin();
+hasDbPermission('institutions.index');
 
 $currentUser = getCurrentUser();
-if (!$currentUser || $currentUser['profile'] !== 'Administrador') {
-    header('Location: /dashboard.php');
-    exit;
-}
 
 $db      = getDB();
 $success = '';

@@ -3,14 +3,9 @@
  * Vértice Acadêmico — Gestão de Representantes da Turma
  */
 require_once __DIR__ . '/../includes/auth.php';
-requireLogin();
+hasDbPermission('representantes.manage');
 
 $user    = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador'];
-if (!$user || !in_array($user['profile'], $allowed)) {
-    header('Location: /dashboard.php');
-    exit;
-}
 
 $db     = getDB();
 $inst   = getCurrentInstitution();
