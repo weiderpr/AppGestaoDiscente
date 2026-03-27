@@ -1,6 +1,7 @@
 <?php
 /**
  * Vértice Acadêmico — Turmas do Curso (Mobile)
+ * UI Refatorada para Excelência Visual
  */
 require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
@@ -27,7 +28,10 @@ if (!$course) {
     exit;
 }
 
-// Segurança extra por perfil
+// Permissões via Matriz + Vínculos
+$isAdmin = ($user['profile'] === 'Administrador');
+$canViewStudents = hasDbPermission('students.index', false);
+
 $isCourseCoordinator = false;
 if ($user['profile'] === 'Coordenador') {
     $stCheck = $db->prepare("SELECT 1 FROM course_coordinators WHERE course_id = ? AND user_id = ?");
@@ -35,8 +39,7 @@ if ($user['profile'] === 'Coordenador') {
     $isCourseCoordinator = (bool)$stCheck->fetch();
 }
 
-// Se for coordenador e não for desta turma, verificamos se ele é pelo menos professor nela
-$isTeacherOfThisCourse = false;
+$isTeacherInCourse = false;
 if (($user['is_teacher'] ?? 0) == 1) {
     $stT = $db->prepare("
         SELECT 1 FROM turmas t 
@@ -45,19 +48,18 @@ if (($user['is_teacher'] ?? 0) == 1) {
         WHERE t.course_id = ? AND tdp.professor_id = ? LIMIT 1
     ");
     $stT->execute([$courseId, $user['id']]);
-    $isTeacherOfThisCourse = (bool)$stT->fetch();
+    $isTeacherInCourse = (bool)$stT->fetch();
 }
 
-$isAdmin = ($user['profile'] === 'Administrador');
-
-if (!$isCourseCoordinator && !$isTeacherOfThisCourse && !$isAdmin && !in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo'])) {
+// Se não for admin nem tiver permissão de visão de alunos, nem for coordenador/professor, barra.
+if (!$isAdmin && !$canViewStudents && !$isCourseCoordinator && !$isTeacherInCourse) {
     header('Location: /mobile/courses.php');
     exit;
 }
 
 $search = trim($_GET['search'] ?? '');
 
-// ---- LISTAR TURMAS (Lógica reutilizada) ----
+// ---- LISTAR TURMAS ----
 $sql = "
     SELECT t.*,
            (SELECT COUNT(*) FROM turma_alunos WHERE turma_id = t.id) as total_alunos
@@ -66,8 +68,8 @@ $sql = "
 ";
 $params = [$courseId];
 
-// Se for apenas professor (ou coordenador acessando curso que não coordena), filtra turmas onde leciona
-if (($user['is_teacher'] ?? 0) == 1 && !$isAdmin && !$isCourseCoordinator && !in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo'])) {
+// Filtro de professor (vê apenas onde leciona se não for coordenador/admin/pedagogo)
+if (($user['is_teacher'] ?? 0) == 1 && !$isAdmin && !$canViewStudents && !$isCourseCoordinator) {
     $sql .= " AND t.id IN (
         SELECT DISTINCT t2.id
         FROM turmas t2
@@ -89,143 +91,142 @@ $st = $db->prepare($sql);
 $st->execute($params);
 $turmas = $st->fetchAll();
 
-$pageTitle = 'Turmas — ' . $course['name'];
-$currentPage = 'cursos'; // Mantém o destaque em Cursos
+$pageTitle = $course['name'];
+$currentPage = 'cursos';
 require_once __DIR__ . '/header.php';
 ?>
 
 <style>
-    .m-back-link {
-        display: inline-flex;
+    .m-header-details {
+        margin-bottom: 0.75rem;
+    }
+    
+    .m-breadcrumbs {
+        display: flex;
         align-items: center;
         gap: 0.5rem;
-        color: var(--text-secondary);
-        font-weight: 600;
-        font-size: 0.875rem;
-        text-decoration: none;
-        margin-bottom: 1.5rem;
-        background: var(--bg-surface);
-        padding: 0.5rem 0.875rem;
-        border-radius: 12px;
-        border: 1px solid var(--border-color);
+        margin-bottom: 1rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
     }
-    .m-turma-card {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 24px;
-        padding: 1.25rem 1.5rem;
-        text-decoration: none;
+
+    .m-breadcrumbs a { color: var(--color-primary); }
+
+    .m-turma-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.375rem;
+    }
+
+    .m-turma-card-new {
         display: flex;
         align-items: center;
         gap: 1.25rem;
-        box-shadow: var(--shadow-md);
-        margin-bottom: 1rem;
-        position: relative;
-        transition: transform 0.2s, box-shadow 0.2s;
+        text-decoration: none;
     }
-    .m-turma-card:active {
-        transform: scale(0.98);
-        box-shadow: var(--shadow-sm);
-    }
-    
-    .m-turma-icon {
-        width: 52px;
-        height: 52px;
-        border-radius: 16px;
-        background: var(--bg-surface-2nd);
+
+    .m-turma-visual {
+        width: 60px;
+        height: 60px;
+        border-radius: 18px;
+        background: var(--color-primary-light);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
     }
-    .m-turma-ano {
+
+    .m-v-ano {
         font-size: 0.625rem;
         font-weight: 800;
         color: var(--text-muted);
         line-height: 1;
     }
-    .m-turma-id {
+    .m-v-id {
         font-family: 'Outfit', sans-serif;
-        font-size: 1.125rem;
+        font-size: 1.25rem;
         font-weight: 800;
         color: var(--color-primary);
     }
-    
-    .m-turma-info {
-        flex: 1;
-    }
-    .m-turma-name {
+
+    .m-turma-body { flex: 1; }
+
+    .m-t-name {
         font-family: 'Outfit', sans-serif;
         font-weight: 700;
         font-size: 1.125rem;
         color: var(--text-primary);
         margin-bottom: 0.25rem;
     }
-    .m-turma-meta {
+
+    .m-t-meta {
         font-size: 0.8125rem;
         color: var(--text-muted);
         display: flex;
         align-items: center;
         gap: 0.75rem;
     }
-    .m-turma-arrow {
-        font-size: 1.25rem;
+
+    .m-t-arrow {
+        font-size: 1.5rem;
         color: var(--text-muted);
         opacity: 0.3;
+        font-weight: 300;
     }
 </style>
 
 <div class="m-content">
     
-    <a href="/mobile/courses.php" class="m-back-link">
-        <span>←</span> Voltar para Cursos
-    </a>
-
-    <header style="margin-bottom: 2rem;">
-        <div style="font-size: 0.75rem; font-weight: 700; color: var(--color-primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
-            <?= htmlspecialchars($course['name']) ?>
+    <div class="m-header-details">
+        <div class="m-breadcrumbs">
+            <a href="/mobile/courses.php">Cursos</a>
+            <span>/</span>
+            <span>Turmas</span>
         </div>
         <h1 class="m-section-title" style="margin-bottom: 0.5rem;">Turmas Disponíveis</h1>
-        <p style="font-size: 0.875rem; color: var(--text-muted);">Selecione uma turma para ver os alunos</p>
-    </header>
+        <p style="font-size: 0.875rem; color: var(--text-muted);">Selecione uma turma para carregar a lista de alunos.</p>
+    </div>
 
-    <!-- Busca -->
-    <form action="" method="GET" style="margin-bottom: 2rem;">
+    <!-- Busca Standardizada -->
+    <form action="" method="GET">
         <input type="hidden" name="course_id" value="<?= $courseId ?>">
         <div class="m-search-box">
             <span>🔍</span>
             <input type="text" name="search" class="m-search-input" placeholder="Buscar turma ou ano..." value="<?= htmlspecialchars($search) ?>">
             <?php if($search): ?>
-                <a href="turmas.php?course_id=<?= $courseId ?>" style="text-decoration:none; color:var(--text-muted); padding-right: 0.5rem;">✕</a>
+                <a href="turmas.php?course_id=<?= $courseId ?>" style="text-decoration:none; color:var(--text-muted); padding-right:0.5rem;">✕</a>
             <?php endif; ?>
         </div>
     </form>
 
-    <div class="m-turma-list">
+    <div class="m-turma-grid">
         <?php if (empty($turmas)): ?>
-            <div class="m-empty-state">
+            <div class="m-card" style="text-align:center; padding: 4rem 2rem;">
                 <div style="font-size: 3rem; margin-bottom: 1rem;">🎓</div>
-                <p>Nenhuma turma encontrada para este curso.</p>
+                <p style="color:var(--text-muted);">Nenhuma turma encontrada para este curso.</p>
                 <?php if($search): ?>
-                    <a href="turmas.php?course_id=<?= $courseId ?>" style="color:var(--color-primary); font-weight:600; margin-top:0.5rem; display:inline-block;">Limpar busca</a>
+                    <a href="turmas.php?course_id=<?= $courseId ?>" style="color:var(--color-primary); font-weight:600; margin-top:1rem; display:inline-block;">Limpar busca</a>
                 <?php endif; ?>
             </div>
         <?php else: ?>
             <?php foreach ($turmas as $t): ?>
-                <a href="/mobile/alunos.php?turma_id=<?= $t['id'] ?>" class="m-turma-card">
-                    <div class="m-turma-icon">
-                        <span class="m-turma-ano"><?= $t['ano'] ?></span>
-                        <span class="m-turma-id">T<?= $t['id'] ?></span>
+                <a href="/mobile/alunos.php?turma_id=<?= $t['id'] ?>" class="m-card m-turma-card-new">
+                    <div class="m-turma-visual">
+                        <span class="m-v-ano"><?= $t['ano'] ?></span>
+                        <span class="m-v-id"><?= $t['id'] ?></span>
                     </div>
-                    <div class="m-turma-info">
-                        <div class="m-turma-name"><?= htmlspecialchars($t['description']) ?></div>
-                        <div class="m-turma-meta">
-                            <span>👥 <?= $t['total_alunos'] ?> Alunos</span>
-                            <span>📅 Ativa</span>
+                    <div class="m-turma-body">
+                        <div class="m-t-name"><?= htmlspecialchars($t['description']) ?></div>
+                        <div class="m-t-meta">
+                            <span title="Total de Alunos">👥 <?= $t['total_alunos'] ?></span>
+                            <span>• Ativa</span>
                         </div>
                     </div>
-                    <div class="m-turma-arrow">›</div>
+                    <div class="m-t-arrow">›</div>
                 </a>
             <?php endforeach; ?>
         <?php endif; ?>

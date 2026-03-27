@@ -50,6 +50,7 @@ foreach (explode(' ', trim($userName)) as $part) {
             --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
             --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
             --radius-xl: 24px;
+            --gradient-brand: linear-gradient(135deg, #4f46e5, #7c3aed);
         }
 
         [data-theme="dark"] {
@@ -80,9 +81,9 @@ foreach (explode(' ', trim($userName)) as $part) {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-xl);
-            padding: 1.5rem;
+            padding: 0.75rem 1rem;
             box-shadow: var(--shadow-md);
-            margin-bottom: 1.25rem;
+            margin-bottom: 0.5rem;
             transition: transform 0.2s, box-shadow 0.2s;
         }
 
@@ -95,11 +96,11 @@ foreach (explode(' ', trim($userName)) as $part) {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 18px;
-            padding: 1rem 1.25rem;
+            padding: 0.625rem 1.125rem;
             display: flex;
             align-items: center;
             gap: 1rem;
-            margin-bottom: 2rem;
+            margin-bottom: 0.875rem;
             box-shadow: var(--shadow-sm);
             transition: border-color 0.2s, box-shadow 0.2s;
         }

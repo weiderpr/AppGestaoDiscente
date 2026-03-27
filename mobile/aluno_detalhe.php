@@ -90,7 +90,7 @@ require_once __DIR__ . '/header.php';
     }
 
     .m-content-container {
-        padding: 1.25rem;
+        padding: 0.75rem;
         max-width: 600px;
         margin: 0 auto;
         animation: fadeIn 0.4s ease-out;
@@ -103,7 +103,7 @@ require_once __DIR__ . '/header.php';
 
     /* Back Button */
     .m-back-header {
-        margin-bottom: 1.5rem;
+        margin-bottom: 1rem;
     }
     .m-back-btn {
         display: inline-flex;
@@ -123,11 +123,11 @@ require_once __DIR__ . '/header.php';
     .m-profile-hero {
         background: var(--bg-surface);
         border-radius: var(--card-radius);
-        padding: 2rem 1.5rem;
+        padding: 1rem 0.75rem;
         text-align: center;
         border: 1px solid var(--border-color);
         box-shadow: var(--shadow-soft);
-        margin-bottom: 1.5rem;
+        margin-bottom: 0.75rem;
         position: relative;
         overflow: hidden;
     }
@@ -143,31 +143,31 @@ require_once __DIR__ . '/header.php';
 
     .m-avatar-wrapper {
         position: relative;
-        width: 110px;
-        height: 110px;
-        margin: 0 auto 1.25rem;
+        width: 95px;
+        height: 95px;
+        margin: 0 auto 0.75rem;
         z-index: 1;
     }
 
     .m-avatar-lg {
-        width: 110px;
-        height: 110px;
-        border-radius: 38px;
+        width: 95px;
+        height: 95px;
+        border-radius: 32px;
         object-fit: cover;
         border: 4px solid var(--bg-surface);
         box-shadow: 0 8px 20px rgba(99, 102, 241, 0.2);
     }
 
     .m-avatar-placeholder {
-        width: 110px;
-        height: 110px;
-        border-radius: 38px;
+        width: 95px;
+        height: 95px;
+        border-radius: 32px;
         background: var(--primary-gradient);
         display: flex;
         align-items: center;
         justify-content: center;
         color: white;
-        font-size: 2.25rem;
+        font-size: 2rem;
         font-weight: 800;
         border: 4px solid var(--bg-surface);
         box-shadow: 0 8px 20px rgba(99, 102, 241, 0.2);
@@ -207,7 +207,7 @@ require_once __DIR__ . '/header.php';
 
     /* Info Grid */
     .m-info-section {
-        margin-bottom: 2rem;
+        margin-bottom: 0.75rem;
     }
 
     .m-section-header {
@@ -231,17 +231,17 @@ require_once __DIR__ . '/header.php';
     .m-info-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 0.875rem;
+        gap: 0.5rem;
     }
 
     .m-info-card {
         background: var(--bg-surface);
         border: 1px solid var(--border-color);
-        padding: 1.25rem;
-        border-radius: 22px;
+        padding: 0.875rem 1rem;
+        border-radius: 20px;
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: 0.375rem;
     }
 
     .m-info-label {
@@ -262,13 +262,13 @@ require_once __DIR__ . '/header.php';
     .m-comment-feed {
         display: flex;
         flex-direction: column;
-        gap: 1.25rem;
+        gap: 0.75rem;
     }
 
     .m-comment-item {
         background: var(--bg-surface);
         border-radius: var(--bubble-radius);
-        padding: 1.25rem;
+        padding: 1rem;
         border: 1px solid var(--border-color);
         box-shadow: 0 4px 12px rgba(0,0,0,0.02);
         animation: slideUp 0.3s ease-out;
@@ -282,8 +282,8 @@ require_once __DIR__ . '/header.php';
     .m-comment-header {
         display: flex;
         align-items: center;
-        gap: 0.875rem;
-        margin-bottom: 0.875rem;
+        gap: 0.5rem;
+        margin-bottom: 0.375rem;
     }
 
     .m-comment-user-avatar {
@@ -491,7 +491,7 @@ require_once __DIR__ . '/header.php';
                                 <div class="m-comment-timestamp"><?= date('d M Y • H:i', strtotime($c['created_at'])) ?></div>
                             </div>
                         </div>
-                        <div class="m-comment-body"><?= nl2br(htmlspecialchars($c['conteudo'])) ?></div>
+                        <div class="m-comment-body"><?= nl2br(htmlspecialchars(strip_tags($c['conteudo']))) ?></div>
                         
                         <?php if ($isAdmin || $c['professor_id'] == $user['id']): ?>
                             <div class="m-comment-actions">

@@ -1,6 +1,7 @@
 <?php
 /**
  * Vértice Acadêmico — Alunos da Turma (Mobile)
+ * UI Refatorada para Excelência Visual
  */
 require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
@@ -32,7 +33,10 @@ if (!$turma) {
     exit;
 }
 
-// Segurança extra: Verifica se o usuário tem vínculo com esta turma
+// Permissões via Matriz + Vínculos
+$isAdmin = ($user['profile'] === 'Administrador');
+$canViewStudents = hasDbPermission('students.index', false);
+
 $isCourseCoordinator = false;
 if ($user['profile'] === 'Coordenador') {
     $stCheck = $db->prepare("SELECT 1 FROM course_coordinators WHERE course_id = ? AND user_id = ?");
@@ -51,10 +55,7 @@ if (($user['is_teacher'] ?? 0) == 1) {
     $isTeacherOfThisTurma = (bool)$stCheckT->fetch();
 }
 
-$isAdmin = ($user['profile'] === 'Administrador');
-$isSpecialProfile = in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo']);
-
-if (!$isAdmin && !$isCourseCoordinator && !$isTeacherOfThisTurma && !$isSpecialProfile) {
+if (!$isAdmin && !$canViewStudents && !$isCourseCoordinator && !$isTeacherOfThisTurma) {
     header('Location: /mobile/courses.php');
     exit;
 }
@@ -81,55 +82,57 @@ $st = $db->prepare($sql);
 $st->execute($params);
 $alunos = $st->fetchAll();
 
-$pageTitle = 'Alunos — ' . $turma['description'];
+$pageTitle = $turma['description'];
 $currentPage = 'cursos';
 require_once __DIR__ . '/header.php';
 ?>
 
 <style>
-    .m-back-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: var(--text-secondary);
-        font-weight: 600;
-        font-size: 0.875rem;
-        text-decoration: none;
-        margin-bottom: 1.5rem;
-        background: var(--bg-surface);
-        padding: 0.5rem 0.875rem;
-        border-radius: 12px;
-        border: 1px solid var(--border-color);
-    }
-    .m-aluno-card {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 20px;
-        padding: 1rem 1.25rem;
-        text-decoration: none;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        box-shadow: var(--shadow-md);
+    .m-header-details {
         margin-bottom: 0.75rem;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .m-aluno-card:active {
-        transform: scale(0.98);
-        box-shadow: var(--shadow-sm);
     }
     
-    .m-aluno-photo {
-        width: 48px;
-        height: 48px;
+    .m-breadcrumbs {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+    }
+
+    .m-breadcrumbs a { color: var(--color-primary); }
+
+    .m-aluno-list-new {
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+    }
+
+    .m-aluno-card-new {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        text-decoration: none;
+        padding: 1.25rem;
+    }
+
+    .m-aluno-avatar-box {
+        width: 52px;
+        height: 52px;
         border-radius: 50%;
         object-fit: cover;
         flex-shrink: 0;
         border: 2px solid var(--border-color);
+        box-shadow: var(--shadow-sm);
     }
-    .m-aluno-avatar {
-        width: 48px;
-        height: 48px;
+
+    .m-aluno-avatar-text {
+        width: 52px;
+        height: 52px;
         border-radius: 50%;
         background: var(--gradient-brand);
         display: flex;
@@ -139,31 +142,35 @@ require_once __DIR__ . '/header.php';
         font-weight: 700;
         font-size: 1.125rem;
         flex-shrink: 0;
+        box-shadow: var(--shadow-sm);
     }
     
-    .m-aluno-info {
+    .m-aluno-body {
         flex: 1;
         min-width: 0;
     }
-    .m-aluno-name {
+
+    .m-aluno-name-text {
         font-family: 'Outfit', sans-serif;
         font-weight: 700;
-        font-size: 1rem;
+        font-size: 1.0625rem;
         color: var(--text-primary);
-        margin-bottom: 0.125rem;
+        margin-bottom: 0.25rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    .m-aluno-meta {
-        font-size: 0.75rem;
+
+    .m-aluno-meta-text {
+        font-size: 0.8125rem;
         color: var(--text-muted);
         display: flex;
         align-items: center;
         gap: 0.5rem;
     }
-    .m-aluno-arrow {
-        font-size: 1rem;
+
+    .m-aluno-arrow-text {
+        font-size: 1.5rem;
         color: var(--text-muted);
         opacity: 0.3;
     }
@@ -171,64 +178,64 @@ require_once __DIR__ . '/header.php';
 
 <div class="m-content">
     
-    <a href="/mobile/turmas.php?course_id=<?= $turma['course_id'] ?>" class="m-back-link">
-        <span>←</span> Voltar para Turmas
-    </a>
-
-    <header style="margin-bottom: 1.5rem;">
-        <div style="font-size: 0.75rem; font-weight: 700; color: var(--color-primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">
-            <?= htmlspecialchars($turma['course_name']) ?> • <?= htmlspecialchars($turma['description']) ?>
+    <div class="m-header-details">
+        <div class="m-breadcrumbs">
+            <a href="/mobile/courses.php">Cursos</a>
+            <span>/</span>
+            <a href="/mobile/turmas.php?course_id=<?= $turma['course_id'] ?>">Turmas</a>
+            <span>/</span>
+            <span>Alunos</span>
         </div>
         <h1 class="m-section-title" style="margin-bottom: 0.5rem;">Lista de Alunos</h1>
-        <p style="font-size: 0.875rem; color: var(--text-muted);"><?= count($alunos) ?> alunos matriculados nesta turma</p>
-    </header>
+        <p style="font-size: 0.875rem; color: var(--text-muted);"><?= count($alunos) ?> alunos encontrados.</p>
+    </div>
 
-    <!-- Busca -->
-    <form action="" method="GET" style="margin-bottom: 2rem;">
+    <!-- Busca Standardizada -->
+    <form action="" method="GET">
         <input type="hidden" name="turma_id" value="<?= $turmaId ?>">
         <div class="m-search-box">
             <span>🔍</span>
             <input type="text" name="search" class="m-search-input" placeholder="Nome ou matrícula..." value="<?= htmlspecialchars($search) ?>">
             <?php if($search): ?>
-                <a href="alunos.php?turma_id=<?= $turmaId ?>" style="text-decoration:none; color:var(--text-muted); padding-right: 0.5rem;">✕</a>
+                <a href="alunos.php?turma_id=<?= $turmaId ?>" style="text-decoration:none; color:var(--text-muted); padding-right:0.5rem;">✕</a>
             <?php endif; ?>
         </div>
     </form>
 
-    <div class="m-aluno-list">
+    <div class="m-aluno-list-new">
         <?php if (empty($alunos)): ?>
-            <div class="m-empty-state">
+            <div class="m-card" style="text-align:center; padding: 4rem 2rem;">
                 <div style="font-size: 3rem; margin-bottom: 1rem;">👥</div>
-                <p>Nenhum aluno encontrado nesta turma.</p>
+                <p style="color:var(--text-muted);">Nenhum aluno encontrado nesta turma.</p>
                 <?php if($search): ?>
-                    <a href="alunos.php?turma_id=<?= $turmaId ?>" style="color:var(--color-primary); font-weight:600; margin-top:0.5rem; display:inline-block;">Limpar busca</a>
+                    <a href="alunos.php?turma_id=<?= $turmaId ?>" style="color:var(--color-primary); font-weight:600; margin-top:1rem; display:inline-block;">Limpar busca</a>
                 <?php endif; ?>
             </div>
         <?php else: ?>
             <?php foreach ($alunos as $a): ?>
-                <a href="/mobile/aluno_detalhe.php?aluno_id=<?= $a['id'] ?>&turma_id=<?= $turmaId ?>" class="m-aluno-card">
+                <a href="/mobile/aluno_detalhe.php?aluno_id=<?= $a['id'] ?>&turma_id=<?= $turmaId ?>" class="m-card m-aluno-card-new">
                     <?php if (!empty($a['photo'])): ?>
-                        <img src="/<?= htmlspecialchars($a['photo'] ?? '') ?>" alt="" class="m-aluno-photo">
+                        <img src="/<?= htmlspecialchars($a['photo']) ?>" alt="" class="m-aluno-avatar-box">
                     <?php else: 
                         $initials = '';
                         foreach (explode(' ', trim($a['nome'])) as $part) {
-                            $initials .= strtoupper(substr($part, 0, 1));
+                            if(!empty($part)) $initials .= strtoupper(substr($part, 0, 1));
                             if (strlen($initials) >= 2) break;
                         }
                     ?>
-                        <div class="m-aluno-avatar"><?= $initials ?></div>
+                        <div class="m-aluno-avatar-text"><?= $initials ?></div>
                     <?php endif; ?>
                     
-                    <div class="m-aluno-info">
-                        <div class="m-aluno-name"><?= htmlspecialchars($a['nome']) ?></div>
-                        <div class="m-aluno-meta">
+                    <div class="m-aluno-body">
+                        <div class="m-aluno-name-text"><?= htmlspecialchars($a['nome']) ?></div>
+                        <div class="m-aluno-meta-text">
                             <span>#<?= $a['matricula'] ?></span>
                             <?php if($a['telefone']): ?>
                                 <span>• 📞 <?= htmlspecialchars($a['telefone']) ?></span>
                             <?php endif; ?>
                         </div>
                     </div>
-                    <div class="m-aluno-arrow">›</div>
+                    <div class="m-aluno-arrow-text">›</div>
                 </a>
             <?php endforeach; ?>
         <?php endif; ?>

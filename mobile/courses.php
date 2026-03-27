@@ -1,6 +1,7 @@
 <?php
 /**
  * Vértice Acadêmico — Gestão de Cursos (Mobile)
+ * UI Refatorada para Excelência Visual
  */
 require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
@@ -17,17 +18,16 @@ if (!$instId) {
 $db = getDB();
 $search = trim($_GET['search'] ?? '');
 
-// ---- Lógica de Listagem (Reutilizada de courses/index.php) ----
+// ---- Lógica de Listagem ----
+// Usando subquery para COUNT para evitar problemas de GROUP BY com c.*
 $sql = "SELECT c.*, 
-               COUNT(t.id) as total_turmas
+               (SELECT COUNT(*) FROM turmas t WHERE t.course_id = c.id AND t.is_active = 1) as total_turmas
         FROM courses c
-        LEFT JOIN turmas t ON c.id = t.course_id
-        LEFT JOIN course_coordinators cc ON c.id = cc.course_id";
+        WHERE c.institution_id = ? AND c.is_active = 1";
 
 $params = [$instId];
-$where  = "WHERE c.institution_id=? AND c.is_active = 1";
-
 $restrictions = [];
+
 if ($user['profile'] === 'Coordenador') {
     $restrictions[] = "c.id IN (SELECT course_id FROM course_coordinators WHERE user_id = ?)";
     $params[] = $user['id'];
@@ -44,19 +44,28 @@ if (($user['is_teacher'] ?? 0) == 1) {
     $params[] = $user['id'];
 }
 
-if (!empty($restrictions) && $user['profile'] !== 'Administrador') {
-    $where .= " AND (" . implode(" OR ", $restrictions) . ")";
+$isSpecial = in_array($user['profile'], ['Administrador', 'Pedagogo', 'Assistente Social', 'Psicólogo']);
+
+if (!empty($restrictions) && !$isSpecial) {
+    $sql .= " AND (" . implode(" OR ", $restrictions) . ")";
 }
 
 if ($search) {
-    $where .= " AND c.name LIKE ?";
+    $sql .= " AND c.name LIKE ?";
     $params[] = "%$search%";
 }
 
-$sql .= " $where GROUP BY c.id ORDER BY c.name ASC";
-$st = $db->prepare($sql);
-$st->execute($params);
-$courses = $st->fetchAll();
+$sql .= " ORDER BY c.name ASC";
+
+try {
+    $st = $db->prepare($sql);
+    $st->execute($params);
+    $courses = $st->fetchAll();
+} catch (Exception $e) {
+    // Para depuração se houver erro SQL (apenas se display_errors estiver OFF e quisermos ver)
+    // die($e->getMessage()); 
+    $courses = [];
+}
 
 $pageTitle = 'Meus Cursos';
 $currentPage = 'cursos';
@@ -64,29 +73,11 @@ require_once __DIR__ . '/header.php';
 ?>
 
 <style>
-    .m-course-list {
-        display: flex;
-        flex-direction: column;
-        gap: 1.25rem;
-    }
-    .m-course-card {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 24px;
-        padding: 1.5rem;
-        text-decoration: none;
-        display: block;
-        box-shadow: var(--shadow-md);
-        position: relative;
-        overflow: hidden;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .m-course-card:active {
-        transform: scale(0.98);
-        box-shadow: var(--shadow-sm);
-    }
-    
-    .m-course-tag {
+    .m-header-details { margin-bottom: 2rem; }
+    .m-course-grid { display: flex; flex-direction: column; gap: 1.25rem; }
+    .m-course-card-new { display: block; text-decoration: none; position: relative; }
+    .m-course-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
+    .m-course-tag-new {
         font-size: 0.625rem;
         font-weight: 800;
         text-transform: uppercase;
@@ -95,10 +86,8 @@ require_once __DIR__ . '/header.php';
         background: var(--color-primary-light);
         padding: 0.25rem 0.625rem;
         border-radius: 8px;
-        display: inline-block;
-        margin-bottom: 0.75rem;
     }
-    .m-course-name {
+    .m-course-name-text {
         font-size: 1.25rem;
         font-weight: 800;
         color: var(--text-primary);
@@ -106,82 +95,69 @@ require_once __DIR__ . '/header.php';
         line-height: 1.2;
         margin-bottom: 0.5rem;
     }
-    .m-course-meta {
+    .m-course-footer {
         display: flex;
         align-items: center;
         gap: 1rem;
         color: var(--text-muted);
         font-size: 0.8125rem;
+        border-top: 1px solid var(--border-color);
+        padding-top: 1rem;
+        margin-top: 0.5rem;
     }
-    .m-course-stat {
-        display: flex;
-        align-items: center;
-        gap: 0.375rem;
-    }
-    .m-course-arrow {
-        position: absolute;
-        right: 1.5rem;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 1.5rem;
-        color: var(--text-muted);
-        opacity: 0.3;
-    }
-    .m-empty-state {
-        text-align: center;
-        padding: 4rem 2rem;
-        color: var(--text-muted);
-    }
+    .m-course-stat-item { display: flex; align-items: center; gap: 0.375rem; }
+    .m-course-chevron { position: absolute; right: 1.25rem; top: 1.5rem; font-size: 1.5rem; color: var(--text-muted); opacity: 0.2; }
 </style>
 
 <div class="m-content">
-    
-    <header style="margin-bottom: 1.5rem;">
+    <header style="margin-bottom: 0.75rem;">
         <h1 class="m-section-title" style="margin-bottom: 0.25rem;">Gestão de Cursos</h1>
-        <p style="font-size: 0.875rem; color: var(--text-muted);">Visualize e gerencie suas turmas</p>
+        <p style="font-size: 0.875rem; color: var(--text-muted);">Visualize e gerencie suas turmas e disciplinas.</p>
     </header>
 
-    <!-- Busca -->
+    <!-- Busca Standardizada -->
     <form action="" method="GET">
         <div class="m-search-box">
             <span>🔍</span>
-            <input type="text" name="search" class="m-search-input" placeholder="Buscar curso..." value="<?= htmlspecialchars($search) ?>">
+            <input type="text" name="search" class="m-search-input" placeholder="Buscar curso ou campus..." value="<?= htmlspecialchars($search) ?>">
             <?php if($search): ?>
-                <a href="courses.php" style="text-decoration:none; color:var(--text-muted);">✕</a>
+                <a href="courses.php" style="text-decoration:none; color:var(--text-muted); padding-right:0.5rem;">✕</a>
             <?php endif; ?>
         </div>
     </form>
 
-    <div class="m-course-list">
+    <div class="m-course-grid">
         <?php if (empty($courses)): ?>
-            <div class="m-empty-state">
+            <div class="m-card" style="text-align:center; padding: 4rem 2rem;">
                 <div style="font-size: 3rem; margin-bottom: 1rem;">📭</div>
-                <p>Nenhum curso encontrado.</p>
+                <p style="color:var(--text-muted);">Nenhum curso encontrado.</p>
                 <?php if($search): ?>
-                    <a href="courses.php" style="color:var(--color-primary); font-weight:600; margin-top:0.5rem; display:inline-block;">Limpar busca</a>
+                    <a href="courses.php" style="color:var(--color-primary); font-weight:600; margin-top:1rem; display:inline-block;">Limpar busca</a>
                 <?php endif; ?>
             </div>
         <?php else: ?>
             <?php foreach ($courses as $c): ?>
-                <a href="/mobile/turmas.php?course_id=<?= $c['id'] ?>" class="m-course-card">
-                    <span class="m-course-tag"><?= htmlspecialchars($c['location'] ?? 'Eixo Principal') ?></span>
-                    <div class="m-course-name"><?= htmlspecialchars($c['name']) ?></div>
-                    <div class="m-course-meta">
-                        <div class="m-course-stat">
+                <a href="/mobile/turmas.php?course_id=<?= $c['id'] ?>" class="m-card m-course-card-new">
+                    <div class="m-course-header">
+                        <span class="m-course-tag-new"><?= htmlspecialchars($c['location'] ?? 'Eixo Principal') ?></span>
+                    </div>
+                    <div class="m-course-name-text"><?= htmlspecialchars($c['name']) ?></div>
+                    
+                    <div class="m-course-footer">
+                        <div class="m-course-stat-item">
                             <span>👥</span> <?= $c['total_turmas'] ?> Turmas
                         </div>
                         <?php if(($user['is_teacher'] ?? 0) == 1): ?>
-                            <div class="m-course-stat">
+                            <div class="m-course-stat-item">
                                 <span>📖</span> Minhas Disciplinas
                             </div>
                         <?php endif; ?>
                     </div>
-                    <div class="m-course-arrow">›</div>
+                    <div class="m-course-chevron">›</div>
                 </a>
             <?php endforeach; ?>
         <?php endif; ?>
     </div>
-
 </div>
 
 <?php require_once __DIR__ . '/footer.php'; ?>
