@@ -64,25 +64,6 @@ require_once __DIR__ . '/header.php';
 ?>
 
 <style>
-    .m-search-box {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 18px;
-        padding: 0.75rem 1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin-bottom: 2rem;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-    }
-    .m-search-input {
-        background: transparent;
-        border: none;
-        color: var(--text-primary);
-        font-size: 1rem;
-        width: 100%;
-        outline: none;
-    }
     .m-course-list {
         display: flex;
         flex-direction: column;
@@ -95,11 +76,15 @@ require_once __DIR__ . '/header.php';
         padding: 1.5rem;
         text-decoration: none;
         display: block;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+        box-shadow: var(--shadow-md);
         position: relative;
         overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
-    .m-course-card:active { transform: scale(0.98); }
+    .m-course-card:active {
+        transform: scale(0.98);
+        box-shadow: var(--shadow-sm);
+    }
     
     .m-course-tag {
         font-size: 0.625rem;

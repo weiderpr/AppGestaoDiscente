@@ -40,6 +40,16 @@ foreach (explode(' ', trim($userName)) as $part) {
             --drawer-width: 85%;
             --color-primary: #4f46e5;
             --color-primary-light: #eef2ff;
+            --bg-body: #ebf0f7; /* Slightly darker for better contrast with white cards */
+            --bg-card: #ffffff;
+            --border-color: #d1d9e6; /* More distinct border */
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+            --radius-xl: 24px;
         }
 
         [data-theme="dark"] {
@@ -53,8 +63,8 @@ foreach (explode(' ', trim($userName)) as $part) {
         }
 
         body {
-            background-color: var(--bg-body, #f1f5f9);
-            color: var(--text-primary, #0f172a);
+            background-color: var(--bg-body);
+            color: var(--text-primary);
             font-family: 'Inter', sans-serif;
             margin: 0;
             padding-top: var(--header-height);
@@ -62,6 +72,57 @@ foreach (explode(' ', trim($userName)) as $part) {
             min-height: 100vh;
             overflow-x: hidden;
             -webkit-tap-highlight-color: transparent;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Reusable Mobile Components */
+        .m-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-md);
+            margin-bottom: 1.25rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .m-card:active {
+            transform: scale(0.98);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .m-search-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 18px;
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-sm);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .m-search-box:focus-within {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .m-search-input {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.0625rem;
+            font-weight: 500;
+            width: 100%;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .m-search-box span {
+            font-size: 1.25rem;
+            opacity: 0.7;
         }
 
         /* Header Mobile */
@@ -341,10 +402,6 @@ foreach (explode(' ', trim($userName)) as $part) {
             <span class="drawer-link-icon">🏠</span>
             <span>Início</span>
         </a>
-        <a href="/courses/conselhos.php" class="drawer-link <?= $currentPage === 'conselhos' ? 'active' : '' ?>">
-            <span class="drawer-link-icon">⚖️</span>
-            <span>Conselhos</span>
-        </a>
         <a href="/mobile/courses.php" class="drawer-link <?= $currentPage === 'cursos' ? 'active' : '' ?>">
             <span class="drawer-link-icon">📚</span>
             <span>Cursos Ativos</span>
@@ -352,10 +409,6 @@ foreach (explode(' ', trim($userName)) as $part) {
         <a href="/profile.php" class="drawer-link <?= $currentPage === 'perfil' ? 'active' : '' ?>">
             <span class="drawer-link-icon">👤</span>
             <span>Meu Perfil</span>
-        </a>
-        <a href="/settings.php" class="drawer-link">
-            <span class="drawer-link-icon">⚙️</span>
-            <span>Configurações</span>
         </a>
     </nav>
 

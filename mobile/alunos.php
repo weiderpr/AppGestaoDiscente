@@ -91,11 +91,15 @@ require_once __DIR__ . '/header.php';
         display: inline-flex;
         align-items: center;
         gap: 0.5rem;
-        color: var(--color-primary);
+        color: var(--text-secondary);
         font-weight: 600;
         font-size: 0.875rem;
         text-decoration: none;
         margin-bottom: 1.5rem;
+        background: var(--bg-surface);
+        padding: 0.5rem 0.875rem;
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
     }
     .m-aluno-card {
         background: var(--bg-card);
@@ -106,11 +110,14 @@ require_once __DIR__ . '/header.php';
         display: flex;
         align-items: center;
         gap: 1rem;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        box-shadow: var(--shadow-md);
         margin-bottom: 0.75rem;
-        transition: transform 0.2s;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
-    .m-aluno-card:active { transform: scale(0.98); }
+    .m-aluno-card:active {
+        transform: scale(0.98);
+        box-shadow: var(--shadow-sm);
+    }
     
     .m-aluno-photo {
         width: 48px;
@@ -177,13 +184,13 @@ require_once __DIR__ . '/header.php';
     </header>
 
     <!-- Busca -->
-    <form action="" method="GET" style="margin-bottom: 1.5rem;">
+    <form action="" method="GET" style="margin-bottom: 2rem;">
         <input type="hidden" name="turma_id" value="<?= $turmaId ?>">
-        <div class="m-search-box" style="margin-bottom:0;">
+        <div class="m-search-box">
             <span>🔍</span>
             <input type="text" name="search" class="m-search-input" placeholder="Nome ou matrícula..." value="<?= htmlspecialchars($search) ?>">
             <?php if($search): ?>
-                <a href="alunos.php?turma_id=<?= $turmaId ?>" style="text-decoration:none; color:var(--text-muted);">✕</a>
+                <a href="alunos.php?turma_id=<?= $turmaId ?>" style="text-decoration:none; color:var(--text-muted); padding-right: 0.5rem;">✕</a>
             <?php endif; ?>
         </div>
     </form>

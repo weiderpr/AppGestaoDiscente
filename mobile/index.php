@@ -67,9 +67,15 @@ require_once __DIR__ . '/header.php';
         align-items: center;
         gap: 1.25rem;
         text-decoration: none;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+        box-shadow: var(--shadow-md);
         position: relative;
         overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .m-feature-card:active {
+        transform: scale(0.98);
+        box-shadow: var(--shadow-sm);
     }
 
     .m-feature-card::after {
@@ -123,15 +129,6 @@ require_once __DIR__ . '/header.php';
 
     <div class="m-feature-grid">
         
-        <a href="/courses/conselhos.php" class="m-feature-card" style="--accent-color:#4f46e5; --accent-bg:#eef2ff;">
-            <div class="m-feature-icon">⚖️</div>
-            <div class="m-feature-info">
-                <div class="m-feature-name">Conselhos de Classe</div>
-                <div class="m-feature-desc">Atas, notas e avaliações de desempenho.</div>
-            </div>
-            <div class="m-feature-arrow">›</div>
-        </a>
-
         <a href="/mobile/courses.php" class="m-feature-card" style="--accent-color:#10b981; --accent-bg:#ecfdf5;">
             <div class="m-feature-icon">📚</div>
             <div class="m-feature-info">
@@ -141,24 +138,6 @@ require_once __DIR__ . '/header.php';
             <div class="m-feature-arrow">›</div>
         </a>
 
-        <a href="/profile.php" class="m-feature-card" style="--accent-color:#7c3aed; --accent-bg:#f5f3ff;">
-            <div class="m-feature-icon">👤</div>
-            <div class="m-feature-info">
-                <div class="m-feature-name">Meu Perfil</div>
-                <div class="m-feature-desc">Dados cadastrais e preferências de tema.</div>
-            </div>
-            <div class="m-feature-arrow">›</div>
-        </a>
-
-    </div>
-
-    <div class="m-card" style="background:var(--gradient-brand); color:white; border:none; padding:1.5rem; text-align:center; border-radius:24px;">
-        <div style="font-size:2rem; margin-bottom:1rem;">🚀</div>
-        <h3 style="font-weight:800; font-size:1.125rem; margin-bottom:0.5rem; font-family:'Outfit';">Tudo em um só lugar</h3>
-        <p style="font-size:0.875rem; opacity:0.9; line-height:1.5; margin-bottom:1.5rem;">Gerencie o sucesso acadêmico de seus alunos com agilidade e precisão.</p>
-        <button class="m-btn" style="background:white; color:var(--color-primary); border:none; width:100%;" onclick="window.location.href='/courses/turmas.php'">
-            Ver Minhas Turmas
-        </button>
     </div>
 
 </div>
