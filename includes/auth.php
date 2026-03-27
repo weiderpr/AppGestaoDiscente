@@ -29,6 +29,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Global Institution Context Check (Auto-Middleware)
+if (isLoggedIn()) {
+    $currentAction = basename($_SERVER['PHP_SELF']);
+    $exemptActions = ['login.php', 'logout.php', 'register.php', 'select_institution.php', 'process_selection.php'];
+    
+    // Se não estiver em uma página de bypass, exige instituição
+    if (!in_array($currentAction, $exemptActions)) {
+        requireInstitution();
+    }
+}
+
 // Perfis de acesso disponíveis
 const PROFILES = [
     'Administrador',
@@ -154,15 +165,33 @@ function registerUser(array $data): array {
 }
 
 
-/**
- * Retorna a instituição atualmente selecionada na sessão
- */
 function getCurrentInstitution(): array {
     return [
         'id'    => $_SESSION['current_institution_id']   ?? null,
         'name'  => $_SESSION['current_institution_name'] ?? null,
         'photo' => $_SESSION['current_institution_photo'] ?? null,
     ];
+}
+
+/**
+ * Exige uma instituição selecionada na sessão
+ */
+function requireInstitution(bool $redirect = true): void {
+    $inst = getCurrentInstitution();
+    if (!$inst['id']) {
+        if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest') {
+            http_response_code(401);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Sessão expirada: Selecione uma instituição.']);
+            exit;
+        }
+        
+        if ($redirect) {
+            $currentUrl = $_SERVER['REQUEST_URI'];
+            header('Location: /select_institution.php?redirect=' . urlencode($currentUrl));
+            exit;
+        }
+    }
 }
 
 /**

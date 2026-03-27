@@ -8,10 +8,10 @@ requireLogin();
 
 $user = getCurrentUser();
 $inst = getCurrentInstitution();
-$instId = $inst['id'] ?? 0;
+$instId = $inst['id'];
 
 $courseId = (int)($_GET['course_id'] ?? 0);
-if (!$courseId || !$instId) {
+if (!$courseId) {
     header('Location: /mobile/courses.php');
     exit;
 }

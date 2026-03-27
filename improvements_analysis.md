@@ -1,59 +1,66 @@
 # Análise de Melhorias e Dívida Técnica — Vértice Acadêmico
+> [!NOTE]
+> Última Atualização: 27/03/2026 - 16:30hs
 
-Este documento detalha as melhorias necessárias identificadas durante a análise profunda do sistema, categorizadas por grau de criticidade.
-
----
-
-## 🔴 Criticalidade: CRÍTICA
-
-### 1. Sincronização de Esquema do Banco de Dados
-- **Problema:** Tabelas essenciais como `conselho_encaminhamentos` e `atendimentos` estão sendo utilizadas no código (ex: `referrals_ajax.php`, `atendimentos_functions.php`), mas não estão definidas no arquivo principal `sql/schema.sql` nem em arquivos de migração visíveis.
-- **Risco:** Impossibilidade de replicar o ambiente de desenvolvimento/produção de forma confiável. Perda de integridade referencial.
-- **Melhoria:** Atualizar o `schema.sql` e criar migrações retroativas para todas as tabelas e índices faltantes.
-
-### 2. Ausência de Proteção CSRF (Cross-Site Request Forgery)
-- **Problema:** Não foi detectado nenhum mecanismo de validação de tokens CSRF nas rotas de alteração de dados (POST, PUT, DELETE), tanto no novo `Router.php` quanto nos arquivos AJAX legados.
-- **Risco:** Um atacante pode induzir um usuário autenticado a executar ações indesejadas (ex: excluir um curso ou alterar dados de um aluno) através de sites maliciosos.
-- **Melhoria:** Implementar um middleware ou utilitário global para geração e validação de tokens CSRF em todas as requisições de estado.
+Este documento reflete o estado atual das melhorias implementadas e o novo roteiro de evolução do sistema após a conclusão da Refatoração Mobile e Segurança (CSRF/RBAC).
 
 ---
 
-## 🟠 Criticalidade: ALTA
-
-### 3. Dualidade Arquitetural (Dívida Técnica)
-- **Problema:** Existe uma divisão clara entre o novo padrão (Controllers/Services em `src/`) e o padrão legado (arquivos procedurais na raiz e em `courses/`).
-- **Risco:** Aumento exponencial no custo de manutenção, duplicação de lógica de negócio e dificuldade em implementar melhorias globais (como segurança ou logs).
-- **Melhoria:** Estabelecer um plano de migração para mover a lógica dos arquivos `*_ajax.php` e `*_functions.php` para a estrutura de `Services` e `Controllers`.
-
-### 4. Gestão de Permissões Ad-hoc
-- **Problema:** As verificações de perfil (ex: `Admin`, `Coordenador`) são feitas de forma manual e repetitiva em cada método de controller ou bloco de código AJAX.
-- **Risco:** Inconsistência na segurança. É fácil esquecer uma verificação em uma nova funcionalidade, levando a falhas de autorização.
-- **Melhoria:** Implementar um sistema de ACL (Access Control List) ou RBAC (Role-Based Access Control) centralizado, preferencialmente integrado ao Router via Middleware.
+## ✅ CONCLUÍDO E ESTÁVEL
+- [x] **Proteção CSRF Global:** Implementadas validações em todas as rotas de alteração de estado (Mobile e Desktop).
+- [x] **RBAC (Role-Based Access Control) Dinâmico:** Substituição de perfis "hardcoded" pela nova Matriz de Permissões no banco de dados.
+- [x] **Refinamento Mobile Premium:** Interface mobile 100% responsiva, com alto contraste e baixo tempo de carregamento.
+- [x] **Sincronização de Esquema:** O arquivo `sql/schema.sql` agora contém todas as 33 tabelas e os dados de permissões iniciais.
 
 ---
 
-## 🟡 Criticalidade: MÉDIA
+## 🔴 PRIORIDADE: CRÍTICA (Próximos Passos)
 
-### 5. Centralização de Lógica de Instituição
-- **Problema:** Muitos serviços e funções dependem do `institution_id` passado manualmente por parâmetro.
-- **Risco:** Erros de "vazamento de dados" entre instituições se um desenvolvedor esquecer de incluir o filtro em uma query.
-- **Melhoria:** Utilizar um "Contexto Global" ou "Global Scope" no banco de dados para que as queries filtrem automaticamente pela instituição ativa na sessão do usuário.
+### 1. Centralização da Sessão e Sessão Multi-Instituição
+- **Problema:** A seleção de instituição ainda depende de redirecionamentos manuais em páginas individuais (ex: `courses.php`, `turmas.php`).
+- **Risco:** Inconsistência ao navegar entre módulos se o usuário perder o contexto de qual instituição está ativa.
+- **Melhoria:** Implementar um `InstitutionMiddleware` que verifique automaticamente se a instituição está selecionada e injete o contexto em todas as requisições.
 
-### 6. Ausência de Testes Automatizados
-- **Problema:** Não há diretório de testes (`tests/`) nem ferramentas como PHPUnit ou Jest configuradas.
-- **Risco:** Regressões frequentes ao alterar partes centrais do sistema, especialmente durante a migração da arquitetura legada.
-- **Melhoria:** Configurar PHPUnit para o backend e Vitest/Jest para os componentes JS, iniciando com testes de integração nos serviços críticos.
+### 2. Auditoria de Alterações (Audit Logs)
+- **Problema:** Com o aumento de observações pedagógicas e alterações de permissões via interface, não há um rastro de "quem alterou o quê".
+- **Risco:** Dificuldade em resolver conflitos de dados ou identificar acessos indevidos.
+- **Melhoria:** Criar uma tabela `audit_logs` e um helper global para registrar ações críticas (Save/Update/Delete).
 
 ---
 
-## 🟢 Criticalidade: BAIXA
+## 🟠 PRIORIDADE: ALTA
 
-### 7. Otimização de Assets Frontend
-- **Problema:** Alguns arquivos JS (ex: `student_comments.js`) estão crescendo significativamente e não passam por um processo de build/minificação.
-- **Risco:** Tempo de carregamento ligeiramente superior em conexões lentas e código exposto sem ofuscação.
-- **Melhoria:** Introduzir um bundler simples (como Vite ou esbuild) para gerenciar, minificar e otimizar os assets.
+### 3. Consolidação Arquitetural (Migração Legada)
+- **Problema:** Fragmentação entre arquivos procedurais na raiz e `Services/Controllers` em `src/`.
+- **Risco:** Duplicação de lógica e aumento do custo de manutenção.
+- **Melhoria:** Continuar movendo a lógica de negócios para a pasta `src/`, transformando arquivos procedurais em apenas "pontos de entrada" (wrappers) que chamam os Controllers.
 
-### 8. Padronização de Erros e Logs
-- **Problema:** O tratamento de erros é inconsistente (alguns retornam JSON com `success: false`, outros redirecionam com `header`).
-- **Risco:** Dificuldade em debugar problemas em produção e UI inconsistente para o usuário.
-- **Melhoria:** Criar um Handler de Exceções global que formate erros de acordo com o tipo de requisição (HTML vs API) e registre-os em um log centralizado.
+### 4. Gestão de Notificações Mobile
+- **Problema:** Registros de observações pedagógicas são silenciosos; o coordenador só vê o comentário se acessar o aluno especificamente.
+- **Risco:** Perda de agilidade no acompanhamento pedagógico.
+- **Melhoria:** Implementar um sistema de alerta/sina (via email ou dashboard administrativo) para novas observações críticas.
+
+---
+
+## 🟡 PRIORIDADE: MÉDIA
+
+### 5. Implementação de Testes Automatizados
+- **Problema:** O sistema não possui cobertura de testes para os serviços críticos (`AlunoService`, `AuthService`).
+- **Risco:** Introdução de regressões durante as próximas fases de refatoração.
+- **Melhoria:** Instalar **PHPUnit** e criar os primeiros testes de integração para as rotas de Permissões e Segurança.
+
+### 6. Relatório Mobile de Turma
+- **Problema:** O professor vê um aluno por vez, mas não tem um resumo de "quantos comentários foram feitos na Turma X esta semana".
+- **Risco:** Visão fragmentada do desempenho da turma.
+- **Melhoria:** Adicionar uma nova aba ou tela de "Resumo de Turma" na interface mobile.
+
+---
+
+## 🟢 PRIORIDADE: BAIXA
+
+### 7. Otimização de Imagens e Cache
+- **Problema:** Fotos de alunos são carregadas sem redimensionamento no mobile.
+- **Melhoria:** Implementar redimensionamento dinâmico (Thumbnailer) para economizar dados móveis.
+
+### 8. Documentação Técnica Abrangente
+- **Melhoria:** Evoluir o `rbac_guide.md` para um Manual Geral de Desenvolvimento do Vértice Acadêmico.

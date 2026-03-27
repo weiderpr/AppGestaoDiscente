@@ -11,12 +11,12 @@ requireLogin();
 
 $user = getCurrentUser();
 $inst = getCurrentInstitution();
-$instId = $inst['id'] ?? 0;
+$instId = $inst['id'];
 
 $alunoId = (int)($_GET['aluno_id'] ?? 0);
 $turmaId = (int)($_GET['turma_id'] ?? 0);
 
-if (!$alunoId || !$turmaId || !$instId) {
+if (!$alunoId || !$turmaId) {
     header('Location: /mobile/courses.php');
     exit;
 }

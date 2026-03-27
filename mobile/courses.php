@@ -8,12 +8,7 @@ requireLogin();
 
 $user = getCurrentUser();
 $inst = getCurrentInstitution();
-$instId = $inst['id'] ?? 0;
-
-if (!$instId) {
-    header('Location: /select_institution.php?redirect=' . urlencode('/mobile/courses.php'));
-    exit;
-}
+$instId = $inst['id'];
 
 $db = getDB();
 $search = trim($_GET['search'] ?? '');
