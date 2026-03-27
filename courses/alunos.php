@@ -492,6 +492,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <button type="button" class="action-btn" title="Editar"
                                     onclick="openEditModal(<?= htmlspecialchars(json_encode($a), ENT_QUOTES) ?>)">✏️</button>
                             <form method="POST" style="display:inline;" onsubmit="return confirm('Desvincular aluno da turma?')">
+                                <?= csrf_field() ?>
                                 <input type="hidden" name="action" value="remove">
                                 <input type="hidden" name="aluno_id" value="<?= $a['id'] ?>">
                                 <button type="submit" class="action-btn danger" title="Remover da Turma">✕</button>
@@ -515,6 +516,7 @@ require_once __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeModal('alunoModal')">✕</button>
         </div>
         <form method="POST" enctype="multipart/form-data">
+            <?= csrf_field() ?>
             <input type="hidden" name="action" value="create">
             <div class="modal-body">
                 <div class="form-group">
@@ -571,6 +573,7 @@ require_once __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeModal('editAlunoModal')">✕</button>
         </div>
         <form method="POST" enctype="multipart/form-data">
+            <?= csrf_field() ?>
             <input type="hidden" name="action" value="update">
             <input type="hidden" name="aluno_id" id="edit_aluno_id">
             <input type="hidden" name="current_photo" id="edit_current_photo">
@@ -634,6 +637,7 @@ require_once __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeModal('importModal')">✕</button>
         </div>
         <form method="POST">
+            <?= csrf_field() ?>
             <input type="hidden" name="action" value="import">
             <div class="modal-body">
                 <div class="form-group">
@@ -683,6 +687,7 @@ require_once __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeModal('importFileModal')">✕</button>
         </div>
         <form method="POST" enctype="multipart/form-data">
+            <?= csrf_field() ?>
             <input type="hidden" name="action" value="import_file">
             <div class="modal-body">
                 <div style="padding:1rem; border-radius:var(--radius-md); background:var(--bg-surface-2nd); border:1px dashed var(--border-color); margin-bottom:0.5rem;">

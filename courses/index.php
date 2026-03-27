@@ -340,10 +340,16 @@ require_once __DIR__ . '/../includes/header.php';
                 <span class="modal-title">📊 Importar Notas via Arquivo</span>
                 <button type="button" class="modal-close" onclick="closeImportGradesModal()">✕</button>
             </div>
-            <form action="/courses/import_notas.php" method="POST" enctype="multipart/form-data">
-                <input type="hidden" name="course_id" id="import_grades_course_id">
+            <form method="POST" action="/courses/import_notas.php" enctype="multipart/form-data">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="import_grades">
+            <input type="hidden" name="course_id" id="import_grades_course_id">
                 <div class="modal-body">
                     
+                    <div class="alert alert-info">
+                        💡 Selecione o arquivo CSV ou Excel contendo as notas dos alunos.
+                    </div>
+
                     <div style="padding:.625rem .875rem;border-radius:var(--radius-md);background:var(--color-primary-light);color:var(--color-primary);font-size:.875rem;font-weight:500;margin-bottom:.5rem;">
                         🏫 Curso: <strong id="import_grades_course_name">...</strong>
                     </div>

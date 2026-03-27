@@ -28,10 +28,31 @@ if (!$course) {
 }
 
 // Segurança extra por perfil
+$isCourseCoordinator = false;
 if ($user['profile'] === 'Coordenador') {
     $stCheck = $db->prepare("SELECT 1 FROM course_coordinators WHERE course_id = ? AND user_id = ?");
     $stCheck->execute([$courseId, $user['id']]);
-    if (!$stCheck->fetch()) { header('Location: /mobile/courses.php'); exit; }
+    $isCourseCoordinator = (bool)$stCheck->fetch();
+}
+
+// Se for coordenador e não for desta turma, verificamos se ele é pelo menos professor nela
+$isTeacherOfThisCourse = false;
+if (($user['is_teacher'] ?? 0) == 1) {
+    $stT = $db->prepare("
+        SELECT 1 FROM turmas t 
+        JOIN turma_disciplinas td ON t.id = td.turma_id 
+        JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id 
+        WHERE t.course_id = ? AND tdp.professor_id = ? LIMIT 1
+    ");
+    $stT->execute([$courseId, $user['id']]);
+    $isTeacherOfThisCourse = (bool)$stT->fetch();
+}
+
+$isAdmin = ($user['profile'] === 'Administrador');
+
+if (!$isCourseCoordinator && !$isTeacherOfThisCourse && !$isAdmin && !in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo'])) {
+    header('Location: /mobile/courses.php');
+    exit;
 }
 
 $search = trim($_GET['search'] ?? '');
@@ -45,7 +66,8 @@ $sql = "
 ";
 $params = [$courseId];
 
-if ($user['profile'] === 'Professor') {
+// Se for apenas professor (ou coordenador acessando curso que não coordena), filtra turmas onde leciona
+if (($user['is_teacher'] ?? 0) == 1 && !$isAdmin && !$isCourseCoordinator && !in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo'])) {
     $sql .= " AND t.id IN (
         SELECT DISTINCT t2.id
         FROM turmas t2

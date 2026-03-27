@@ -10,6 +10,12 @@ class Router {
     private array $namedRoutes = [];
     private string $currentRoutePath = '';
     private string $currentRouteMethod = '';
+    private array $globalMiddlewares = [];
+
+    public function globalMiddleware(string|object $middleware): self {
+        $this->globalMiddlewares[] = $middleware;
+        return $this;
+    }
 
     public function get(string $path, callable|array $handler, string $name = ''): self {
         return $this->addRoute('GET', $path, $handler, $name);
@@ -88,7 +94,10 @@ class Router {
             $this->executeHandler($handler, $params);
         };
 
-        foreach (array_reverse($middlewares) as $middleware) {
+        // Combina middlewares globais com os específicos da rota
+        $allMiddlewares = array_merge($this->globalMiddlewares, $middlewares);
+
+        foreach (array_reverse($allMiddlewares) as $middleware) {
             $prevNext = $next;
             $next = function(array $params) use ($middleware, $prevNext, $name) {
                 if (is_string($middleware)) {

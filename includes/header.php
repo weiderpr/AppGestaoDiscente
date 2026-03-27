@@ -12,6 +12,9 @@ require_once __DIR__ . '/i18n.php';
 I18n::init();
 $currentLocale = I18n::getLocale();
 
+// CSRF Utility
+require_once __DIR__ . '/csrf.php';
+
 if (!isset($user)) $user = getCurrentUser();
 $theme      = $user['theme'] ?? 'light';
 $userName   = htmlspecialchars($user['name'] ?? '');
@@ -39,6 +42,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Vértice Acadêmico — Sistema de Gestão de Indicadores Discentes">
+    <meta name="csrf-token" content="<?= csrf_token() ?>">
     <title><?= isset($pageTitle) ? htmlspecialchars($pageTitle) . ' — ' : '' ?>Vértice Acadêmico</title>
 
     <!-- Favicon inline SVG -->

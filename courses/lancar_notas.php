@@ -248,6 +248,7 @@ require_once __DIR__ . '/../includes/header.php';
 
 <?php if ($disciplinaCodigo !== '' && count($disciplinas) > 0): ?>
 <form method="POST" class="fade-in">
+    <?= csrf_field() ?>
     <input type="hidden" name="disciplina_codigo" value="<?= htmlspecialchars($disciplinaCodigo) ?>">
     <div class="card">
         <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">

@@ -4,9 +4,29 @@
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/csrf.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+}
+
+// Global CSRF Protection for state-changing requests
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $token = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    
+    $currentFile = basename($_SERVER['PHP_SELF']);
+    $exemptFiles = ['login.php', 'register.php', 'index.php']; 
+    
+    if (!in_array($currentFile, $exemptFiles) && !csrf_verify($token)) {
+        http_response_code(403);
+        if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Segurança: Token CSRF inválido ou expirado.']);
+        } else {
+            echo '<h1>403 Forbidden</h1><p>Erro de segurança: Validação CSRF falhou. Por favor, recarregue a página.</p>';
+        }
+        exit;
+    }
 }
 
 // Perfis de acesso disponíveis

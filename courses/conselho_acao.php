@@ -394,6 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <span style="font-size:.875rem;color:var(--text-muted);"><?= count($professores) ?> professor(es) vinculado(s)</span>
         </div>
         <form method="POST">
+            <?= csrf_field() ?>
             <input type="hidden" name="action" value="salvar_presenca">
             <div class="card-body" style="padding-bottom:.5rem;">
                 <p style="margin-bottom:1rem;color:var(--text-muted);font-size:.875rem;">
@@ -660,6 +661,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         Ao finalizar, este conselho será marcado como concluído e não poderá mais receber novos encaminhamentos ou registros.
                     </p>
                     <form method="POST" id="formFinalizar">
+                        <?= csrf_field() ?>
                         <input type="hidden" name="action" value="finalizar_conselho">
                         <button type="button" class="btn btn-primary btn-lg" style="width:100%;" onclick="confirmFinalizar()">✨ Finalizar Conselho de Classe</button>
                     </form>

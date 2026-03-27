@@ -9,8 +9,10 @@ use App\Controllers\CourseController;
 
 use App\Middleware\AuthMiddleware;
 use App\Middleware\RoleMiddleware;
+use App\Middleware\CsrfMiddleware;
 
 $router = new Router();
+$router->globalMiddleware(new CsrfMiddleware());
 
 // Middleware de autenticação padrão para quase todas as rotas
 $auth = new AuthMiddleware();

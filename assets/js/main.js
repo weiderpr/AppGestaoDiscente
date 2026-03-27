@@ -273,4 +273,31 @@ document.addEventListener('DOMContentLoaded', () => {
     initPasswordStrength();
     initAvatarPreview();
     initRegisterValidation();
+
+    // CSRF Global Setup (jQuery)
+    if (typeof jQuery !== 'undefined') {
+        jQuery.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+            }
+        });
+    }
 });
+
+/**
+ * Utilitário para requisições Fetch com CSRF
+ */
+async function fetchWithCsrf(url, options = {}) {
+    const token = document.querySelector('meta[name="csrf-token"]')?.content;
+    const defaultOptions = {
+        headers: {
+            'X-CSRF-TOKEN': token,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    };
+
+    // Mescla headers
+    options.headers = { ...defaultOptions.headers, ...(options.headers || {}) };
+    
+    return fetch(url, options);
+}

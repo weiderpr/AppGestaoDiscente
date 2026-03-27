@@ -155,6 +155,7 @@ require_once __DIR__ . '/../includes/header.php';
                         </div>
                     </div>
                     <form method="POST" style="margin:0;" onsubmit="return confirm('Remover <?= htmlspecialchars($r['nome']) ?> da representação desta turma?')">
+                        <?= csrf_field() ?>
                         <input type="hidden" name="action" value="remove">
                         <input type="hidden" name="aluno_id" value="<?= $r['id'] ?>">
                         <button type="submit" class="btn btn-ghost danger" style="padding:.4rem .6rem;font-size:.8125rem;">Remover</button>
@@ -176,6 +177,7 @@ require_once __DIR__ . '/../includes/header.php';
                     </p>
                 <?php else: ?>
                     <form method="POST" style="display:flex;flex-direction:column;gap:1rem;">
+                        <?= csrf_field() ?>
                         <input type="hidden" name="action" value="add">
                         <div class="form-group" style="margin:0;">
                             <label class="form-label">Selecionar Aluno</label>

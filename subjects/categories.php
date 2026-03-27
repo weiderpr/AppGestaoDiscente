@@ -241,6 +241,7 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
             <form method="POST" action="?action=edit">
                 <input type="hidden" name="id" id="edit_id">
+                <?= csrf_field() ?>
                 <div class="modal-body">
                     <div class="form-group">
                         <label class="form-label">Nome da Categoria <span class="required">*</span></label>

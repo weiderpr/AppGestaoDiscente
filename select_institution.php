@@ -141,6 +141,7 @@ $firstName = explode(' ', $user['name'])[0];
     </div>
 
     <form method="POST" id="instForm">
+        <?= csrf_field() ?>
         <input type="hidden" name="redirect" value="<?= htmlspecialchars($redirect) ?>">
         <input type="hidden" name="institution_id" id="selectedInstId">
 

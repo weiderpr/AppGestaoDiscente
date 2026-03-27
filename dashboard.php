@@ -10,7 +10,7 @@ $user      = getCurrentUser();
 // --- REDIRECIONAMENTO MOBILE ---
 // Perfis que usam a interface simplificada no mobile
 $mobileProfiles = ['Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'];
-if (isMobileDevice() && in_array($user['profile'], $mobileProfiles)) {
+if (isMobileDevice() && (in_array($user['profile'], $mobileProfiles) || ($user['is_teacher'] ?? 0) == 1)) {
     header('Location: /mobile/index.php');
     exit;
 }

@@ -213,6 +213,7 @@ require_once __DIR__ . '/../includes/header.php';
 <div class="card fade-in" style="max-width:600px; margin:0 auto;">
     <div class="card-body" style="padding:2.5rem;">
         <form method="POST" enctype="multipart/form-data">
+            <?= csrf_field() ?>
             <input type="hidden" name="course_id" value="<?= $courseId ?>">
             
             <div style="padding:1.25rem; border-radius:var(--radius-lg); background:var(--bg-surface-2nd); border:1px dashed var(--border-color); margin-bottom:2rem;">

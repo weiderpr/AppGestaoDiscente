@@ -198,6 +198,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         <div class="card-body">
             <form method="POST" class="auth-form" style="gap:1.125rem;">
+                <?= csrf_field() ?>
                 <!-- Campo hidden para evitar conflito com o form de dados -->
                 <input type="hidden" name="name" value="<?= htmlspecialchars($user['name']) ?>">
                 <input type="hidden" name="phone" value="<?= htmlspecialchars($user['phone'] ?? '') ?>">

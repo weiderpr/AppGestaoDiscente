@@ -363,6 +363,7 @@ require_once __DIR__ . '/../includes/header.php';
 
 <!-- Forms Ocultos para Ações -->
 <form id="formAction" method="POST" style="display:none;">
+    <?= csrf_field() ?>
     <input type="hidden" name="action" id="actionField">
     <input type="hidden" name="id" id="idField">
 </form>
@@ -377,6 +378,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <button type="button" class="modal-close" onclick="closeModal()">✕</button>
             </div>
             <form method="POST" onsubmit="return prepareForm()">
+                <?= csrf_field() ?>
                 <input type="hidden" name="action" value="save">
                 <input type="hidden" name="id" id="conselho_id" value="0">
                 <div class="modal-body">

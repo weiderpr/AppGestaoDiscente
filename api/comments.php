@@ -3,11 +3,10 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $user = getCurrentUser();
-$allowedProfiles = ['Professor', 'Coordenador', 'Administrador', 'Pedagogo', 'Assistente Social', 'Psicólogo'];
-if (!$user || !in_array($user['profile'], $allowedProfiles)) {
+if (!$user || !hasDbPermission('students.comments', false)) {
     http_response_code(403);
     header('Content-Type: application/json');
-    echo json_encode(['error' => 'Acesso negado: Perfil sem permissão.']);
+    echo json_encode(['error' => 'Acesso negado: Seu perfil não tem permissão para realizar comentários.']);
     exit;
 }
 

@@ -197,7 +197,8 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
                 <?php endforeach; ?>
 
-                <form method="POST" action="/courses/turmas.php?course_id=<?= $courseId ?>" style="margin-top:1rem;">
+                <form method="POST" action="/courses/turmas.php?course_id=<?= $turma['course_id'] ?>" style="margin-top:1rem;">
+                    <?= csrf_field() ?>
                     <input type="hidden" name="action"   value="toggle">
                     <input type="hidden" name="turma_id" value="<?= $turma['id'] ?>">
                     <button type="submit"

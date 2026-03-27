@@ -27,11 +27,14 @@ $sql = "SELECT c.*,
 $params = [$instId];
 $where  = "WHERE c.institution_id=? AND c.is_active = 1";
 
+$restrictions = [];
 if ($user['profile'] === 'Coordenador') {
-    $where .= " AND c.id IN (SELECT course_id FROM course_coordinators WHERE user_id = ?)";
+    $restrictions[] = "c.id IN (SELECT course_id FROM course_coordinators WHERE user_id = ?)";
     $params[] = $user['id'];
-} elseif ($user['profile'] === 'Professor') {
-    $where .= " AND c.id IN (
+}
+
+if (($user['is_teacher'] ?? 0) == 1) {
+    $restrictions[] = "c.id IN (
         SELECT DISTINCT t_inner.course_id 
         FROM turmas t_inner
         JOIN turma_disciplinas td ON t_inner.id = td.turma_id
@@ -39,6 +42,10 @@ if ($user['profile'] === 'Coordenador') {
         WHERE tdp.professor_id = ?
     )";
     $params[] = $user['id'];
+}
+
+if (!empty($restrictions) && $user['profile'] !== 'Administrador') {
+    $where .= " AND (" . implode(" OR ", $restrictions) . ")";
 }
 
 if ($search) {
@@ -178,7 +185,7 @@ require_once __DIR__ . '/header.php';
                         <div class="m-course-stat">
                             <span>👥</span> <?= $c['total_turmas'] ?> Turmas
                         </div>
-                        <?php if($user['profile'] === 'Professor'): ?>
+                        <?php if(($user['is_teacher'] ?? 0) == 1): ?>
                             <div class="m-course-stat">
                                 <span>📖</span> Minhas Disciplinas
                             </div>

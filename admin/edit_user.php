@@ -292,6 +292,7 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="card-body">
                 <form method="POST" class="auth-form" style="gap:1.125rem;">
                     <input type="hidden" name="action" value="password">
+                    <?= csrf_field() ?>
 
                     <div class="form-group">
                         <label for="new_password" class="form-label">Nova Senha <span class="required">*</span></label>
@@ -346,6 +347,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <form method="POST" action="/admin/users.php" style="margin-top:1rem;">
                     <input type="hidden" name="action"  value="toggle">
                     <input type="hidden" name="user_id" value="<?= $uid ?>">
+                    <?= csrf_field() ?>
                     <button type="submit"
                             class="btn btn-full <?= $editUser['is_active'] ? 'btn-secondary' : 'btn-primary' ?>"
                             onclick="return confirm('<?= $editUser['is_active'] ? 'Desativar' : 'Ativar' ?> este usuário?')"

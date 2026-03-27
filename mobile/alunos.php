@@ -32,6 +32,33 @@ if (!$turma) {
     exit;
 }
 
+// Segurança extra: Verifica se o usuário tem vínculo com esta turma
+$isCourseCoordinator = false;
+if ($user['profile'] === 'Coordenador') {
+    $stCheck = $db->prepare("SELECT 1 FROM course_coordinators WHERE course_id = ? AND user_id = ?");
+    $stCheck->execute([$turma['course_id'], $user['id']]);
+    $isCourseCoordinator = (bool)$stCheck->fetch();
+}
+
+$isTeacherOfThisTurma = false;
+if (($user['is_teacher'] ?? 0) == 1) {
+    $stCheckT = $db->prepare("
+        SELECT 1 FROM turma_disciplinas td 
+        JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id 
+        WHERE td.turma_id = ? AND tdp.professor_id = ? LIMIT 1
+    ");
+    $stCheckT->execute([$turmaId, $user['id']]);
+    $isTeacherOfThisTurma = (bool)$stCheckT->fetch();
+}
+
+$isAdmin = ($user['profile'] === 'Administrador');
+$isSpecialProfile = in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo']);
+
+if (!$isAdmin && !$isCourseCoordinator && !$isTeacherOfThisTurma && !$isSpecialProfile) {
+    header('Location: /mobile/courses.php');
+    exit;
+}
+
 $search = trim($_GET['search'] ?? '');
 
 // ---- LISTAR ALUNOS ----
@@ -172,7 +199,7 @@ require_once __DIR__ . '/header.php';
             </div>
         <?php else: ?>
             <?php foreach ($alunos as $a): ?>
-                <div class="m-aluno-card" data-student-id="<?= $a['id'] ?>">
+                <a href="/mobile/aluno_detalhe.php?aluno_id=<?= $a['id'] ?>&turma_id=<?= $turmaId ?>" class="m-aluno-card">
                     <?php if (!empty($a['photo'])): ?>
                         <img src="/<?= htmlspecialchars($a['photo'] ?? '') ?>" alt="" class="m-aluno-photo">
                     <?php else: 
@@ -194,7 +221,8 @@ require_once __DIR__ . '/header.php';
                             <?php endif; ?>
                         </div>
                     </div>
-                </div>
+                    <div class="m-aluno-arrow">›</div>
+                </a>
             <?php endforeach; ?>
         <?php endif; ?>
     </div>

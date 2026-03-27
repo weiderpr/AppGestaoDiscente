@@ -291,6 +291,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <a href="/courses/edit_etapa.php?id=<?= $e['id'] ?>&turma_id=<?= $turmaId ?>"
                                class="action-btn" title="Editar">✏️</a>
                             <form method="POST" style="display:inline;">
+                                <?= csrf_field() ?>
                                 <input type="hidden" name="action"   value="toggle">
                                 <input type="hidden" name="etapa_id" value="<?= $e['id'] ?>">
                                 <button type="submit" class="action-btn"
@@ -300,6 +301,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 </button>
                             </form>
                             <form method="POST" style="display:inline;">
+                                <?= csrf_field() ?>
                                 <input type="hidden" name="action"   value="delete">
                                 <input type="hidden" name="etapa_id" value="<?= $e['id'] ?>">
                                 <button type="submit" class="action-btn danger" title="Excluir"
@@ -323,6 +325,7 @@ require_once __DIR__ . '/../includes/header.php';
             <button class="modal-close" onclick="closeModal()">✕</button>
         </div>
         <form method="POST">
+            <?= csrf_field() ?>
             <input type="hidden" name="action" value="create">
             <div class="modal-body">
 
