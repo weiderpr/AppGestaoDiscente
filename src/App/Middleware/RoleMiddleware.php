@@ -21,7 +21,7 @@ class RoleMiddleware implements Middleware {
     }
 
     public function handle(array $params, callable $next): void {
-        require_once __DIR__ . '/../../includes/auth.php';
+        require_once __DIR__ . '/../../../includes/auth.php';
         $user = getCurrentUser();
         
         if (!$user) {

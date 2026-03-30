@@ -9,7 +9,7 @@ use Core\Middleware;
 
 class AuthMiddleware implements Middleware {
     public function handle(array $params, callable $next): void {
-        require_once __DIR__ . '/../../includes/auth.php';
+        require_once __DIR__ . '/../../../includes/auth.php';
         
         if (!isLoggedIn()) {
             if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest') {

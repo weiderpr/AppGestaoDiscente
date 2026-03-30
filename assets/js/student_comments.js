@@ -15,6 +15,7 @@ if (typeof window.openModal !== 'function') {
         const el = document.getElementById(id);
         if (el) {
             el.classList.add('show');
+            el.style.display = 'flex'; // Ensure display:flex
             document.body.style.overflow = 'hidden';
         }
     };
@@ -24,6 +25,7 @@ if (typeof window.closeModal !== 'function') {
         const el = document.getElementById(id);
         if (el) {
             el.classList.remove('show');
+            el.style.display = 'none'; // Revert to hidden
             document.body.style.overflow = '';
         }
     };
@@ -212,54 +214,103 @@ async function saveComment(event) {
     
     const conteudo = document.getElementById('comment_text').innerHTML.trim();
     if (!conteudo || conteudo === '<br>') {
-        alert('Por favor, digite um comentário.');
+        if (typeof Toast !== 'undefined') {
+            Toast.show('Por favor, digite um comentário.', 'warning');
+        } else {
+            alert('Por favor, digite um comentário.');
+        }
         return;
     }
     
-    btn.innerHTML = '⏳ Salvando...';
+    if (typeof showLoading === 'function') showLoading('Salvando comentário...');
     btn.disabled = true;
     
     try {
         const formData = new FormData();
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        formData.append('csrf_token', csrfToken);
         formData.append('action', 'save_comment');
         formData.append('aluno_id', currentCommentAlunoId);
         formData.append('turma_id', currentCommentTurmaId);
         formData.append('conteudo', conteudo);
         
-        const resp = await fetch('/api/comments.php', { method: 'POST', body: formData });
+        const resp = await fetch('/api/comments.php', { 
+            method: 'POST', 
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
         const data = await resp.json();
         
         if (data.error) throw new Error(data.error);
+        if (data.message) throw new Error(data.message);
         
-        if (typeof showToast === 'function') showToast('Comentário publicado!', 'success');
-        else alert('Comentário publicado com sucesso!');
+        if (typeof Toast !== 'undefined') {
+            Toast.show('Comentário publicado com sucesso!', 'success');
+        }
         
         document.getElementById('comment_text').innerHTML = '';
         loadComments(currentCommentAlunoId, currentCommentTurmaId);
         
     } catch (e) {
-        alert(e.message || 'Erro ao salvar comentário');
+        console.error(e);
+        if (typeof Toast !== 'undefined') {
+            Toast.show(e.message || 'Erro ao salvar comentário', 'danger');
+        } else {
+            alert(e.message || 'Erro ao salvar comentário');
+        }
     } finally {
+        if (typeof hideLoading === 'function') hideLoading();
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
 }
 
 async function deleteComment(id) {
-    if (!confirm('Deseja realmente excluir este comentário?')) return;
-    
-    try {
-        const formData = new FormData();
-        formData.append('action', 'delete_comment');
-        formData.append('comment_id', id);
-        
-        const resp = await fetch('/api/comments.php', { method: 'POST', body: formData });
-        const data = await resp.json();
-        if (data.error) throw new Error(data.error);
-        
-        loadComments(currentCommentAlunoId, currentCommentTurmaId);
-    } catch (e) {
-        alert(e.message || 'Erro ao excluir');
+    const performDelete = async () => {
+        if (typeof showLoading === 'function') showLoading('Excluindo...');
+        try {
+            const formData = new FormData();
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            formData.append('csrf_token', csrfToken);
+            formData.append('action', 'delete_comment');
+            formData.append('comment_id', id);
+            
+            const resp = await fetch('/api/comments.php', { 
+                method: 'POST', 
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await resp.json();
+            if (data.error) throw new Error(data.error);
+            
+            if (typeof Toast !== 'undefined') {
+                Toast.show('Comentário excluído.', 'success');
+            }
+            loadComments(currentCommentAlunoId, currentCommentTurmaId);
+        } catch (e) {
+            console.error(e);
+            if (typeof Toast !== 'undefined') {
+                Toast.show(e.message || 'Erro ao excluir', 'danger');
+            } else {
+                alert(e.message || 'Erro ao excluir');
+            }
+        } finally {
+            if (typeof hideLoading === 'function') hideLoading();
+        }
+    };
+
+    if (typeof Modal !== 'undefined' && typeof Modal.confirm === 'function') {
+        Modal.confirm({
+            title: 'Excluir Comentário',
+            message: 'Deseja realmente excluir este comentário?',
+            confirmText: 'Excluir',
+            confirmClass: 'btn-danger',
+            onConfirm: performDelete
+        });
+    } else {
+        if (confirm('Deseja realmente excluir este comentário?')) {
+            performDelete();
+        }
     }
 }
 
@@ -329,11 +380,18 @@ async function generateWordCloud(alunoId, turmaId) {
         
         data.todos_comentarios.forEach(comment => {
             const text = comment.conteudo.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
-            const words = text.toLowerCase().match(/\b[a-záàâãéèêíìîóòôõúùûç]+/g) || [];
-            words.forEach(word => {
-                if (word.length > 2 && !stopWords.has(word)) {
-                    wordCounts[word] = (wordCounts[word] || 0) + 1;
-                    totalWords++;
+            // Divide o texto em blocos por qualquer tipo de espaço ou pontuação comum
+            const tokens = text.toLowerCase().split(/[\s\n\r,.;:!?()\[\]"']+/);
+            
+            tokens.forEach(token => {
+                // Remove qualquer resquício de pontuação e garante que não comece com @
+                const word = token.trim();
+                if (word.length > 2 && !word.startsWith('@') && !stopWords.has(word)) {
+                    // Verificação extra para garantir que não haja arroba no meio ou fim (casos raros)
+                    if (word.indexOf('@') === -1) {
+                        wordCounts[word] = (wordCounts[word] || 0) + 1;
+                        totalWords++;
+                    }
                 }
             });
         });
@@ -402,11 +460,12 @@ async function generateSummary(alunoId, turmaId) {
             stats[sentiment]++;
             
             const rawText = comment.conteudo.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
+            const tokens = rawText.toLowerCase().split(/[\s\n\r,.;:!?()\[\]"']+/);
             
-            // Word counts
-            const words = rawText.toLowerCase().match(/\b[a-záàâãéèêíìîóòôõúùûç]{3,}\b/g) || [];
-            words.forEach(word => {
-                if (!stopWords.has(word)) {
+            // Word counts ignorando menções
+            tokens.forEach(token => {
+                const word = token.trim();
+                if (word.length >= 3 && !word.startsWith('@') && word.indexOf('@') === -1 && !stopWords.has(word)) {
                     wordCounts[word] = (wordCounts[word] || 0) + 1;
                 }
             });

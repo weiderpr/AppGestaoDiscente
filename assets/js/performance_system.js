@@ -360,7 +360,8 @@ const VAPerformance = {
         const target = typeof container === 'string' ? document.getElementById(container) : container;
         if (!target) return;
 
-        target.innerHTML = isMini ? '<span style="font-size:0.75rem;">⏳</span>' : '<div style="font-size:0.75rem;color:var(--text-muted);padding:0.5rem;">⏳...</div>';
+        const loadingHtml = isMini ? '<span class="skeleton-loading" style="width:40px;display:inline-block;">&nbsp;</span>' : '<div class="skeleton-loading" style="height:50px;margin:0.5rem 0;border-radius:var(--radius-md);"></div>';
+        target.innerHTML = loadingHtml;
 
         try {
             const resp = await fetch(`conselho_aluno_detalhes_ajax.php?aluno_id=${alunoId}&turma_id=${turmaId}`);

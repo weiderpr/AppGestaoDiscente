@@ -22,7 +22,7 @@ function renderModalStyles() {
         backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center;
         padding:1rem; opacity:0; visibility:hidden; transition:all .25s ease; 
     }
-    .modal-backdrop.show { opacity:1; visibility:visible; }
+    .modal-backdrop.show { opacity:1; visibility:visible; display:flex !important; }
     .modal { 
         background:var(--bg-surface); border:1px solid var(--border-color);
         border-radius:var(--radius-xl); width:100%; max-width:500px;
@@ -69,6 +69,7 @@ function renderModalScripts() {
         var modal = document.getElementById(id);
         if (modal) {
             modal.classList.remove('show');
+            modal.style.display = 'none';
             document.body.style.overflow = '';
         }
     }

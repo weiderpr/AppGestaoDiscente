@@ -106,7 +106,7 @@ class AlunoService extends Service {
              FROM turmas t
              INNER JOIN turma_alunos ta ON t.id = ta.turma_id
              INNER JOIN courses c ON t.course_id = c.id
-             WHERE ta.aluno_id = ? AND t.deleted_at IS NULL
+             WHERE ta.aluno_id = ? AND t.is_active = 1
              ORDER BY t.ano DESC, t.description',
             [$alunoId]
         );
@@ -163,5 +163,108 @@ class AlunoService extends Service {
              WHERE ta.aluno_id IS NULL AND a.deleted_at IS NULL
              ORDER BY a.nome ASC'
         );
+    }
+
+    public function getMultidisciplinaryHistory(int $alunoId): array {
+        $sql = "
+            (SELECT 
+                cp.id as id,
+                'Aula' COLLATE utf8mb4_unicode_ci as categoria, 
+                cp.conteudo COLLATE utf8mb4_unicode_ci as texto, 
+                cp.created_at as data_registro, 
+                u.id as autor_id,
+                u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
+                u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
+                u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
+             FROM comentarios_professores cp
+             JOIN users u ON cp.professor_id = u.id
+             WHERE cp.aluno_id = ? AND cp.conteudo != '')
+ 
+             UNION ALL
+ 
+             (SELECT 
+                ce.id as id,
+                'Conselho' COLLATE utf8mb4_unicode_ci as categoria, 
+                ce.texto COLLATE utf8mb4_unicode_ci as texto, 
+                ce.created_at as data_registro, 
+                u.id as autor_id,
+                u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
+                u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
+                u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
+             FROM conselho_encaminhamentos ce
+             JOIN users u ON ce.author_id = u.id
+             WHERE ce.aluno_id = ? AND ce.texto != '')
+             
+             UNION ALL
+ 
+             (SELECT 
+                cr.id as id,
+                'Conselho' COLLATE utf8mb4_unicode_ci as categoria, 
+                cr.texto COLLATE utf8mb4_unicode_ci as texto, 
+                cr.created_at as data_registro, 
+                u.id as autor_id,
+                u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
+                u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
+                u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
+             FROM conselho_registros cr
+             JOIN users u ON cr.user_id = u.id
+             WHERE cr.aluno_id = ? AND cr.texto != '')
+ 
+             UNION ALL
+ 
+             (SELECT 
+                cr.id as id,
+                'Geral' COLLATE utf8mb4_unicode_ci as categoria, 
+                cr.texto COLLATE utf8mb4_unicode_ci as texto, 
+                cr.created_at as data_registro, 
+                u.id as autor_id,
+                u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
+                u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
+                u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
+             FROM conselho_registros cr
+             JOIN conselhos_classe cc ON cr.conselho_id = cc.id
+             JOIN users u ON cr.user_id = u.id
+             WHERE cr.aluno_id IS NULL 
+                AND cc.turma_id IN (SELECT turma_id FROM turma_alunos WHERE aluno_id = ?)
+                AND cr.texto != '')
+ 
+             UNION ALL
+ 
+             (SELECT 
+                ccm.id as id,
+                'Geral' COLLATE utf8mb4_unicode_ci as categoria, 
+                ccm.comentario COLLATE utf8mb4_unicode_ci as texto, 
+                ccm.created_at as data_registro, 
+                u.id as autor_id,
+                u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
+                u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
+                u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
+             FROM conselhos_comentarios ccm
+             JOIN conselhos_classe cc ON ccm.conselho_id = cc.id
+             JOIN users u ON ccm.user_id = u.id
+             WHERE cc.turma_id IN (SELECT turma_id FROM turma_alunos WHERE aluno_id = ?)
+                AND ccm.comentario != '')
+ 
+             UNION ALL
+ 
+             (SELECT 
+                a.id as id,
+                'Atendimento' COLLATE utf8mb4_unicode_ci as categoria, 
+                a.public_text COLLATE utf8mb4_unicode_ci as texto, 
+                a.created_at as data_registro, 
+                u.id as autor_id,
+                u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
+                u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
+                u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
+             FROM atendimentos a
+             JOIN users u ON a.user_id = u.id
+             WHERE a.aluno_id = ? 
+                AND a.public_text IS NOT NULL 
+                AND a.public_text != '')
+
+            ORDER BY data_registro DESC
+        ";
+
+        return $this->fetchAll($sql, [$alunoId, $alunoId, $alunoId, $alunoId, $alunoId, $alunoId]);
     }
 }

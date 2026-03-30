@@ -1101,14 +1101,14 @@ function openAlunoModal(aluno) {
 }
 </script>
 
-<script src="/assets/js/student_comments.js?v=2.0"></script>
+<script src="/assets/js/student_comments.js?v=2.3"></script>
 <?php require_once __DIR__ . '/../includes/student_comment_modal.php'; ?>
 
 <!-- Componente de Encaminhamentos -->
 <?php require_once __DIR__ . '/../includes/encaminhamento_modal.php'; ?>
 
 <!-- Componente de Registros do Conselho -->
-<script src="/assets/js/conselho_registros_system.js?v=2.0"></script>
+<script src="/assets/js/conselho_registros_system.js?v=2.5"></script>
 <?php require_once __DIR__ . '/../includes/conselho_registro_modal.php'; ?>
 
 <!-- Componente de Ata do Conselho -->

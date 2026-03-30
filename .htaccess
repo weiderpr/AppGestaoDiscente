@@ -1,0 +1,8 @@
+RewriteEngine On
+
+# Não redirecionar se o arquivo ou diretório físico existir
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Redirecionar tudo o mais para o router.php
+RewriteRule ^(.*)$ router.php [QSA,L]

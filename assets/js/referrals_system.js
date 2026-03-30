@@ -102,41 +102,66 @@ async function saveReferral(event) {
     const setor = document.getElementById('referral_setor').value;
     
     if (!texto || texto === '<br>') {
-        alert('Por favor, descreva o encaminhamento.');
+        if (typeof Toast !== 'undefined') {
+            Toast.show('Por favor, descreva o encaminhamento.', 'warning');
+        } else {
+            alert('Por favor, descreva o encaminhamento.');
+        }
         return;
     }
     if (!setor) {
-        alert('Por favor, selecione o setor de destino.');
+        if (typeof Toast !== 'undefined') {
+            Toast.show('Por favor, selecione o setor de destino.', 'warning');
+        } else {
+            alert('Por favor, selecione o setor de destino.');
+        }
         return;
     }
 
-    btn.innerHTML = '⏳ Salvando...';
+    if (typeof showLoading === 'function') showLoading('Salvando encaminhamento...');
     btn.disabled = true;
 
     try {
-        const formData = new FormData(event.target);
+        const formData = new FormData();
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        formData.append('csrf_token', csrfToken);
+        formData.append('aluno_id', document.getElementById('referral_aluno_id').value);
+        formData.append('conselho_id', document.getElementById('referral_conselho_id').value);
+        formData.append('setor_tipo', document.getElementById('referral_setor').value);
+        formData.append('data_expectativa', document.getElementById('referral_data').value);
         formData.append('texto', texto);
         
+        // Handle multiple users if they are checked
+        const selectedUsers = Array.from(document.querySelectorAll('input[name="usuarios[]"]:checked')).map(cb => cb.value);
+        selectedUsers.forEach(userId => formData.append('usuarios[]', userId));
+
         const resp = await fetch('/courses/referrals_ajax.php?action=save', {
             method: 'POST',
-            body: formData
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
         const data = await resp.json();
 
         if (data.success) {
-            if (typeof showToast === 'function') showToast('Encaminhamento registrado!', 'success');
-            else alert('Encaminhamento registrado com sucesso!');
+            if (typeof Toast !== 'undefined') {
+                Toast.show('Encaminhamento registrado!', 'success');
+            }
             
-            // Reset and reload
             document.getElementById('referral_text').innerHTML = '';
             document.getElementById('referral_data').value = '';
             loadReferrals(currentReferralAlunoId, currentReferralConselhoId);
         } else {
-            throw new Error(data.message || 'Erro desconhecido');
+            throw new Error(data.message || data.error || 'Erro ao salvar encaminhamento');
         }
     } catch (e) {
-        alert('Erro ao salvar: ' + e.message);
+        console.error('Save Referral Error:', e);
+        if (typeof Toast !== 'undefined') {
+            Toast.show(e.message || 'Erro ao salvar encaminhamento', 'danger');
+        } else {
+            alert('Erro ao salvar: ' + e.message);
+        }
     } finally {
+        if (typeof hideLoading === 'function') hideLoading();
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
@@ -345,31 +370,58 @@ async function loadCouncilReferrals(conselhoId, isConcluidoOverride = null) {
  */
 async function deleteReferral(referralId, alunoId = null, isCouncilView = false) {
     if (window.conselhoIsConcluido === true || (typeof conselhoConcluido !== 'undefined' && conselhoConcluido === true)) {
-        alert('Este conselho já foi finalizado. Não é permitido excluir encaminhamentos.');
+        if (typeof Toast !== 'undefined') {
+            Toast.show('Este conselho já foi finalizado. Não é permitido excluir encaminhamentos.', 'warning');
+        } else {
+            alert('Este conselho já foi finalizado. Não é permitido excluir encaminhamentos.');
+        }
         return;
     }
     
-    if (!confirm('Deseja realmente excluir este encaminhamento?')) return;
+    const performDelete = async () => {
+        if (typeof showLoading === 'function') showLoading('Removendo...');
+        try {
+            const resp = await fetch(`/courses/referrals_ajax.php?action=delete&id=${referralId}`);
+            const data = await resp.json();
 
-    try {
-        const resp = await fetch(`/courses/referrals_ajax.php?action=delete&id=${referralId}`);
-        const data = await resp.json();
-
-        if (data.success) {
-            if (typeof showToast === 'function') showToast('Encaminhamento excluído!', 'success');
-            else alert('Encaminhamento excluído com sucesso!');
-            
-            // Reload appropriate view
-            if (isCouncilView && typeof conselhoId !== 'undefined') {
-                loadCouncilReferrals(conselhoId, window.conselhoIsConcluido);
+            if (data.success) {
+                if (typeof Toast !== 'undefined') {
+                    Toast.show('Encaminhamento excluído!', 'success');
+                }
+                
+                // Reload appropriate view
+                if (isCouncilView && typeof conselhoId !== 'undefined') {
+                    loadCouncilReferrals(conselhoId, window.conselhoIsConcluido);
+                } else {
+                    loadReferrals(alunoId, currentReferralConselhoId);
+                }
             } else {
-                loadReferrals(alunoId, currentReferralConselhoId);
+                throw new Error(data.message || 'Erro ao excluir');
             }
-        } else {
-            throw new Error(data.message || 'Erro ao excluir');
+        } catch (e) {
+            console.error(e);
+            if (typeof Toast !== 'undefined') {
+                Toast.show(e.message || 'Erro ao excluir', 'danger');
+            } else {
+                alert('Erro: ' + e.message);
+            }
+        } finally {
+            if (typeof hideLoading === 'function') hideLoading();
         }
-    } catch (e) {
-        alert('Erro: ' + e.message);
+    };
+
+    if (typeof Modal !== 'undefined' && typeof Modal.confirm === 'function') {
+        Modal.confirm({
+            title: 'Excluir Encaminhamento',
+            message: 'Deseja realmente excluir este encaminhamento?',
+            confirmText: 'Excluir',
+            confirmClass: 'btn-danger',
+            onConfirm: performDelete
+        });
+    } else {
+        if (confirm('Deseja realmente excluir este encaminhamento?')) {
+            performDelete();
+        }
     }
 }
 
@@ -377,7 +429,7 @@ async function deleteReferral(referralId, alunoId = null, isCouncilView = false)
  * Abre modal com detalhes do atendimento vinculado a um encaminhamento
  */
 async function viewAtendimentoByReferral(referralId) {
-    if (typeof Loading !== 'undefined') Loading.show();
+    if (typeof showLoading === 'function') showLoading('Buscando atendimento...');
     
     try {
         const resp = await fetch(`/courses/referrals_ajax.php?action=get_atendimento&id=${referralId}`);
@@ -388,10 +440,11 @@ async function viewAtendimentoByReferral(referralId) {
             
             // Check ownership for editing
             const isOwner = typeof currentUserId !== 'undefined' && atend.user_id == currentUserId;
-            const editBtn = isOwner ? `<button type="button" class="btn btn-primary btn-sm" onclick="this.closest('.modal-wrapper').querySelector('.modal-close')?.click(); openAtendimentoModal(${JSON.stringify(atend).replace(/"/g, '&quot;')})" style="margin-left:auto;">✏️ Editar Atendimento</button>` : '';
+            const editBtn = isOwner ? `<button type="button" class="btn btn-primary btn-sm" onclick="closeModal('modal-atendimento-view'); openAtendimentoModal(${JSON.stringify(atend).replace(/"/g, '&quot;')})" style="margin-left:auto;">✏️ Editar Atendimento</button>` : '';
 
             if (typeof Modal !== 'undefined') {
                 Modal.open({
+                    id: 'modal-atendimento-view',
                     title: `Detalhes do Atendimento — ${atend.data_atendimento} ${editBtn}`,
                     content: `
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1.5rem; padding:1.5rem;">
@@ -416,12 +469,20 @@ async function viewAtendimentoByReferral(referralId) {
                 alert('Atendimento:\n\n' + atend.public_text);
             }
         } else {
-            alert('Erro: ' + data.message);
+            if (typeof Toast !== 'undefined') {
+                Toast.show(data.message || 'Erro ao carregar detalhes', 'danger');
+            } else {
+                alert('Erro: ' + data.message);
+            }
         }
     } catch (e) {
         console.error('Erro ao buscar atendimento:', e);
-        alert('Erro ao carregar detalhes do atendimento.');
+        if (typeof Toast !== 'undefined') {
+            Toast.show('Erro ao carregar detalhes do atendimento.', 'danger');
+        } else {
+            alert('Erro ao carregar detalhes do atendimento.');
+        }
     } finally {
-        if (typeof Loading !== 'undefined') Loading.hide();
+        if (typeof hideLoading === 'function') hideLoading();
     }
 }

@@ -60,7 +60,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
     <!-- UI Components -->
     <link rel="stylesheet" href="/assets/css/components/toast.css">
     <link rel="stylesheet" href="/assets/css/components/loading.css">
-    <link rel="stylesheet" href="/assets/css/components/modal.css">
+    <link rel="stylesheet" href="/assets/css/components/modal.css?v=1.1">
     <script src="/assets/js/components/Toast.js"></script>
     <script src="/assets/js/components/Loading.js"></script>
     <script src="/assets/js/components/Modal.js"></script>

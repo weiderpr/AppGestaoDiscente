@@ -75,6 +75,11 @@ abstract class Controller {
         }
     }
 
+    protected function checkPermission(string $resource): void {
+        require_once __DIR__ . '/../../includes/auth.php';
+        hasDbPermission($resource, true); // true = auto redirect if failed
+    }
+
     protected function input(string $key, $default = null) {
         return $_REQUEST[$key] ?? $default;
     }
@@ -85,5 +90,9 @@ abstract class Controller {
 
     protected function post(string $key, $default = null) {
         return $_POST[$key] ?? $default;
+    }
+
+    protected function isAjax(): bool {
+        return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
     }
 }

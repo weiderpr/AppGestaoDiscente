@@ -24,7 +24,7 @@
             </div>
 
             <!-- New Record Form -->
-            <form id="registroForm" onsubmit="saveCouncilRecord(event)" style="margin-bottom:2rem;">
+            <form id="registroForm" onsubmit="saveCouncilRecord(event)" novalidate style="margin-bottom:2rem;">
                 <input type="hidden" name="conselho_id" id="registro_conselho_id">
                 <input type="hidden" name="aluno_id" id="registro_aluno_id">
 

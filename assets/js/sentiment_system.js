@@ -68,7 +68,8 @@ const VASentiment = {
         const target = typeof container === 'string' ? document.getElementById(container) : container;
         if (!target) return;
 
-        target.innerHTML = isMini ? '<span style="font-size:0.75rem;">⏳</span>' : '<div style="text-align:center;padding:1rem;color:var(--text-muted);">⏳ Analisando tendência...</div>';
+        const loadingHtml = isMini ? '<span class="skeleton-loading" style="width:20px;display:inline-block;">&nbsp;</span>' : '<div class="skeleton-loading" style="height:40px;margin:0.5rem 0;border-radius:var(--radius-md);"></div>';
+        target.innerHTML = loadingHtml;
 
         try {
             const apiPath = window.location.pathname.includes('/courses/') ? '../api/comments.php' : 'api/comments.php';

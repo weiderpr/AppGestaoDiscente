@@ -13,7 +13,7 @@
 }
 
 .modal-wrapper.modal-show {
-    display: block;
+    display: block !important;
 }
 
 .modal-wrapper.modal-show .modal-dialog {

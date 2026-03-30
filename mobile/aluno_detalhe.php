@@ -491,7 +491,7 @@ require_once __DIR__ . '/header.php';
                                 <div class="m-comment-timestamp"><?= date('d M Y • H:i', strtotime($c['created_at'])) ?></div>
                             </div>
                         </div>
-                        <div class="m-comment-body"><?= nl2br(htmlspecialchars(strip_tags($c['conteudo']))) ?></div>
+                        <div class="m-comment-body"><?= nl2br(htmlspecialchars(html_entity_decode(strip_tags($c['conteudo']), ENT_QUOTES | ENT_HTML5, 'UTF-8'))) ?></div>
                         
                         <?php if ($isAdmin || $c['professor_id'] == $user['id']): ?>
                             <div class="m-comment-actions">

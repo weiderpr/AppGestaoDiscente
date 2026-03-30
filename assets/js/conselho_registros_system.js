@@ -74,35 +74,51 @@ async function saveCouncilRecord(event) {
     
     const texto = document.getElementById('registro_text').innerHTML.trim();
     if (!texto || texto === '<br>') {
-        alert('Por favor, digite o registro da discussão.');
+        if (typeof Toast !== 'undefined') {
+            Toast.show('Por favor, digite o registro da discussão.', 'warning');
+        } else {
+            alert('Por favor, digite o registro da discussão.');
+        }
         return;
     }
 
-    btn.innerHTML = '⏳ Salvando...';
+    if (typeof showLoading === 'function') showLoading('Salvando registro...');
     btn.disabled = true;
 
     try {
-        const formData = new FormData(event.target);
+        const formData = new FormData();
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        formData.append('csrf_token', csrfToken);
+        formData.append('conselho_id', document.getElementById('registro_conselho_id').value);
+        formData.append('aluno_id', document.getElementById('registro_aluno_id').value);
         formData.append('texto', texto);
         
         const resp = await fetch('/courses/conselho_registros_ajax.php?action=save', {
             method: 'POST',
-            body: formData
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
         const data = await resp.json();
 
         if (data.success) {
-            if (typeof showToast === 'function') showToast('Registro salvo com sucesso!', 'success');
-            else alert('Registro salvo!');
+            if (typeof Toast !== 'undefined') {
+                Toast.show('Registro salvo!', 'success');
+            }
             
             document.getElementById('registro_text').innerHTML = '';
             loadCouncilRecords(currentRecordConselhoId, currentRecordAlunoId);
         } else {
-            throw new Error(data.message || 'Erro ao salvar o registro');
+            throw new Error(data.message || data.error || 'Erro ao salvar o registro');
         }
     } catch (e) {
-        alert(e.message);
+        console.error(e);
+        if (typeof Toast !== 'undefined') {
+            Toast.show(e.message || 'Erro ao salvar', 'danger');
+        } else {
+            alert(e.message);
+        }
     } finally {
+        if (typeof hideLoading === 'function') hideLoading();
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
@@ -143,11 +159,11 @@ async function loadCouncilRecords(conselhoId, alunoId = null) {
                 
                 const deleteBtnHtml = (isGlobalConcluido || isItemConcluido)
                     ? '' 
-                    : `<button type="button" class="action-btn danger" onclick="deleteRecord(${item.id})" style="position:absolute; top:1.25rem; right:-0.5rem; width:28px; height:28px; font-size:0.75rem; opacity:0; transition:all 0.2s;" title="Excluir">🗑</button>`;
+                    : `<button type="button" class="action-btn danger" onclick="deleteRecord(${item.id})" style="position:absolute; top:1.25rem; right:1.25rem; width:28px; height:28px; font-size:0.75rem; transition:all 0.2s;" title="Excluir">🗑</button>`;
 
                 html += `
                     <div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:1.25rem; position:relative; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; padding-right:2.5rem;">
                             <div style="font-size:0.75rem; font-weight:700; color:var(--color-primary); display:flex; align-items:center; gap:0.5rem;">
                                 <span style="font-size:1rem;">🧑‍🏫</span> ${item.author_name} (${item.author_profile})
                             </div>
@@ -161,12 +177,7 @@ async function loadCouncilRecords(conselhoId, alunoId = null) {
             });
             list.innerHTML = html;
             
-            // Add hover effect for delete button
-            const cards = list.querySelectorAll('div[style*="background:var(--bg-surface)"]');
-            cards.forEach(card => {
-                card.onmouseenter = () => card.querySelector('.action-btn.danger').style.opacity = '1';
-                card.onmouseleave = () => card.querySelector('.action-btn.danger').style.opacity = '0';
-            });
+            // Remove hover requirement for delete button to match other modals
 
         }
     } catch (e) {
@@ -179,26 +190,61 @@ async function loadCouncilRecords(conselhoId, alunoId = null) {
  */
 async function deleteRecord(id) {
     if (window.conselhoIsConcluido === true || (typeof conselhoConcluido !== 'undefined' && conselhoConcluido === true)) {
-        alert('Este conselho já foi finalizado. Não é permitido excluir registros.');
+        if (typeof Toast !== 'undefined') {
+            Toast.show('Este conselho já foi finalizado. Não é permitido excluir registros.', 'warning');
+        } else {
+            alert('Este conselho já foi finalizado. Não é permitido excluir registros.');
+        }
         return;
     }
 
-    if (!confirm('Deseja realmente excluir este registro?')) return;
+    const performDelete = async () => {
+        if (typeof showLoading === 'function') showLoading('Excluindo...');
+        try {
+            const formData = new FormData();
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            formData.append('csrf_token', csrfToken);
+            formData.append('id', id);
+            
+            const resp = await fetch('/courses/conselho_registros_ajax.php?action=delete', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await resp.json();
 
-    try {
-        const formData = new FormData();
-        formData.append('id', id);
-        
-        const resp = await fetch('/courses/conselho_registros_ajax.php?action=delete', {
-            method: 'POST',
-            body: formData
+            if (data.success) {
+                if (typeof Toast !== 'undefined') {
+                    Toast.show('Registro excluído!', 'success');
+                }
+                loadCouncilRecords(currentRecordConselhoId, currentRecordAlunoId);
+            } else {
+                throw new Error(data.message || 'Erro ao excluir');
+            }
+        } catch (e) {
+            console.error(e);
+            if (typeof Toast !== 'undefined') {
+                Toast.show(e.message || 'Erro ao excluir', 'danger');
+            } else {
+                alert(e.message);
+            }
+        } finally {
+            if (typeof hideLoading === 'function') hideLoading();
+        }
+    };
+
+    if (typeof Modal !== 'undefined' && typeof Modal.confirm === 'function') {
+        Modal.confirm({
+            title: 'Excluir Registro',
+            message: 'Deseja realmente excluir este registro?',
+            confirmText: 'Excluir',
+            confirmClass: 'btn-danger',
+            onConfirm: performDelete
         });
-        const data = await resp.json();
-        if (!data.success) throw new Error(data.message);
-        
-        loadCouncilRecords(currentRecordConselhoId, currentRecordAlunoId);
-    } catch (e) {
-        alert(e.message);
+    } else {
+        if (confirm('Deseja realmente excluir este registro?')) {
+            performDelete();
+        }
     }
 }
 

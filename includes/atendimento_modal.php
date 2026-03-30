@@ -19,7 +19,7 @@
     #atendimentoForm { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
 </style>
 
-<div class="modal-wrapper" id="atendimentoModal">
+<div class="modal-wrapper" id="atendimentoModal" style="display:none;">
     <div class="modal-overlay" onclick="closeAtendimentoModal()"></div>
     <div class="modal-dialog modal-lg atend-xl">
         <div class="modal-content">
@@ -39,7 +39,7 @@
                 <button class="modal-close" onclick="closeAtendimentoModal()">✕</button>
             </div>
             
-            <form id="atendimentoForm">
+            <form id="atendimentoForm" novalidate>
                 <input type="hidden" name="action" value="save">
                 <input type="hidden" name="aluno_id" id="atend_aluno_id">
                 <input type="hidden" name="turma_id" id="atend_turma_id">
@@ -59,7 +59,7 @@
                             <label class="form-label">Data do Atendimento</label>
                             <div class="input-group">
                                 <span class="input-icon">📅</span>
-                                <input type="date" name="data_atendimento" id="atend_data" class="form-control" value="<?= date('Y-m-d') ?>" required>
+                                <input type="date" name="data_atendimento" id="atend_data" class="form-control" value="<?= date('Y-m-d') ?>">
                             </div>
                         </div>
                     </div>
@@ -152,14 +152,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Bloqueia interface
         btn.disabled = true;
-        spinner.style.display = 'inline-block';
-        btnText.style.opacity = '0.5';
+        if (typeof showLoading === 'function') {
+            showLoading('Salvando atendimento...');
+        } else {
+            spinner.style.display = 'inline-block';
+            btnText.style.opacity = '0.5';
+        }
 
         try {
-            const formData = new FormData(form);
+            const formData = new FormData();
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            formData.append('csrf_token', csrfToken);
+            formData.append('action', form.querySelector('input[name="action"]').value);
+            formData.append('aluno_id', document.getElementById('atend_aluno_id').value);
+            formData.append('turma_id', document.getElementById('atend_turma_id').value);
+            formData.append('encaminhamento_id', document.getElementById('atend_encaminhamento_id').value);
+            formData.append('atend_id', document.getElementById('atend_id').value);
+            formData.append('data_atendimento', document.getElementById('atend_data').value);
+            formData.append('professional_text', document.getElementById('professional_text_input').value);
+            formData.append('public_text', document.getElementById('public_text_input').value);
+
             const response = await fetch('/atendimentos_ajax.php', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
             const result = await response.json();
 
@@ -187,8 +203,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } finally {
             btn.disabled = false;
-            spinner.style.display = 'none';
-            btnText.style.opacity = '1';
+            if (typeof hideLoading === 'function') {
+                hideLoading();
+            } else {
+                spinner.style.display = 'none';
+                btnText.style.opacity = '1';
+            }
         }
     };
 });

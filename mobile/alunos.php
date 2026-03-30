@@ -213,7 +213,7 @@ require_once __DIR__ . '/header.php';
             </div>
         <?php else: ?>
             <?php foreach ($alunos as $a): ?>
-                <a href="/mobile/aluno_detalhe.php?aluno_id=<?= $a['id'] ?>&turma_id=<?= $turmaId ?>" class="m-card m-aluno-card-new">
+                <a href="/mobile/aluno_historico.php?aluno_id=<?= $a['id'] ?>&turma_id=<?= $turmaId ?>" class="m-card m-aluno-card-new">
                     <?php if (!empty($a['photo'])): ?>
                         <img src="/<?= htmlspecialchars($a['photo']) ?>" alt="" class="m-aluno-avatar-box">
                     <?php else: 

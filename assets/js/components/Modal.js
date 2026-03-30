@@ -27,7 +27,9 @@ class Modal {
         const modal = document.createElement('div');
         modal.id = id;
         modal.className = 'modal-wrapper';
-        modal.dataset.zIndex = ++this.zIndex;
+        this.zIndex++;
+        modal.style.zIndex = this.zIndex;
+        modal.dataset.zIndex = this.zIndex;
         
         let buttonsHtml = '';
         if (buttons.length > 0) {

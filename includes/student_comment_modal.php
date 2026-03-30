@@ -15,11 +15,11 @@ if ($canComment):
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 /* Base Modal Styles */
 .modal-backdrop { 
-    position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.5); 
+    position:fixed; inset:0; z-index:8000; background:rgba(0,0,0,.5); 
     display:flex; align-items:center; justify-content:center; 
     opacity:0; visibility:hidden; transition:all .25s ease;
 }
-.modal-backdrop.show { opacity:1; visibility:visible; }
+.modal-backdrop.show { opacity:1; visibility:visible; display:flex !important; }
 .modal { 
     background:var(--bg-surface); border-radius:var(--radius-lg); 
     box-shadow:var(--shadow-xl); width:95%; max-width:600px; 
@@ -54,7 +54,7 @@ if ($canComment):
 #wordcloud_canvas { max-width:100%; height:auto; }
 </style>
 
-<div class="modal-backdrop" id="commentModal" role="dialog">
+<div class="modal-backdrop" id="commentModal" role="dialog" style="display:none;">
     <div class="modal" style="max-width:720px;">
         <div class="modal-header">
             <div style="display:flex;align-items:center;gap:.75rem;">
@@ -92,7 +92,7 @@ if ($canComment):
             <!-- Tab: Comments -->
             <div id="tab-comments" class="comment-tab-content">
                 <div style="flex:1;overflow-y:auto;">
-                    <form id="commentForm" onsubmit="saveComment(event); return false;">
+                    <form id="commentForm" onsubmit="saveComment(event); return false;" novalidate>
                         <input type="hidden" name="aluno_id" id="comment_aluno_id">
                         
                         <div class="form-group" style="margin-bottom:1rem;">

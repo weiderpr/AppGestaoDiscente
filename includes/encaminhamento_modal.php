@@ -30,7 +30,7 @@ if ($canRefer):
         <div class="modal-body" style="padding:1.5rem; display:flex; flex-direction:column; gap:1.5rem;">
             
             <!-- Referral Form -->
-            <form id="referralForm" onsubmit="saveReferral(event); return false;" style="background:var(--bg-surface-2nd); padding:1.25rem; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+            <form id="referralForm" onsubmit="saveReferral(event); return false;" novalidate style="background:var(--bg-surface-2nd); padding:1.25rem; border-radius:var(--radius-md); border:1px solid var(--border-color);">
                 <input type="hidden" name="aluno_id" id="referral_aluno_id">
                 <input type="hidden" name="conselho_id" id="referral_conselho_id">
                 
@@ -38,7 +38,7 @@ if ($canRefer):
                     <!-- Target Sector -->
                     <div class="form-group">
                         <label class="form-label">Setor Destino *</label>
-                        <select name="setor_tipo" id="referral_setor" class="form-control" required onchange="loadSectorUsers(this.value)">
+                        <select name="setor_tipo" id="referral_setor" class="form-control" onchange="loadSectorUsers(this.value)">
                             <option value="">Selecione o setor...</option>
                             <option value="Administrador">Administração</option>
                             <option value="Coordenador">Coordenação</option>
@@ -106,6 +106,6 @@ if ($canRefer):
     </div>
 </div>
 
-<script src="/assets/js/referrals_system.js?v=2.0"></script>
+<script src="/assets/js/referrals_system.js?v=2.2"></script>
 
 <?php endif; ?>

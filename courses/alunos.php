@@ -26,6 +26,11 @@ if (!$instId) {
     exit;
 }
 
+// UI Standard Components
+require_once __DIR__ . '/../includes/toast.php';
+require_once __DIR__ . '/../includes/loading.php';
+require_once __DIR__ . '/../includes/modal.php';
+
 // ---- AJAX: BUSCAR ALUNOS DE OUTRA TURMA ----
 if (isset($_GET['api']) && $_GET['api'] === 'get_students') {
     $tid = $_GET['source_id'] ?? '';
@@ -410,10 +415,11 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <?php if ($success): ?>
-<div class="alert alert-success fade-in" style="margin-bottom:1.5rem;">✅ <?= $success ?> <button onclick="dismissAlert(this)" style="margin-left:auto;background:none;border:none;cursor:pointer;color:inherit;">✕</button></div>
+    <script>document.addEventListener('DOMContentLoaded', () => Toast.show(<?= json_encode($success) ?>, 'success'));</script>
 <?php endif; ?>
+
 <?php if ($error): ?>
-<div class="alert alert-danger fade-in" style="margin-bottom:1.5rem;">⚠️ <?= $error ?> <button onclick="dismissAlert(this)" style="margin-left:auto;background:none;border:none;cursor:pointer;color:inherit;">✕</button></div>
+    <script>document.addEventListener('DOMContentLoaded', () => Toast.show(<?= json_encode($error) ?>, 'danger'));</script>
 <?php endif; ?>
 
 <!-- Filtro -->
@@ -487,16 +493,19 @@ require_once __DIR__ . '/../includes/header.php';
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
                             <button type="button" class="action-btn" title="Atendimento Profissional" onclick="openAtendimentoModal({aluno_id: <?= $a['id'] ?>, target_name: '<?= addslashes($a['nome']) ?>', aluno_photo: '<?= $a['photo'] ?>', turma_id: <?= $turmaId ?>})">📝</button>
                             <button type="button" class="action-btn" title="Adicionar Comentário" onclick="openCommentModal(<?= htmlspecialchars(json_encode(['id' => $a['id'], 'nome' => $a['nome'], 'photo' => $a['photo'], 'photo_url' => ($a['photo'] && file_exists(__DIR__.'/../'.$a['photo']) ? '/'.$a['photo'] : null)]), ENT_QUOTES) ?>, <?= $turmaId ?>)">💬</button>
+                            <button type="button" class="action-btn" title="Histórico Multidisciplinar" onclick="openHistoryModal(<?= $a['id'] ?>)">🕒</button>
                             
                             <?php if (hasDbPermission('students.manage', false)): ?>
                             <button type="button" class="action-btn" title="Editar"
                                     onclick="openEditModal(<?= htmlspecialchars(json_encode($a), ENT_QUOTES) ?>)">✏️</button>
-                            <form method="POST" style="display:inline;" onsubmit="return confirm('Desvincular aluno da turma?')">
+                            <span class="actions-group">
+                            <form method="POST" id="unlinkForm_<?= $a['id'] ?>" style="display:inline;">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="action" value="remove">
                                 <input type="hidden" name="aluno_id" value="<?= $a['id'] ?>">
-                                <button type="submit" class="action-btn danger" title="Remover da Turma">✕</button>
+                                <button type="button" class="action-btn danger" title="Remover da Turma" onclick="confirmUnlink(<?= $a['id'] ?>)">✕</button>
                             </form>
+                            </span>
                             <?php endif; ?>
                         </div>
                     </td>
@@ -509,7 +518,7 @@ require_once __DIR__ . '/../includes/header.php';
 
 <!-- Modal: Novo Aluno -->
 <?php $hideModals = in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo']); ?>
-<div class="modal-backdrop" id="alunoModal" role="dialog" <?= $hideModals ? 'style="display:none;"' : '' ?>>
+<div class="modal-backdrop" id="alunoModal" role="dialog" style="display:none;">
     <div class="modal">
         <div class="modal-header">
             <span class="modal-title">👤 Novo Aluno</span>
@@ -566,7 +575,7 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- Modal: Editar Aluno -->
-<div class="modal-backdrop" id="editAlunoModal" role="dialog" <?= $hideModals ? 'style="display:none;"' : '' ?>>
+<div class="modal-backdrop" id="editAlunoModal" role="dialog" style="display:none;">
     <div class="modal">
         <div class="modal-header">
             <span class="modal-title">✏️ Editar Dados do Aluno</span>
@@ -630,7 +639,7 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- Modal: Importar -->
-<div class="modal-backdrop" id="importModal" role="dialog" <?= $hideModals ? 'style="display:none;"' : '' ?>>
+<div class="modal-backdrop" id="importModal" role="dialog" style="display:none;">
     <div class="modal">
         <div class="modal-header">
             <span class="modal-title">📥 Importar Alunos</span>
@@ -680,7 +689,7 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <!-- Modal: Importar Arquivo -->
-<div class="modal-backdrop" id="importFileModal" role="dialog" <?= $hideModals ? 'style="display:none;"' : '' ?>>
+<div class="modal-backdrop" id="importFileModal" role="dialog" style="display:none;">
     <div class="modal">
         <div class="modal-header">
             <span class="modal-title">📊 Importar Alunos via Arquivo</span>
@@ -797,7 +806,7 @@ function openEditModal(aluno) {
 
 
 </script>
-<script src="/assets/js/student_comments.js?v=1.1"></script>
+<script src="/assets/js/student_comments.js?v=2.3"></script>
 <?php require_once __DIR__ . '/../includes/student_comment_modal.php'; ?>
 <?php require_once __DIR__ . '/../includes/atendimento_modal.php'; ?>
 
@@ -817,6 +826,19 @@ document.addEventListener('DOMContentLoaded', function() {
 <?php endif; ?>
 
 <script>
+function confirmUnlink(alunoId) {
+    Modal.confirm({
+        title: 'Desvincular Aluno',
+        message: 'Deseja realmente desvincular este aluno da turma?',
+        confirmText: 'Desvincular',
+        confirmClass: 'btn-danger',
+        onConfirm: () => {
+            showLoading('Processando...');
+            document.getElementById('unlinkForm_' + alunoId).submit();
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Inicializa tendências qualitativas
     document.querySelectorAll('.sentiment-trend-container').forEach(container => {
@@ -828,6 +850,49 @@ document.addEventListener('DOMContentLoaded', () => {
         VAPerformance.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId);
     });
 });
+
+let currentHistoryAlunoId = null;
+async function openHistoryModal(alunoId, silent = false) {
+    currentHistoryAlunoId = alunoId;
+    if (!silent) showLoading('Buscando histórico...');
+    
+    try {
+        const resp = await fetch(`/aluno/historico/${alunoId}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const html = await resp.text();
+        
+        if (typeof Modal !== 'undefined') {
+            Modal.open({
+                id: 'history_modal',
+                title: 'Histórico Multidisciplinar',
+                content: html,
+                size: 'lg'
+            });
+            
+            // Manual script execution because innerHTML doesn't run scripts
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            const scripts = tempDiv.querySelectorAll('script');
+            scripts.forEach(oldScript => {
+                const newScript = document.createElement('script');
+                Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                document.body.appendChild(newScript);
+                newScript.parentNode.removeChild(newScript);
+            });
+        }
+    } catch (e) {
+        console.error(e);
+        if (typeof Toast !== 'undefined') Toast.show('Erro ao carregar histórico.', 'danger');
+    } finally {
+        if (!silent) hideLoading();
+    }
+}
 </script>
 
-<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php 
+renderLoadingOverlay();
+renderToastMessages();
+require_once __DIR__ . '/../includes/footer.php'; 
+?>

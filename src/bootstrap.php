@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/Core/Autoloader.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 date_default_timezone_set('America/Sao_Paulo');
 

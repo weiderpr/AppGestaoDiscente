@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Global Institution Context Check (Auto-Middleware)
 if (isLoggedIn()) {
     $currentAction = basename($_SERVER['PHP_SELF']);
-    $exemptActions = ['login.php', 'logout.php', 'register.php', 'select_institution.php', 'process_selection.php'];
+    $exemptActions = ['login.php', 'logout.php', 'register.php', 'select_institution.php', 'process_selection.php', 'router.php'];
     
     // Se não estiver em uma página de bypass, exige instituição
     if (!in_array($currentAction, $exemptActions)) {
