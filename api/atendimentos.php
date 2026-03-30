@@ -34,13 +34,19 @@ switch ($action) {
                 JOIN conselhos_classe c ON e.conselho_id = c.id
                 JOIN turmas t ON c.turma_id = t.id
                 JOIN courses co ON t.course_id = co.id
-                WHERE co.institution_id = ? AND e.status = 'Pendente'
+                WHERE co.institution_id = ? 
+                  AND e.status = 'Pendente'
+                  AND (
+                      EXISTS (SELECT 1 FROM conselho_encaminhamento_usuarios ceu WHERE ceu.encaminhamento_id = e.id AND ceu.user_id = ?)
+                      OR 
+                      (NOT EXISTS (SELECT 1 FROM conselho_encaminhamento_usuarios ceu2 WHERE ceu2.encaminhamento_id = e.id) AND e.setor_tipo = ?)
+                  )
             ");
-            $stDemandas->execute([$instId]);
+            $stDemandas->execute([$instId, $user['id'], $user['profile']]);
             $demandas = $stDemandas->fetchAll(PDO::FETCH_ASSOC);
 
-            // TODO: filtragem por perfil/setor se aplicável (ex: Pedagogo vê Demandas para 'Pedagogia')
-            // Mas por enquanto vamos exibir todas do campus ou as direcionadas se houver regra estrita.
+            // Filtragem aplicada diretamente na query baseada no usuário logado e seu setor (perfil)
+
 
             $cardsDemandas = array_map(function($d) {
                 return [
@@ -69,9 +75,10 @@ switch ($action) {
                 LEFT JOIN alunos a ON at.aluno_id = a.id
                 LEFT JOIN turmas t ON at.turma_id = t.id
                 LEFT JOIN users u ON at.author_id = u.id
-                WHERE at.institution_id = ? AND at.deleted_at IS NULL
+                JOIN gestao_atendimento_usuarios gau ON at.id = gau.atendimento_id
+                WHERE at.institution_id = ? AND at.deleted_at IS NULL AND gau.usuario_id = ?
             ");
-            $stAtend->execute([$instId]);
+            $stAtend->execute([$instId, $user['id']]);
             $atendimentos = $stAtend->fetchAll(PDO::FETCH_ASSOC);
 
             // Get responsáveis parra cada atendimento

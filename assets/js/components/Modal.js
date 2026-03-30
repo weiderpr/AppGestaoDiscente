@@ -78,7 +78,10 @@ class Modal {
         // Event listeners
         if (closable) {
             modal.querySelectorAll('[data-modal-close]').forEach(el => {
-                el.addEventListener('click', () => this.close(id));
+                el.addEventListener('click', (e) => {
+                    if (el.classList.contains('modal-overlay') && e.target !== el) return;
+                    this.close(id);
+                });
             });
         }
         

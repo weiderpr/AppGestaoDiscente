@@ -132,8 +132,8 @@ async function saveReferral(event) {
         formData.append('texto', texto);
         
         // Handle multiple users if they are checked
-        const selectedUsers = Array.from(document.querySelectorAll('input[name="usuarios[]"]:checked')).map(cb => cb.value);
-        selectedUsers.forEach(userId => formData.append('usuarios[]', userId));
+        const selectedUsers = Array.from(document.querySelectorAll('input[name="usuarios_id[]"]:checked')).map(cb => cb.value);
+        selectedUsers.forEach(userId => formData.append('usuarios_id[]', userId));
 
         const resp = await fetch('/courses/referrals_ajax.php?action=save', {
             method: 'POST',
