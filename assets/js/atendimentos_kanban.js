@@ -383,14 +383,8 @@ async function openCardDetails(id) {
                 profSec.style.display = 'block';
                 deleteSec.style.display = 'block';
 
-                document.getElementById('cdDescPublica').value = at.descricao_publica || '';
-                document.getElementById('cdDescProfissional').value = at.descricao_profissional || '';
-                
-                // Render comments
-                renderTimeline(data.comentarios || []);
-                
-                // Render responsibles
-                renderResponsaveis(data.responsaveis || []);
+                // Render using shared logic
+                populateAtendimentoModal(data, { isRestricted: false });
             }
             
             document.getElementById('userSearchResults').innerHTML = '';
@@ -472,58 +466,7 @@ async function submitComment() {
     }
 }
 
-function renderTimeline(comentarios) {
-    const tl = document.getElementById('cdTimeline');
-    if (comentarios.length === 0) {
-        tl.innerHTML = '<div style="color:var(--text-muted); font-size:0.875rem;">Nenhum registro ainda.</div>';
-        return;
-    }
-
-    let h = '';
-    comentarios.forEach(c => {
-        const dateStr = new Date(c.created_at).toLocaleString();
-        const privBadge = c.is_private == 1 ? '<span class="c-private-badge">🔒 Privado</span>' : '';
-        h += `
-            <div class="comment-item">
-                <div class="comment-header">
-                    <strong>${c.author_name}</strong>
-                    <span>${dateStr} ${privBadge}</span>
-                </div>
-                <div>${c.texto.replace(/\n/g, '<br>')}</div>
-            </div>
-        `;
-    });
-    tl.innerHTML = h;
-}
-
-// --- Responsáveis ---
-
-function renderResponsaveis(resp) {
-    const list = document.getElementById('cdResponsaveisList');
-    if (resp.length === 0) {
-        list.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">Nenhum responsável</span>';
-        return;
-    }
-    
-    let h = '';
-    resp.forEach(r => {
-        const imgHtml = r.photo ? `<img src="/${r.photo}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;">` 
-                                : `<div style="width:24px;height:24px;border-radius:50%;background:var(--bg-surface);display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;">${r.name.charAt(0)}</div>`;
-        h += `
-            <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg-card);padding:0.5rem;border-radius:8px;border:1px solid var(--border-color);font-size:0.875rem;">
-                <div style="display:flex;align-items:center;gap:0.5rem;">
-                    ${imgHtml}
-                    <div>
-                        <div style="font-weight:600;line-height:1.2;">${r.name}</div>
-                        <div style="font-size:0.65rem;color:var(--text-muted);">${r.profile}</div>
-                    </div>
-                </div>
-                <button onclick="removeResponsible(${r.id})" style="background:transparent;border:none;color:#ef4444;cursor:pointer;padding:4px;font-size:1rem;" title="Remover">×</button>
-            </div>
-        `;
-    });
-    list.innerHTML = h;
-}
+// Redundant functions removed, using assets/js/atendimento_shared.js
 
 async function searchUsers(q) {
     const resEl = document.getElementById('userSearchResults');
@@ -582,61 +525,74 @@ async function addResponsible(userId) {
 
 async function removeResponsible(userId) {
     if (!currentAtendimentoId) return;
-    if (!confirm('Remover profissional deste atendimento?')) return;
-    
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    const fd = new URLSearchParams();
-    fd.append('action', 'remove_responsible');
-    fd.append('atendimento_id', currentAtendimentoId);
-    fd.append('usuario_id', userId);
-    fd.append('csrf_token', csrfToken);
 
-    try {
-        const res = await fetch('/api/atendimentos.php', { 
-            method: 'POST', 
-            headers: { 'X-CSRF-Token': csrfToken },
-            body: fd 
-        });
-        const data = await res.json();
-        if (data.success) {
-            Toast.show('Responsável removido', 'success');
-            openCardDetails(currentAtendimentoId); 
-            loadBoard(); 
+    Modal.confirm({
+        title: 'Remover Responsável',
+        message: 'Deseja remover este profissional do acompanhamento?',
+        confirmText: 'Remover',
+        confirmClass: 'btn-danger',
+        onConfirm: async () => {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const fd = new URLSearchParams();
+            fd.append('action', 'remove_responsible');
+            fd.append('atendimento_id', currentAtendimentoId);
+            fd.append('usuario_id', userId);
+            fd.append('csrf_token', csrfToken);
+
+            try {
+                const res = await fetch('/api/atendimentos.php', { 
+                    method: 'POST', 
+                    headers: { 'X-CSRF-Token': csrfToken },
+                    body: fd 
+                });
+                const data = await res.json();
+                if (data.success) {
+                    Toast.show('Responsável removido', 'success');
+                    openCardDetails(currentAtendimentoId); 
+                    loadBoard(); 
+                }
+            } catch(e) {
+                console.error(e);
+            }
         }
-    } catch(e) {}
+    });
 }
 
 async function deleteAtendimento() {
     if (!currentAtendimentoId) return;
-    
-    if (!confirm('Tem certeza que deseja excluir permanentemente este atendimento? \nSe ele veio de uma Demanda, ele retornará para a coluna de Pendentes.')) {
-        return;
-    }
 
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    const fd = new URLSearchParams();
-    fd.append('action', 'delete_atendimento');
-    fd.append('atendimento_id', currentAtendimentoId);
-    fd.append('csrf_token', csrfToken);
+    Modal.confirm({
+        title: 'Excluir Atendimento',
+        message: 'Tem certeza que deseja excluir permanentemente este atendimento? <br><br><small>Se ele veio de uma Demanda, ele retornará para a coluna de Pendentes.</small>',
+        confirmText: 'Excluir permanentemente',
+        confirmClass: 'btn-danger',
+        onConfirm: async () => {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const fd = new URLSearchParams();
+            fd.append('action', 'delete_atendimento');
+            fd.append('atendimento_id', currentAtendimentoId);
+            fd.append('csrf_token', csrfToken);
 
-    try {
-        const res = await fetch('/api/atendimentos.php', { 
-            method: 'POST', 
-            headers: { 'X-CSRF-Token': csrfToken },
-            body: fd 
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-            Toast.show('Card excluído com sucesso.', 'success');
-            closeModal('modalCardDetails');
-            loadBoard();
-        } else {
-            Toast.show('Erro ao excluir: ' + data.error, 'error');
+            try {
+                const res = await fetch('/api/atendimentos.php', { 
+                    method: 'POST', 
+                    headers: { 'X-CSRF-Token': csrfToken },
+                    body: fd 
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    Toast.show('Card excluído com sucesso.', 'success');
+                    closeModal('modalCardDetails');
+                    loadBoard();
+                } else {
+                    Toast.show('Erro ao excluir: ' + data.error, 'error');
+                }
+            } catch (e) {
+                Toast.show('Erro de conexão.', 'error');
+            }
         }
-    } catch (e) {
-        Toast.show('Erro de conexão.', 'error');
-    }
+    });
 }
 
 function filterColumn(status, term) {

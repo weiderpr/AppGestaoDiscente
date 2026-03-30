@@ -59,14 +59,16 @@ try {
 
             $sql = "
                 SELECT ce.*, u.name as author_name, u.profile as author_profile,
-                       GROUP_CONCAT(target_u.name SEPARATOR ', ') as target_users,
-                       (SELECT id FROM atendimentos WHERE encaminhamento_id = ce.id AND deleted_at IS NULL LIMIT 1) as atendimento_id,
-                       cc.is_active as conselho_is_active
+                       ga.id as atendimento_id, ga.status as kanban_status,
+                       cc.is_active as conselho_is_active,
+                       (SELECT GROUP_CONCAT(un.name SEPARATOR ', ') 
+                        FROM conselho_encaminhamento_usuarios ceu 
+                        JOIN users un ON ceu.user_id = un.id 
+                        WHERE ceu.encaminhamento_id = ce.id) as target_users
                 FROM conselho_encaminhamentos ce
                 JOIN conselhos_classe cc ON ce.conselho_id = cc.id
                 JOIN users u ON ce.author_id = u.id
-                LEFT JOIN conselho_encaminhamento_usuarios ceu ON ce.id = ceu.encaminhamento_id
-                LEFT JOIN users target_u ON ceu.user_id = target_u.id
+                LEFT JOIN gestao_atendimentos ga ON ce.id = ga.encaminhamento_id AND ga.deleted_at IS NULL
             ";
 
             if ($alunoId > 0) {
@@ -77,7 +79,7 @@ try {
                 $params = [$conselhoId];
             }
 
-            $sql .= " GROUP BY ce.id ORDER BY ce.created_at DESC ";
+            $sql .= " ORDER BY ce.created_at DESC ";
 
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
@@ -103,17 +105,18 @@ try {
 
             $stmt = $db->prepare("
                 SELECT ce.*, a.nome as aluno_name, u.name as author_name, u.profile as author_profile,
-                       GROUP_CONCAT(target_u.name SEPARATOR ', ') as target_users,
-                       (SELECT id FROM atendimentos WHERE encaminhamento_id = ce.id AND deleted_at IS NULL LIMIT 1) as atendimento_id,
-                       cc.is_active as conselho_is_active
+                       ga.id as atendimento_id, ga.status as kanban_status,
+                       cc.is_active as conselho_is_active,
+                       (SELECT GROUP_CONCAT(un.name SEPARATOR ', ') 
+                        FROM conselho_encaminhamento_usuarios ceu 
+                        JOIN users un ON ceu.user_id = un.id 
+                        WHERE ceu.encaminhamento_id = ce.id) as target_users
                 FROM conselho_encaminhamentos ce
                 JOIN conselhos_classe cc ON ce.conselho_id = cc.id
                 LEFT JOIN alunos a ON ce.aluno_id = a.id
                 JOIN users u ON ce.author_id = u.id
-                LEFT JOIN conselho_encaminhamento_usuarios ceu ON ce.id = ceu.encaminhamento_id
-                LEFT JOIN users target_u ON ceu.user_id = target_u.id
+                LEFT JOIN gestao_atendimentos ga ON ce.id = ga.encaminhamento_id AND ga.deleted_at IS NULL
                 WHERE ce.conselho_id = ?
-                GROUP BY ce.id
                 ORDER BY ce.created_at DESC
             ");
             $stmt->execute([$conselhoId]);
@@ -165,7 +168,34 @@ try {
             $atendimento = getAtendimentoByReferral($referralId);
             if (!$atendimento) throw new Exception('Atendimento não encontrado');
 
-            echo json_encode(['success' => true, 'atendimento' => $atendimento]);
+            // Busca responsáveis
+            $stR = $db->prepare("
+                SELECT u.id, u.name, u.photo, u.profile
+                FROM gestao_atendimento_usuarios au
+                JOIN users u ON au.usuario_id = u.id
+                WHERE au.atendimento_id = ?
+            ");
+            $stR->execute([$atendimento['id']]);
+            $responsaveis = $stR->fetchAll();
+
+            // Busca comentários
+            $stC = $db->prepare("
+                SELECT ac.id, ac.texto, ac.is_private, ac.created_at,
+                       u.name as author_name, u.photo as author_photo, u.profile as author_profile, u.id as author_id
+                FROM gestao_atendimento_comentarios ac
+                JOIN users u ON ac.usuario_id = u.id
+                WHERE ac.atendimento_id = ?
+                ORDER BY ac.created_at DESC
+            ");
+            $stC->execute([$atendimento['id']]);
+            $comentarios = $stC->fetchAll();
+
+            echo json_encode([
+                'success' => true, 
+                'atendimento' => $atendimento,
+                'responsaveis' => $responsaveis,
+                'comentarios' => $comentarios
+            ]);
             break;
 
         default:

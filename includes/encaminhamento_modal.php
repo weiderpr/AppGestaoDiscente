@@ -106,6 +106,6 @@ if ($canRefer):
     </div>
 </div>
 
-<script src="/assets/js/referrals_system.js?v=2.2"></script>
+<script src="/assets/js/referrals_system.js?v=2.5"></script>
 
 <?php endif; ?>

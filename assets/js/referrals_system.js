@@ -198,11 +198,13 @@ async function loadReferrals(alunoId, conselhoId = null) {
                     'Pendente': 'var(--color-warning)',
                     'Em Andamento': 'var(--color-primary)',
                     'Concluído': 'var(--color-success)',
-                    'Atendido': 'var(--color-purple)' // Presumindo que exista var(--color-purple) ou usando valor fixo
+                    'Atendido': '#8b5cf6',
+                    'Aberto': 'var(--color-primary)',
+                    'Em Atendimento': '#0ea5e9',
+                    'Finalizado': 'var(--color-success)'
                 };
-                if (!statusColors['Atendido']) statusColors['Atendido'] = '#8b5cf6';
 
-                const displayStatus = item.atendimento_id ? 'Atendido' : item.status;
+                const displayStatus = (item.kanban_status && item.kanban_status !== 'Demandas') ? item.kanban_status : item.status;
                 const isReferralActive = item.conselho_is_active == 1;
 
                 const isGlobalCouncilFinished = (window.conselhoIsConcluido === true) || (typeof conselhoConcluido !== 'undefined' && conselhoConcluido === true);
@@ -297,10 +299,13 @@ async function loadCouncilReferrals(conselhoId, isConcluidoOverride = null) {
                     'Pendente': '#f59e0b',
                     'Em Andamento': '#3b82f6',
                     'Concluído': '#10b981',
-                    'Atendido': '#8b5cf6'
+                    'Atendido': '#8b5cf6',
+                    'Aberto': '#3b82f6',
+                    'Em Atendimento': '#0ea5e9',
+                    'Finalizado': '#10b981'
                 };
                 
-                const displayStatus = item.atendimento_id ? 'Atendido' : item.status;
+                const displayStatus = (item.kanban_status && item.kanban_status !== 'Demandas') ? item.kanban_status : item.status;
 
                 const isReferralActive = item.conselho_is_active == 1;
 
@@ -436,38 +441,14 @@ async function viewAtendimentoByReferral(referralId) {
         const data = await resp.json();
         
         if (data.success) {
-            const atend = data.atendimento;
+            // Usa a lógica compartilhada para preencher o modal
+            populateAtendimentoModal(data, { isRestricted: true });
             
-            // Check ownership for editing
-            const isOwner = typeof currentUserId !== 'undefined' && atend.user_id == currentUserId;
-            const editBtn = isOwner ? `<button type="button" class="btn btn-primary btn-sm" onclick="closeModal('modal-atendimento-view'); openAtendimentoModal(${JSON.stringify(atend).replace(/"/g, '&quot;')})" style="margin-left:auto;">✏️ Editar Atendimento</button>` : '';
-
-            if (typeof Modal !== 'undefined') {
-                Modal.open({
-                    id: 'modal-atendimento-view',
-                    title: `Detalhes do Atendimento — ${atend.data_atendimento} ${editBtn}`,
-                    content: `
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1.5rem; padding:1.5rem;">
-                            <div>
-                                <h4 style="margin-bottom:0.5rem; color:var(--color-primary);">🔒 Profissional (Privado)</h4>
-                                <div class="privacy-blur" onclick="this.classList.add('revealed')" title="Clique para revelar conteúdo" style="background:var(--bg-surface-2nd); padding:1rem; border-radius:var(--radius-md); font-size:0.875rem; max-height:300px; overflow-y:auto; position:relative;">
-                                    <div class="privacy-overlay">⚠️ Conteúdo restrito. Clique para visualizar.</div>
-                                    ${atend.professional_text || '<em>Sem conteúdo registrado.</em>'}
-                                </div>
-                            </div>
-                            <div>
-                                <h4 style="margin-bottom:0.5rem; color:var(--color-primary);">📢 Público / Encaminhamento</h4>
-                                <div style="background:var(--bg-surface-2nd); padding:1rem; border-radius:var(--radius-md); font-size:0.875rem; max-height:300px; overflow-y:auto;">
-                                    ${atend.public_text || '<em>Sem conteúdo registrado.</em>'}
-                                </div>
-                            </div>
-                        </div>
-                    `,
-                    size: 'lg'
-                });
-            } else {
-                alert('Atendimento:\n\n' + atend.public_text);
-            }
+            // Define o ID global para que ações (comentários) funcionem
+            window.currentAtendimentoId = data.atendimento.id;
+            
+            // Abre o modal
+            openModal('modalCardDetails');
         } else {
             if (typeof Toast !== 'undefined') {
                 Toast.show(data.message || 'Erro ao carregar detalhes', 'danger');

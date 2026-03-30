@@ -12,10 +12,10 @@ function saveAtendimento(array $data): int {
     $db = getDB();
     
     $st = $db->prepare("
-        INSERT INTO atendimentos (
-            institution_id, user_id, aluno_id, turma_id, encaminhamento_id, 
-            professional_text, public_text, data_atendimento
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO gestao_atendimentos (
+            institution_id, author_id, aluno_id, turma_id, encaminhamento_id, 
+            descricao_profissional, descricao_publica, status, titulo
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     
     $st->execute([
@@ -26,7 +26,8 @@ function saveAtendimento(array $data): int {
         $data['encaminhamento_id'] ?: null,
         $data['professional_text'],
         $data['public_text'],
-        $data['data_atendimento']
+        $data['status'] ?? 'Aberto',
+        $data['titulo'] ?? 'Atendimento via Conselho'
     ]);
     
     return (int)$db->lastInsertId();
@@ -38,11 +39,13 @@ function saveAtendimento(array $data): int {
 function getAtendimentosByAluno(int $alunoId, int $instId): array {
     $db = getDB();
     $st = $db->prepare("
-        SELECT a.*, u.name as user_name, u.profile as user_profile
-        FROM atendimentos a
-        JOIN users u ON a.user_id = u.id
+        SELECT a.*, u.name as user_name, u.profile as user_profile,
+               a.descricao_profissional as professional_text, a.descricao_publica as public_text,
+               a.created_at as data_atendimento
+        FROM gestao_atendimentos a
+        JOIN users u ON a.author_id = u.id
         WHERE a.aluno_id = ? AND a.institution_id = ? AND a.deleted_at IS NULL
-        ORDER BY a.data_atendimento DESC, a.created_at DESC
+        ORDER BY a.created_at DESC
     ");
     $st->execute([$alunoId, $instId]);
     return $st->fetchAll();
@@ -54,11 +57,13 @@ function getAtendimentosByAluno(int $alunoId, int $instId): array {
 function getAtendimentosByTurma(int $turmaId, int $instId): array {
     $db = getDB();
     $st = $db->prepare("
-        SELECT a.*, u.name as user_name, u.profile as user_profile
-        FROM atendimentos a
-        JOIN users u ON a.user_id = u.id
+        SELECT a.*, u.name as user_name, u.profile as user_profile,
+               a.descricao_profissional as professional_text, a.descricao_publica as public_text,
+               a.created_at as data_atendimento
+        FROM gestao_atendimentos a
+        JOIN users u ON a.author_id = u.id
         WHERE a.turma_id = ? AND a.institution_id = ? AND a.deleted_at IS NULL
-        ORDER BY a.data_atendimento DESC, a.created_at DESC
+        ORDER BY a.created_at DESC
     ");
     $st->execute([$turmaId, $instId]);
     return $st->fetchAll();
@@ -72,9 +77,11 @@ function getAllAtendimentos(int $instId, array $filters = []): array {
         SELECT a.*, u.name as user_name, u.profile as user_profile,
                al.nome as aluno_nome, al.photo as aluno_photo, 
                t.description as turma_nome,
-               ce.texto as encaminhamento_texto
-        FROM atendimentos a
-        JOIN users u ON a.user_id = u.id
+               ce.texto as encaminhamento_texto,
+               a.descricao_profissional as professional_text, a.descricao_publica as public_text,
+               a.created_at as data_atendimento
+        FROM gestao_atendimentos a
+        JOIN users u ON a.author_id = u.id
         LEFT JOIN alunos al ON a.aluno_id = al.id
         LEFT JOIN turmas t ON a.turma_id = t.id
         LEFT JOIN conselho_encaminhamentos ce ON a.encaminhamento_id = ce.id
@@ -84,17 +91,17 @@ function getAllAtendimentos(int $instId, array $filters = []): array {
     $params = [$instId];
     
     if (!empty($filters['user_id'])) {
-        $sql .= " AND a.user_id = ?";
+        $sql .= " AND a.author_id = ?";
         $params[] = (int)$filters['user_id'];
     }
     
     if (!empty($filters['search'])) {
-        $sql .= " AND (al.nome LIKE ? OR t.description LIKE ? OR a.professional_text LIKE ? OR a.public_text LIKE ?)";
+        $sql .= " AND (al.nome LIKE ? OR t.description LIKE ? OR a.descricao_profissional LIKE ? OR a.descricao_publica LIKE ? OR a.titulo LIKE ?)";
         $search = "%{$filters['search']}%";
-        $params[] = $search; $params[] = $search; $params[] = $search; $params[] = $search;
+        $params[] = $search; $params[] = $search; $params[] = $search; $params[] = $search; $params[] = $search;
     }
     
-    $sql .= " ORDER BY a.data_atendimento DESC, a.created_at DESC";
+    $sql .= " ORDER BY a.created_at DESC";
     
     $st = $db->prepare($sql);
     $st->execute($params);
@@ -106,7 +113,6 @@ function getAllAtendimentos(int $instId, array $filters = []): array {
  */
 function getPendingReferrals(int $instId, int $conselhoId = 0): array {
     $db = getDB();
-    // Um encaminhamento é pendente se seu ID não está na tabela de atendimentos
     $sql = "
         SELECT ce.*, al.nome as aluno_nome, al.photo as aluno_photo, 
                t.description as turma_nome, cc.descricao as conselho_nome
@@ -124,7 +130,7 @@ function getPendingReferrals(int $instId, int $conselhoId = 0): array {
         $params[] = $conselhoId;
     }
     
-    $sql .= " AND ce.id NOT IN (SELECT encaminhamento_id FROM atendimentos WHERE encaminhamento_id IS NOT NULL AND deleted_at IS NULL)
+    $sql .= " AND ce.id NOT IN (SELECT encaminhamento_id FROM gestao_atendimentos WHERE encaminhamento_id IS NOT NULL AND deleted_at IS NULL)
         ORDER BY ce.created_at DESC
     ";
     
@@ -139,14 +145,27 @@ function getPendingReferrals(int $instId, int $conselhoId = 0): array {
 function getAtendimentoByReferral(int $referralId): ?array {
     $db = getDB();
     $st = $db->prepare("
-        SELECT a.*, u.name as user_name, u.profile as user_profile
-        FROM atendimentos a
-        JOIN users u ON a.user_id = u.id
+        SELECT a.*, u.name as user_name, u.profile as user_profile,
+               al.nome as aluno_nome, al.matricula, al.photo as aluno_photo, 
+               t.description as turma_nome,
+               co.name as curso_nome,
+               ce.texto as encaminhamento_texto,
+               ce.data_expectativa as data_expectativa,
+               cc.descricao as conselho_nome,
+               a.descricao_profissional as professional_text, a.descricao_publica as public_text,
+               a.created_at as data_atendimento, a.author_id as user_id
+        FROM gestao_atendimentos a
+        JOIN users u ON a.author_id = u.id
+        LEFT JOIN alunos al ON a.aluno_id = al.id
+        LEFT JOIN turmas t ON a.turma_id = t.id
+        LEFT JOIN courses co ON t.course_id = co.id
+        LEFT JOIN conselho_encaminhamentos ce ON a.encaminhamento_id = ce.id
+        LEFT JOIN conselhos_classe cc ON ce.conselho_id = cc.id
         WHERE a.encaminhamento_id = ? AND a.deleted_at IS NULL
         LIMIT 1
     ");
     $st->execute([$referralId]);
-    return $st->fetch() ?: null;
+    return $st->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
 /**
@@ -155,17 +174,15 @@ function getAtendimentoByReferral(int $referralId): ?array {
 function updateAtendimento(int $id, array $data): bool {
     $db = getDB();
     $st = $db->prepare("
-        UPDATE atendimentos SET 
-            professional_text = ?, 
-            public_text = ?, 
-            data_atendimento = ?,
+        UPDATE gestao_atendimentos SET 
+            descricao_profissional = ?, 
+            descricao_publica = ?, 
             updated_at = NOW()
         WHERE id = ? AND institution_id = ?
     ");
     return $st->execute([
         $data['professional_text'],
         $data['public_text'],
-        $data['data_atendimento'],
         $id,
         $data['institution_id']
     ]);

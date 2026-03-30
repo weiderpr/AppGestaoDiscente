@@ -703,6 +703,7 @@ const presentesAtuais = [<?= implode(',', $presentesAtuais) ?>];
 const usuariosPorPerfil = <?= json_encode($usuariosPorPerfil) ?>;
 const conselhoId = <?= $conselhoId ?>;
 const currentUserId = <?= getCurrentUser()['id'] ?>;
+const currentUserProfile = '<?= getCurrentUser()['profile'] ?>';
 const conselho = { turma_id: <?= $conselho['turma_id'] ?> };
 let detailTabs = [];
 let studentsInDetail = [];
@@ -1106,6 +1107,10 @@ function openAlunoModal(aluno) {
 
 <!-- Componente de Encaminhamentos -->
 <?php require_once __DIR__ . '/../includes/encaminhamento_modal.php'; ?>
+
+<!-- Componente de Detalhes de Atendimento (Compartilhado) -->
+<script src="/assets/js/atendimento_shared.js"></script>
+<?php require_once __DIR__ . '/../includes/atendimento_detalhes_modal.php'; ?>
 
 <!-- Componente de Registros do Conselho -->
 <script src="/assets/js/conselho_registros_system.js?v=2.5"></script>
