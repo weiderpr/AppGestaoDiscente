@@ -87,7 +87,7 @@ function renderColumn(status, cards) {
         cardEl.innerHTML = `
             <div class="k-card-header">
                 <span class="k-badge ${badgeClass}">${badgeText}</span>
-                ${card.aluno_id ? (card.aluno_photo ? `<img src="/${card.aluno_photo}" style="width:20px;height:20px;border-radius:4px;object-fit:cover;border:1px solid var(--border-color);">` : `<div style="width:20px;height:20px;border-radius:4px;background:var(--bg-surface-2nd);display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;color:var(--text-muted);border:1px solid var(--border-color);">${card.aluno_nome.charAt(0)}</div>`) : ''}
+                ${card.aluno_id ? (card.aluno_photo ? `<img src="/${card.aluno_photo}" class="k-card-student">` : `<div class="k-card-student">${card.aluno_nome.charAt(0)}</div>`) : ''}
             </div>
             <div class="k-card-title">${card.titulo}</div>
             <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
@@ -336,7 +336,7 @@ async function openCardDetails(id) {
             const subtitleEl = document.getElementById('cdAlunoSubtitle');
             
             if (at.aluno_id) {
-                subtitleEl.innerText = at.aluno_nome + (at.matricula ? ' (#' + at.matricula + ')' : '') + (at.turma_nome ? ' — ' + at.turma_nome : '');
+                subtitleEl.innerText = at.aluno_nome + (at.matricula ? ' (#' + at.matricula + ')' : '') + (at.curso_nome ? ' • ' + at.curso_nome : '') + (at.turma_nome ? ' — ' + at.turma_nome : '');
                 
                 if (at.aluno_photo) {
                     photoEl.src = '/' + at.aluno_photo;

@@ -264,6 +264,7 @@ switch ($action) {
                     SELECT e.*, 
                            a.nome as aluno_nome, a.matricula, a.photo as aluno_photo,
                            t.description as turma_nome,
+                           co.name as curso_nome,
                            c.descricao as conselho_nome, c.data_hora as conselho_data
                     FROM conselho_encaminhamentos e
                     JOIN alunos a ON e.aluno_id = a.id
@@ -296,10 +297,12 @@ switch ($action) {
             $st = $db->prepare("
                 SELECT at.*, 
                        a.nome as aluno_nome, a.matricula, a.photo as aluno_photo,
-                       t.description as turma_nome
+                       t.description as turma_nome,
+                       co.name as curso_nome
                 FROM gestao_atendimentos at
                 LEFT JOIN alunos a ON at.aluno_id = a.id
                 LEFT JOIN turmas t ON at.turma_id = t.id
+                LEFT JOIN courses co ON t.course_id = co.id
                 WHERE at.id = ? AND at.institution_id = ? AND at.deleted_at IS NULL
             ");
             $st->execute([$atendId, $instId]);

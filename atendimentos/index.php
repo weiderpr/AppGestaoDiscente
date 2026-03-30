@@ -166,6 +166,28 @@ renderToastStyles();
     font-size: 0.6rem;
     color: var(--text-muted);
     font-weight: 700;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.k-card-user:first-child {
+    margin-left: 0;
+}
+
+.k-card-student {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--bg-surface-2nd);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
 }
 
 /* Modals Customizados para o Kanban */
