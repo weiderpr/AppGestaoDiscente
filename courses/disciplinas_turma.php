@@ -395,9 +395,13 @@ require_once __DIR__ . '/../includes/header.php';
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="add_disciplina">
             <div class="modal-body">
+                <div class="form-group" style="margin-bottom:1rem;">
+                    <label class="form-label">🔍 Filtrar Disciplina</label>
+                    <input type="text" id="filterDisciplina" class="form-control" placeholder="Digite o código ou nome da disciplina..." oninput="filterDisciplinas()">
+                </div>
                 <div class="form-group">
                     <label class="form-label">Selecione a Disciplina <span class="required">*</span></label>
-                    <select name="disciplina_codigo" class="form-control" required autofocus>
+                    <select name="disciplina_codigo" id="disciplinaSelect" class="form-control" required autofocus>
                         <option value="">Selecione...</option>
                         <?php 
                         $currentCat = '';
@@ -408,7 +412,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 $currentCat = $d['categoria_nome'];
                             endif;
                         ?>
-                        <option value="<?= $d['codigo'] ?>"><?= htmlspecialchars($d['descricao']) ?></option>
+                        <option value="<?= $d['codigo'] ?>">[<?= htmlspecialchars($d['codigo']) ?>] - <?= htmlspecialchars($d['descricao']) ?></option>
                         <?php endforeach; ?>
                         <?php if ($currentCat) echo '</optgroup>'; ?>
                     </select>
@@ -437,9 +441,71 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
+let originalSelectHtml = '';
+
+function filterDisciplinas() {
+    const input = document.getElementById('filterDisciplina');
+    const filter = input.value.toLowerCase();
+    const select = document.getElementById('disciplinaSelect');
+    
+    // Armazena o HTML original na primeira vez
+    if (!originalSelectHtml) {
+        originalSelectHtml = select.innerHTML;
+    }
+
+    if (!filter) {
+        select.innerHTML = originalSelectHtml;
+        return;
+    }
+
+    // Cria um container temporário para manipular as opções
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = originalSelectHtml;
+    
+    const options = tempDiv.getElementsByTagName('option');
+    const optgroups = tempDiv.getElementsByTagName('optgroup');
+
+    // Remove do tempDiv as opções que não batem com o filtro
+    // Iteramos de trás para frente para não afetar os índices ao remover
+    for (let i = options.length - 1; i >= 1; i--) { // Pula a primeira opção "Selecione..."
+        const txtValue = options[i].textContent || options[i].innerText;
+        if (txtValue.toLowerCase().indexOf(filter) === -1) {
+            options[i].remove();
+        }
+    }
+
+    // Remove optgroups que ficaram vazios após o filtro
+    for (let i = optgroups.length - 1; i >= 0; i--) {
+        if (optgroups[i].getElementsByTagName('option').length === 0) {
+            optgroups[i].remove();
+        }
+    }
+
+    select.innerHTML = tempDiv.innerHTML;
+
+    // Auto-seleção se houver apenas um item (além do "Selecione...")
+    const currentOptions = select.getElementsByTagName('option');
+    if (filter && currentOptions.length === 2) {
+        select.selectedIndex = 1;
+    }
+}
+
 function openAddDisciplinaModal() {
     document.getElementById('addDisciplinaModal').classList.add('show');
     document.body.style.overflow = 'hidden';
+    
+    // Garante que temos o HTML original salvo
+    const select = document.getElementById('disciplinaSelect');
+    if (!originalSelectHtml && select) {
+        originalSelectHtml = select.innerHTML;
+    }
+
+    // Limpa o filtro ao abrir
+    const filterInput = document.getElementById('filterDisciplina');
+    if (filterInput) {
+        filterInput.value = '';
+        filterDisciplinas();
+    }
 }
 function closeAddDisciplinaModal() {
     document.getElementById('addDisciplinaModal').classList.remove('show');

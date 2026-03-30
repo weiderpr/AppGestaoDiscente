@@ -34,28 +34,21 @@ if (!$turma) {
 }
 
 // Permissões via Matriz + Vínculos
-$isAdmin = ($user['profile'] === 'Administrador');
-$canViewStudents = hasDbPermission('students.index', false);
-
-$isCourseCoordinator = false;
-if ($user['profile'] === 'Coordenador') {
-    $stCheck = $db->prepare("SELECT 1 FROM course_coordinators WHERE course_id = ? AND user_id = ?");
-    $stCheck->execute([$turma['course_id'], $user['id']]);
-    $isCourseCoordinator = (bool)$stCheck->fetch();
-}
+// 1. Definição de Permissão: Apenas Administradores veem todos os alunos de qualquer turma.
+// Outros perfis veem apenas onde possuem disciplinas vinculadas.
+$isFullAccess = ($user['profile'] === 'Administrador');
 
 $isTeacherOfThisTurma = false;
-if (($user['is_teacher'] ?? 0) == 1) {
-    $stCheckT = $db->prepare("
-        SELECT 1 FROM turma_disciplinas td 
-        JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id 
-        WHERE td.turma_id = ? AND tdp.professor_id = ? LIMIT 1
-    ");
-    $stCheckT->execute([$turmaId, $user['id']]);
-    $isTeacherOfThisTurma = (bool)$stCheckT->fetch();
-}
+// SEMPRE verifica se é professor desta turma, independente de perfil ou flag is_teacher
+$stCheckT = $db->prepare("
+    SELECT 1 FROM turma_disciplinas td 
+    JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id 
+    WHERE td.turma_id = ? AND tdp.professor_id = ? LIMIT 1
+");
+$stCheckT->execute([$turmaId, $user['id']]);
+$isTeacherOfThisTurma = (bool)$stCheckT->fetch();
 
-if (!$isAdmin && !$canViewStudents && !$isCourseCoordinator && !$isTeacherOfThisTurma) {
+if (!$isFullAccess && !$isTeacherOfThisTurma) {
     header('Location: /mobile/courses.php');
     exit;
 }

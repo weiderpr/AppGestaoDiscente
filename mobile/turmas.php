@@ -29,7 +29,10 @@ if (!$course) {
 }
 
 // Permissões via Matriz + Vínculos
-$isAdmin = ($user['profile'] === 'Administrador');
+// 1. Definição de Permissão: Apenas Administradores veem todas as turmas do curso.
+// Outros perfis veem apenas onde possuem disciplinas vinculadas.
+$isFullAccess = ($user['profile'] === 'Administrador');
+
 $canViewStudents = hasDbPermission('students.index', false);
 
 $isCourseCoordinator = false;
@@ -40,19 +43,16 @@ if ($user['profile'] === 'Coordenador') {
 }
 
 $isTeacherInCourse = false;
-if (($user['is_teacher'] ?? 0) == 1) {
-    $stT = $db->prepare("
-        SELECT 1 FROM turmas t 
-        JOIN turma_disciplinas td ON t.id = td.turma_id 
-        JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id 
-        WHERE t.course_id = ? AND tdp.professor_id = ? LIMIT 1
-    ");
-    $stT->execute([$courseId, $user['id']]);
-    $isTeacherInCourse = (bool)$stT->fetch();
-}
+$stT = $db->prepare("
+    SELECT 1 FROM turmas t 
+    JOIN turma_disciplinas td ON t.id = td.turma_id 
+    JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id 
+    WHERE t.course_id = ? AND tdp.professor_id = ? LIMIT 1
+");
+$stT->execute([$courseId, $user['id']]);
+$isTeacherInCourse = (bool)$stT->fetch();
 
-// Se não for admin nem tiver permissão de visão de alunos, nem for coordenador/professor, barra.
-if (!$isAdmin && !$canViewStudents && !$isCourseCoordinator && !$isTeacherInCourse) {
+if (!$isFullAccess && !$canViewStudents && !$isCourseCoordinator && !$isTeacherInCourse) {
     header('Location: /mobile/courses.php');
     exit;
 }
@@ -68,8 +68,8 @@ $sql = "
 ";
 $params = [$courseId];
 
-// Filtro de professor (vê apenas onde leciona se não for coordenador/admin/pedagogo)
-if (($user['is_teacher'] ?? 0) == 1 && !$isAdmin && !$canViewStudents && !$isCourseCoordinator) {
+// 2. Filtro de Visibilidade Reais
+if (!$isFullAccess) {
     $sql .= " AND t.id IN (
         SELECT DISTINCT t2.id
         FROM turmas t2

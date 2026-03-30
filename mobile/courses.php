@@ -23,27 +23,35 @@ $sql = "SELECT c.*,
 $params = [$instId];
 $restrictions = [];
 
-if ($user['profile'] === 'Coordenador') {
-    $restrictions[] = "c.id IN (SELECT course_id FROM course_coordinators WHERE user_id = ?)";
-    $params[] = $user['id'];
-}
+// 1. Definição de Permissão: Apenas Administradores veem todos os cursos do campus.
+// Outros perfis (Coordenador, Professor, Pedagogo, etc.) veem apenas onde possuem vínculo.
+$isFullAccess = ($user['profile'] === 'Administrador');
 
-if (($user['is_teacher'] ?? 0) == 1) {
+if (!$isFullAccess) {
+    // 2. Vínculo de Coordenador
+    if ($user['profile'] === 'Coordenador') {
+        $restrictions[] = "c.id IN (SELECT course_id FROM course_coordinators WHERE user_id = ?)";
+        $params[] = $user['id'];
+    }
+
+    // 3. Vínculo de Professor (Verifica se leciona disciplina em turmas ativas)
     $restrictions[] = "c.id IN (
         SELECT DISTINCT t_inner.course_id 
         FROM turmas t_inner
         JOIN turma_disciplinas td ON t_inner.id = td.turma_id
         JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
-        WHERE tdp.professor_id = ?
+        WHERE tdp.professor_id = ? AND t_inner.is_active = 1
     )";
     $params[] = $user['id'];
+
+    if (!empty($restrictions)) {
+        $sql .= " AND (" . implode(" OR ", $restrictions) . ")";
+    } else {
+        // Sem vínculos e sem acesso total: não vê nada.
+        $sql .= " AND 1=0";
+    }
 }
 
-$isSpecial = in_array($user['profile'], ['Administrador', 'Pedagogo', 'Assistente Social', 'Psicólogo']);
-
-if (!empty($restrictions) && !$isSpecial) {
-    $sql .= " AND (" . implode(" OR ", $restrictions) . ")";
-}
 
 if ($search) {
     $sql .= " AND c.name LIKE ?";
@@ -142,7 +150,10 @@ require_once __DIR__ . '/header.php';
                         <div class="m-course-stat-item">
                             <span>👥</span> <?= $c['total_turmas'] ?> Turmas
                         </div>
-                        <?php if(($user['is_teacher'] ?? 0) == 1): ?>
+                        <?php 
+                        // Verifica se é professor de fato para mostrar o ícone (pode ser via perfil, flag ou existência de disciplinas)
+                        if($user['profile'] === 'Professor' || ($user['is_teacher'] ?? 0) == 1): 
+                        ?>
                             <div class="m-course-stat-item">
                                 <span>📖</span> Minhas Disciplinas
                             </div>
