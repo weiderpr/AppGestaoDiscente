@@ -30,6 +30,9 @@ async function loadBoard() {
             renderColumn('Aberto', data.board['Aberto'] || []);
             renderColumn('Em Atendimento', data.board['Em Atendimento'] || []);
             renderColumn('Finalizado', data.board['Finalizado'] || []);
+            
+            // Clear all filters on reload
+            document.querySelectorAll('.column-filter').forEach(input => input.value = '');
         } else {
             Toast.show('Erro ao carregar quadro: ' + data.error, 'error');
         }
@@ -78,11 +81,7 @@ function renderColumn(status, cards) {
         
         // Clicar no card abre detalhes, mas n pode ser o Demandas direto agor a menos q tenhamos um modal view pra Demandas puro.
         cardEl.onclick = (e) => {
-            if (card.is_encaminhamento) {
-                Toast.show('Arraste a Demanda para "Em Aberto" para iniciar o atendimento.', 'info');
-            } else {
-                openCardDetails(card.id);
-            }
+            openCardDetails(card.id);
         };
 
         cardEl.innerHTML = `
@@ -361,14 +360,38 @@ async function openCardDetails(id) {
                 avatarEl.innerText = '📄';
             }
 
-            document.getElementById('cdDescPublica').value = at.descricao_publica || '';
-            document.getElementById('cdDescProfissional').value = at.descricao_profissional || '';
-            
-            // Render comments
-            renderTimeline(data.comentarios || []);
-            
-            // Render responsibles
-            renderResponsaveis(data.responsaveis || []);
+            const demandContext = document.getElementById('cdDemandaContext');
+            const editorSec = document.getElementById('cdEditorSection');
+            const timelineSec = document.getElementById('cdTimelineSection');
+            const profSec = document.getElementById('cdProfessionalsSection');
+            const deleteSec = document.getElementById('cdDeleteSection');
+
+            if (at.is_encaminhamento_pure) {
+                demandContext.style.display = 'block';
+                editorSec.style.display = 'none';
+                timelineSec.style.display = 'none';
+                profSec.style.display = 'none';
+                deleteSec.style.display = 'none';
+
+                document.getElementById('cdCouncilName').innerText = at.conselho_nome || 'Conselho de Classe';
+                document.getElementById('cdDemandText').innerText = at.texto || 'Sem descrição adicional.';
+                document.getElementById('cdDeadlineValue').innerText = at.data_expectativa ? new Date(at.data_expectativa + 'T00:00:00').toLocaleDateString() : 'Não definido';
+            } else {
+                demandContext.style.display = 'none';
+                editorSec.style.display = 'block';
+                timelineSec.style.display = 'block';
+                profSec.style.display = 'block';
+                deleteSec.style.display = 'block';
+
+                document.getElementById('cdDescPublica').value = at.descricao_publica || '';
+                document.getElementById('cdDescProfissional').value = at.descricao_profissional || '';
+                
+                // Render comments
+                renderTimeline(data.comentarios || []);
+                
+                // Render responsibles
+                renderResponsaveis(data.responsaveis || []);
+            }
             
             document.getElementById('userSearchResults').innerHTML = '';
             document.getElementById('userSearch').value = '';
@@ -613,5 +636,32 @@ async function deleteAtendimento() {
         }
     } catch (e) {
         Toast.show('Erro de conexão.', 'error');
+    }
+}
+
+function filterColumn(status, term) {
+    const colEl = document.getElementById('col-' + status);
+    if (!colEl) return;
+    
+    const cards = colEl.querySelectorAll('.k-card');
+    const query = term.toLowerCase().trim();
+    let visibleCount = 0;
+
+    cards.forEach(card => {
+        const title = card.querySelector('.k-card-title').innerText.toLowerCase();
+        // The subtitle is the div with font-size:0.8rem
+        const subtitle = card.querySelector('div[style*="font-size:0.8rem"]').innerText.toLowerCase();
+        
+        if (title.includes(query) || subtitle.includes(query)) {
+            card.style.display = 'block';
+            visibleCount++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    const countEl = document.getElementById('count-' + status);
+    if (countEl) {
+        countEl.innerText = visibleCount;
     }
 }

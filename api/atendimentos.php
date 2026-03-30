@@ -250,14 +250,49 @@ switch ($action) {
         break;
 
     case 'get_details':
-        $atendId = (int)($_GET['id'] ?? 0);
-        if (!$atendId) {
+        $rawId = $_GET['id'] ?? '';
+        if (!$rawId) {
             echo json_encode(['success' => false, 'error' => 'ID inválido.']);
             exit;
         }
 
         try {
-            // Get Atendimento
+            if (strpos($rawId, 'enc_') === 0) {
+                $encId = (int)str_replace('enc_', '', $rawId);
+                // Get Encaminhamento Details
+                $st = $db->prepare("
+                    SELECT e.*, 
+                           a.nome as aluno_nome, a.matricula, a.photo as aluno_photo,
+                           t.description as turma_nome,
+                           c.descricao as conselho_nome, c.data_hora as conselho_data
+                    FROM conselho_encaminhamentos e
+                    JOIN alunos a ON e.aluno_id = a.id
+                    JOIN conselhos_classe c ON e.conselho_id = c.id
+                    JOIN turmas t ON c.turma_id = t.id
+                    JOIN courses co ON t.course_id = co.id
+                    WHERE e.id = ? AND co.institution_id = ?
+                ");
+                $st->execute([$encId, $instId]);
+                $enc = $st->fetch(PDO::FETCH_ASSOC);
+
+                if (!$enc) throw new Exception('Demanda não encontrada.');
+
+                // Mapping for frontend
+                $enc['titulo'] = 'Demanda: ' . $enc['setor_tipo'];
+                $enc['descricao_profissional'] = $enc['texto'];
+                $enc['is_encaminhamento_pure'] = true;
+                $enc['status'] = 'Pendente';
+
+                echo json_encode([
+                    'success' => true, 
+                    'atendimento' => $enc, 
+                    'responsaveis' => [], 
+                    'comentarios' => []
+                ]);
+                exit;
+            }
+
+            $atendId = (int)$rawId;
             $st = $db->prepare("
                 SELECT at.*, 
                        a.nome as aluno_nome, a.matricula, a.photo as aluno_photo,
@@ -355,25 +390,39 @@ switch ($action) {
         break;
 
     case 'delete_atendimento':
-        $atendId = (int)($_POST['atendimento_id'] ?? 0);
-        if (!$atendId) {
+        $rawId = $_POST['atendimento_id'] ?? '';
+        if (!$rawId) {
             echo json_encode(['success' => false, 'error' => 'ID inválido.']);
             exit;
         }
 
         try {
-            // Check if it has a linked encaminhamento to revert its status
-            $stCheck = $db->prepare("SELECT encaminhamento_id FROM gestao_atendimentos WHERE id = ? AND institution_id = ?");
-            $stCheck->execute([$atendId, $instId]);
-            $at = $stCheck->fetch(PDO::FETCH_ASSOC);
+            if (strpos($rawId, 'enc_') === 0) {
+                // Deleting a "pure" demand (encaminhamento)
+                $encId = (int)str_replace('enc_', '', $rawId);
+                // We could soft-delete if it had a column, but since it doesn't, we'll mark as 'Cancelado' or just delete?
+                // Let's check if there's a 'Cancelado' status. 
+                // Actually, I'll just hard-delete it if the user wants to "remove the card".
+                // Or better: update status to 'Excluido' if possible.
+                // Looking at the schema, it has a 'status' VARCHAR.
+                $db->prepare("DELETE FROM conselho_encaminhamentos WHERE id = ?")
+                   ->execute([$encId]);
+            } else {
+                // Deleting an active Atendimento
+                $atendId = (int)$rawId;
+                // Check if it has a linked encaminhamento to revert its status
+                $stCheck = $db->prepare("SELECT encaminhamento_id FROM gestao_atendimentos WHERE id = ? AND institution_id = ?");
+                $stCheck->execute([$atendId, $instId]);
+                $at = $stCheck->fetch(PDO::FETCH_ASSOC);
 
-            if ($at && $at['encaminhamento_id']) {
-                $db->prepare("UPDATE conselho_encaminhamentos SET status = 'Pendente' WHERE id = ?")
-                   ->execute([$at['encaminhamento_id']]);
+                if ($at && $at['encaminhamento_id']) {
+                    $db->prepare("UPDATE conselho_encaminhamentos SET status = 'Pendente' WHERE id = ?")
+                       ->execute([$at['encaminhamento_id']]);
+                }
+
+                $db->prepare("UPDATE gestao_atendimentos SET deleted_at = NOW() WHERE id = ? AND institution_id = ?")
+                   ->execute([$atendId, $instId]);
             }
-
-            $db->prepare("UPDATE gestao_atendimentos SET deleted_at = NOW() WHERE id = ? AND institution_id = ?")
-               ->execute([$atendId, $instId]);
 
             echo json_encode(['success' => true]);
         } catch (Exception $e) {

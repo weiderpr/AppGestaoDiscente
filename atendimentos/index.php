@@ -215,7 +215,7 @@ renderToastStyles();
 <div class="page-header">
     <div class="header-content">
         <h1 class="page-title">Gestão de Atendimentos</h1>
-        <p class="page-subtitle">Quadro Kanban interativo para acompanhamento pedagógico.</p>
+        <p class="page-subtitle">Gestão dos atendimentos</p>
     </div>
     <div class="header-actions">
         <!-- Só exibe se tiver permissão de criação -->
@@ -229,9 +229,15 @@ renderToastStyles();
     
     <!-- Coluna: Demandas -->
     <div class="kanban-column" data-status="Demandas">
-        <div class="kanban-column-header">
-            <span style="display:flex;align-items:center;gap:0.5rem;">📥 Demandas</span>
-            <span class="kanban-count" id="count-Demandas">0</span>
+        <div class="kanban-column-header" style="flex-direction: column; align-items: stretch; gap: 0.5rem; padding-bottom: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="display:flex;align-items:center;gap:0.5rem;">📥 Demandas</span>
+                <span class="kanban-count" id="count-Demandas">0</span>
+            </div>
+            <div style="position: relative;">
+                <input type="text" class="column-filter" placeholder="Filtrar..." oninput="filterColumn('Demandas', this.value)" style="width: 100%; border-radius: 6px; border: 1px solid var(--border-color); padding: 4px 8px 4px 24px; font-size: 0.75rem; background: var(--bg-surface-2nd);">
+                <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; opacity: 0.4;">🔍</span>
+            </div>
         </div>
         <div class="kanban-cards" id="col-Demandas">
             <!-- Cards injetados via JS -->
@@ -241,9 +247,15 @@ renderToastStyles();
 
     <!-- Coluna: Aberto -->
     <div class="kanban-column" style="border-top: 3px solid #3b82f6;" data-status="Aberto">
-        <div class="kanban-column-header">
-            <span style="display:flex;align-items:center;gap:0.5rem;">📋 Em Aberto</span>
-            <span class="kanban-count" id="count-Aberto">0</span>
+        <div class="kanban-column-header" style="flex-direction: column; align-items: stretch; gap: 0.5rem; padding-bottom: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="display:flex;align-items:center;gap:0.5rem;">📋 Em Aberto</span>
+                <span class="kanban-count" id="count-Aberto">0</span>
+            </div>
+            <div style="position: relative;">
+                <input type="text" class="column-filter" placeholder="Filtrar..." oninput="filterColumn('Aberto', this.value)" style="width: 100%; border-radius: 6px; border: 1px solid var(--border-color); padding: 4px 8px 4px 24px; font-size: 0.75rem; background: var(--bg-surface-2nd);">
+                <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; opacity: 0.4;">🔍</span>
+            </div>
         </div>
         <div class="kanban-cards" id="col-Aberto">
             <!-- Cards injetados via JS -->
@@ -252,18 +264,30 @@ renderToastStyles();
 
     <!-- Coluna: Em Atendimento -->
     <div class="kanban-column" style="border-top: 3px solid #f59e0b;" data-status="Em Atendimento">
-        <div class="kanban-column-header">
-            <span style="display:flex;align-items:center;gap:0.5rem;">⚙️ Em Atendimento</span>
-            <span class="kanban-count" id="count-Em Atendimento">0</span>
+        <div class="kanban-column-header" style="flex-direction: column; align-items: stretch; gap: 0.5rem; padding-bottom: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="display:flex;align-items:center;gap:0.5rem;">⚙️ Em Atendimento</span>
+                <span class="kanban-count" id="count-Em Atendimento">0</span>
+            </div>
+            <div style="position: relative;">
+                <input type="text" class="column-filter" placeholder="Filtrar..." oninput="filterColumn('Em Atendimento', this.value)" style="width: 100%; border-radius: 6px; border: 1px solid var(--border-color); padding: 4px 8px 4px 24px; font-size: 0.75rem; background: var(--bg-surface-2nd);">
+                <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; opacity: 0.4;">🔍</span>
+            </div>
         </div>
         <div class="kanban-cards" id="col-Em Atendimento"></div>
     </div>
 
     <!-- Coluna: Finalizado -->
     <div class="kanban-column" style="border-top: 3px solid #10b981;" data-status="Finalizado">
-        <div class="kanban-column-header">
-            <span style="display:flex;align-items:center;gap:0.5rem;">✅ Finalizado</span>
-            <span class="kanban-count" id="count-Finalizado">0</span>
+        <div class="kanban-column-header" style="flex-direction: column; align-items: stretch; gap: 0.5rem; padding-bottom: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="display:flex;align-items:center;gap:0.5rem;">✅ Finalizado</span>
+                <span class="kanban-count" id="count-Finalizado">0</span>
+            </div>
+            <div style="position: relative;">
+                <input type="text" class="column-filter" placeholder="Filtrar..." oninput="filterColumn('Finalizado', this.value)" style="width: 100%; border-radius: 6px; border: 1px solid var(--border-color); padding: 4px 8px 4px 24px; font-size: 0.75rem; background: var(--bg-surface-2nd);">
+                <span style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; opacity: 0.4;">🔍</span>
+            </div>
         </div>
         <div class="kanban-cards" id="col-Finalizado"></div>
     </div>
@@ -346,68 +370,87 @@ renderToastStyles();
                         </div>
                     </div>
 
+                    <!-- Contexto da Demanda (Original Council Info) -->
+                    <div id="cdDemandaContext" style="background: var(--bg-surface-2nd); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 2rem; display: none; position: relative; overflow: hidden;">
+                        <div style="position: absolute; right: -10px; top: -10px; font-size: 4rem; opacity: 0.05; transform: rotate(15deg);">📋</div>
+                        <h4 style="font-size: 0.7rem; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.375rem;">
+                            <span>📌</span> Origem: Conselho de Classe
+                        </h4>
+                        <div style="font-size: 0.9rem; line-height: 1.5; color: var(--text-primary);">
+                             <div id="cdCouncilName" style="font-weight: 700; margin-bottom: 0.25rem;"></div>
+                             <div id="cdDemandText" style="font-style: italic; color: var(--text-muted); border-left: 3px solid var(--border-color); padding-left: 1rem; margin: 0.75rem 0;"></div>
+                             <div id="cdDeadline" style="font-size: 0.8125rem; font-weight: 700; color: #ef4444; display: flex; align-items: center; gap: 0.375rem;">
+                                <span>⏰</span> Prazo esperado: <span id="cdDeadlineValue"></span>
+                             </div>
+                        </div>
+                    </div>
+
                     <!-- Informações Restritas a "Em Atendimento" para edição -->
-                    <div class="form-group" style="margin-bottom: 1rem;">
-                        <label class="form-label">Informação Pública (Visível para o aluno em relatórios)</label>
-                        <textarea class="form-control" id="cdDescPublica" rows="3" placeholder="Descreva o que será visível para o aluno..."></textarea>
-                    </div>
+                    <div id="cdEditorSection">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label class="form-label">Informação Pública (Visível para o aluno em relatórios)</label>
+                            <textarea class="form-control" id="cdDescPublica" rows="3" placeholder="Descreva o que será visível para o aluno..."></textarea>
+                        </div>
 
-                    <div class="form-group" style="margin-bottom: 0.75rem;">
-                        <label class="form-label">Anotação Profissional (Privado ao conselho/equipe)</label>
-                        <textarea class="form-control" id="cdDescProfissional" rows="3" placeholder="Anotações internas para a equipe..."></textarea>
-                    </div>
+                        <div class="form-group" style="margin-bottom: 0.75rem;">
+                            <label class="form-label">Anotação Profissional (Privado ao conselho/equipe)</label>
+                            <textarea class="form-control" id="cdDescProfissional" rows="3" placeholder="Anotações internas para a equipe..."></textarea>
+                        </div>
 
-                    <div style="text-align: right; margin-bottom: 2rem; border-top: 1px solid var(--border-color-light); padding-top: 0.75rem;">
-                        <button class="btn btn-primary" onclick="saveAtendimentoInfo()">
-                            <span style="margin-right:0.5rem;">💾</span> Salvar Descrições
-                        </button>
+                        <div style="text-align: right; margin-bottom: 2rem; border-top: 1px solid var(--border-color-light); padding-top: 0.75rem;">
+                            <button class="btn btn-primary" onclick="saveAtendimentoInfo()">
+                                <span style="margin-right:0.5rem;">💾</span> Salvar Descrições
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Timeline de Comentários -->
-                    <h4 style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1.25rem; font-size:1rem;">
-                        <span>💬</span> Timeline de Ações e Comentários
-                    </h4>
-                    <div style="background: var(--bg-surface-2nd); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
-                        <form id="formNewComment" style="display:flex; gap:0.75rem; flex-direction:column;">
-                            <textarea class="form-control" id="ncTexto" rows="2" placeholder="Escreva uma atualização ou observação..."></textarea>
-                            <div style="display:flex; justify-content: space-between; align-items: center;">
-                                <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.8125rem; color:var(--text-muted); cursor:pointer;">
-                                    <input type="checkbox" id="ncPrivate" style="width:14px; height:14px;"> 
-                                    <span style="display:flex; align-items:center; gap:0.25rem;">🔒 Registro Privado</span>
-                                </label>
-                                <button type="button" class="btn btn-secondary btn-sm" onclick="submitComment()">
-                                    Postar Registro
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                    <div id="cdTimelineSection">
+                        <h4 style="display:flex; align-items:center; gap:0.375rem; margin-bottom:0.75rem; font-size:0.75rem; text-transform:uppercase; font-weight:800; letter-spacing:0.05em; color: var(--text-muted);">
+                            <span>💬</span> Timeline de Ações e Comentários
+                        </h4>
+                        <div style="background: var(--bg-surface-2nd); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+                            <form id="formNewComment" style="display:flex; gap:0.75rem; flex-direction:column;">
+                                <textarea class="form-control" id="ncTexto" rows="2" placeholder="Escreva uma atualização ou observação..."></textarea>
+                                <div style="display:flex; justify-content: space-between; align-items: center;">
+                                    <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.8125rem; color:var(--text-muted); cursor:pointer;">
+                                        <input type="checkbox" id="ncPrivate" style="width:14px; height:14px;"> 
+                                        <span style="display:flex; align-items:center; gap:0.25rem;">🔒 Registro Privado</span>
+                                    </label>
+                                    <button type="button" class="btn btn-secondary btn-sm" onclick="submitComment()">
+                                        Postar Registro
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
 
-                    <div class="timeline-container" id="cdTimeline">
-                        <!-- Comentários via JS -->
+                        <div class="timeline-container" id="cdTimeline">
+                            <!-- Comentários via JS -->
+                        </div>
                     </div>
                 </div>
 
                 <!-- Sidebar (Right) -->
                 <div style="padding: 1.5rem; background: var(--bg-surface-2nd); overflow-y: auto; max-height: 80vh; display:flex; flex-direction:column; gap:1.5rem;">
-                    <div>
+                    <div id="cdProfessionalsSection">
                         <h4 style="margin-bottom: 1rem; font-size: 0.75rem; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em; color: var(--text-muted); display:flex; align-items:center; gap:0.375rem;">
                             <span>👥</span> Equipe Responsável
                         </h4>
                         <div id="cdResponsaveisList" style="display:flex; flex-direction: column; gap: 0.5rem;">
                             <!-- JS -->
                         </div>
-                    </div>
 
-                    <div style="border-top: 1px dashed var(--border-color); padding-top: 1.25rem;">
-                        <div style="position:relative;">
-                            <span style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:0.8rem; opacity:0.5;">🔍</span>
-                            <input type="text" id="userSearch" class="form-control form-control-sm" placeholder="Adicionar profissional..." oninput="searchUsers(this.value)" style="padding-left:30px;">
+                        <div style="border-top: 1px dashed var(--border-color); padding-top: 1.25rem; margin-top: 1.25rem;">
+                            <div style="position:relative;">
+                                <span style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:0.8rem; opacity:0.5;">🔍</span>
+                                <input type="text" id="userSearch" class="form-control form-control-sm" placeholder="Adicionar profissional..." oninput="searchUsers(this.value)" style="padding-left:30px;">
+                            </div>
+                            <div id="userSearchResults" style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.375rem;"></div>
                         </div>
-                        <div id="userSearchResults" style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.375rem;"></div>
                     </div>
 
                     <!-- Botão de Excluir (Final da Sidebar) -->
-                    <div style="margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border-color-light);">
+                    <div id="cdDeleteSection" style="margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border-color-light);">
                         <button class="btn btn-outline-danger btn-sm" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; border-color: transparent;" onclick="deleteAtendimento()">
                             <span>🗑️</span> Excluir Card
                         </button>
