@@ -167,8 +167,11 @@ class AlunoService extends Service {
 
     public function getMultidisciplinaryHistory(int $alunoId): array {
         $sql = "
+            -- 1. Comentários de Aula (Professores)
             (SELECT 
                 cp.id as id,
+                CONCAT('cprof_', cp.id) as unique_id,
+                NULL as parent_unique_id,
                 'Aula' COLLATE utf8mb4_unicode_ci as categoria, 
                 cp.conteudo COLLATE utf8mb4_unicode_ci as texto, 
                 cp.created_at as data_registro, 
@@ -182,8 +185,11 @@ class AlunoService extends Service {
  
              UNION ALL
  
+             -- 2. Encaminhamentos de Conselho (Pai de Atendimentos)
              (SELECT 
                 ce.id as id,
+                CONCAT('enc_', ce.id) as unique_id,
+                NULL as parent_unique_id,
                 'Conselho' COLLATE utf8mb4_unicode_ci as categoria, 
                 ce.texto COLLATE utf8mb4_unicode_ci as texto, 
                 ce.created_at as data_registro, 
@@ -197,8 +203,11 @@ class AlunoService extends Service {
              
              UNION ALL
  
+             -- 3. Registros Gerais de Conselho (Injetados via aluno_id)
              (SELECT 
                 cr.id as id,
+                CONCAT('creg_', cr.id) as unique_id,
+                NULL as parent_unique_id,
                 'Conselho' COLLATE utf8mb4_unicode_ci as categoria, 
                 cr.texto COLLATE utf8mb4_unicode_ci as texto, 
                 cr.created_at as data_registro, 
@@ -212,8 +221,11 @@ class AlunoService extends Service {
  
              UNION ALL
  
+             -- 4. Registros de Turma (Contexto Geral)
              (SELECT 
                 cr.id as id,
+                CONCAT('creg_', cr.id) as unique_id,
+                NULL as parent_unique_id,
                 'Geral' COLLATE utf8mb4_unicode_ci as categoria, 
                 cr.texto COLLATE utf8mb4_unicode_ci as texto, 
                 cr.created_at as data_registro, 
@@ -230,8 +242,11 @@ class AlunoService extends Service {
  
              UNION ALL
  
+             -- 5. Comentários Gerais de Conselho
              (SELECT 
                 ccm.id as id,
+                CONCAT('ccom_', ccm.id) as unique_id,
+                NULL as parent_unique_id,
                 'Geral' COLLATE utf8mb4_unicode_ci as categoria, 
                 ccm.comentario COLLATE utf8mb4_unicode_ci as texto, 
                 ccm.created_at as data_registro, 
@@ -244,27 +259,53 @@ class AlunoService extends Service {
              JOIN users u ON ccm.user_id = u.id
              WHERE cc.turma_id IN (SELECT turma_id FROM turma_alunos WHERE aluno_id = ?)
                 AND ccm.comentario != '')
- 
+
              UNION ALL
- 
+
+             -- 6. Gestão de Atendimentos (Público)
              (SELECT 
-                a.id as id,
+                ga.id as id,
+                CONCAT('gatend_', ga.id) as unique_id,
+                CASE WHEN ga.encaminhamento_id IS NOT NULL THEN CONCAT('enc_', ga.encaminhamento_id) ELSE NULL END as parent_unique_id,
                 'Atendimento' COLLATE utf8mb4_unicode_ci as categoria, 
-                a.public_text COLLATE utf8mb4_unicode_ci as texto, 
-                a.created_at as data_registro, 
+                ga.descricao_publica COLLATE utf8mb4_unicode_ci as texto, 
+                ga.created_at as data_registro, 
                 u.id as autor_id,
                 u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
                 u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
                 u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
-             FROM atendimentos a
-             JOIN users u ON a.user_id = u.id
-             WHERE a.aluno_id = ? 
-                AND a.public_text IS NOT NULL 
-                AND a.public_text != '')
+             FROM gestao_atendimentos ga
+             JOIN users u ON ga.author_id = u.id
+             WHERE ga.aluno_id = ? 
+                AND ga.descricao_publica IS NOT NULL 
+                AND ga.deleted_at IS NULL
+                AND ga.descricao_publica != '')
+
+            UNION ALL
+
+            -- 7. Comentários de Atendimento (Gestão - Não Privados)
+            (SELECT 
+                gac.id as id,
+                CONCAT('gcomm_', gac.id) as unique_id,
+                CONCAT('gatend_', gac.atendimento_id) as parent_unique_id,
+                'Atendimento' COLLATE utf8mb4_unicode_ci as categoria, 
+                gac.texto COLLATE utf8mb4_unicode_ci as texto, 
+                gac.created_at as data_registro, 
+                u.id as autor_id,
+                u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
+                u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
+                u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
+             FROM gestao_atendimento_comentarios gac
+             JOIN gestao_atendimentos ga ON gac.atendimento_id = ga.id
+             JOIN users u ON gac.usuario_id = u.id
+             WHERE ga.aluno_id = ? 
+                AND gac.is_private = 0
+                AND ga.deleted_at IS NULL
+                AND gac.texto != '')
 
             ORDER BY data_registro DESC
         ";
 
-        return $this->fetchAll($sql, [$alunoId, $alunoId, $alunoId, $alunoId, $alunoId, $alunoId]);
+        return $this->fetchAll($sql, [$alunoId, $alunoId, $alunoId, $alunoId, $alunoId, $alunoId, $alunoId]);
     }
 }

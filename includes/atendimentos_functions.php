@@ -27,10 +27,22 @@ function saveAtendimento(array $data): int {
         $data['professional_text'],
         $data['public_text'],
         $data['status'] ?? 'Aberto',
-        $data['titulo'] ?? 'Atendimento via Conselho'
+        $data['titulo'] ?? 'Atendimento Profissional'
     ]);
     
-    return (int)$db->lastInsertId();
+    $atendimentoId = (int)$db->lastInsertId();
+    
+    // Adiciona o autor como responsável automaticamente para aparecer no Kanban
+    $stResp = $db->prepare("INSERT IGNORE INTO gestao_atendimento_usuarios (atendimento_id, usuario_id) VALUES (?, ?)");
+    $stResp->execute([$atendimentoId, $data['user_id']]);
+    
+    // Atualiza o encaminhamento caso exista
+    if (!empty($data['encaminhamento_id'])) {
+        $db->prepare("UPDATE conselho_encaminhamentos SET status = 'Em Andamento' WHERE id = ?")
+           ->execute([$data['encaminhamento_id']]);
+    }
+    
+    return $atendimentoId;
 }
 
 /**

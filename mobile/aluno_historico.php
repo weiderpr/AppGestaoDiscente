@@ -51,6 +51,33 @@ if (!$aluno) {
 // Histórico
 $history = $alunoService->getMultidisciplinaryHistory($alunoId);
 
+/**
+ * Organiza o histórico em árvore para exibir aninhamento (Encaminhamento -> Atendimento -> Comentário)
+ */
+function buildHistoryTree(array $flatItems): array {
+    $itemMap = [];
+    $tree = [];
+
+    // Primeiro mapeia todos por unique_id
+    foreach ($flatItems as $item) {
+        $item['children'] = [];
+        $itemMap[$item['unique_id']] = $item;
+    }
+
+    // Depois vincula aos pais
+    foreach ($itemMap as $id => &$item) {
+        if ($item['parent_unique_id'] && isset($itemMap[$item['parent_unique_id']])) {
+            $itemMap[$item['parent_unique_id']]['children'][] = &$item;
+        } else {
+            $tree[] = &$item;
+        }
+    }
+    return $tree;
+}
+
+$historyTree = buildHistoryTree($history);
+
+
 $pageTitle = "Histórico: " . $aluno['nome'];
 $currentPage = 'cursos';
 require_once __DIR__ . '/header.php';
@@ -323,6 +350,85 @@ require_once __DIR__ . '/header.php';
 
     .m-btn-primary { background: var(--color-primary); color: white; border: none; }
     .m-btn-secondary { background: var(--bg-body); border: 1px solid var(--border-color); color: var(--text-secondary); }
+
+    /* Hierarquia e Conectores Refatorados (V3) */
+    .m-history-group {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 1.5rem;
+        position: relative;
+    }
+
+    .m-history-children {
+        margin-left: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-top: 0.5rem;
+        position: relative;
+        border-left: 2px solid var(--border-color);
+        padding-left: 1rem;
+    }
+
+    /* Linha que sai do pai para os filhos */
+    .m-history-children::before {
+        content: "";
+        position: absolute;
+        left: -2px;
+        top: -1rem;
+        height: 1rem;
+        width: 2px;
+        background: var(--border-color);
+    }
+
+    .m-history-item {
+        position: relative;
+        margin-bottom: 0 !important; /* Remove margem padrão para evitar conflitos */
+    }
+
+    /* Conector Horizontal em cada item filho */
+    .m-level-1::before, .m-level-2::before {
+        content: "";
+        position: absolute;
+        left: -1rem;
+        top: 1.5rem;
+        width: 1rem;
+        height: 2px;
+        background: var(--border-color);
+    }
+
+    /* Cards de Nível Inferior - Estilização */
+    .m-level-1 {
+        background: var(--bg-surface);
+        border-color: rgba(79, 70, 229, 0.2);
+    }
+
+    .m-level-2 {
+        background: var(--bg-surface-2nd);
+        border-color: var(--border-color);
+        box-shadow: none; /* Simplifica para evitar bugs de overlap */
+        transform: scale(0.98);
+        transform-origin: left;
+    }
+
+    /* Texto e Autor em Comentários */
+    .m-level-2 .m-history-body {
+        font-size: 0.8125rem;
+    }
+
+    .m-level-2 .m-author-img, .m-level-2 .m-author-placeholder {
+        width: 24px;
+        height: 24px;
+        font-size: 0.6rem;
+    }
+    
+    .m-level-2 .m-author-name {
+        font-size: 0.75rem;
+    }
+    
+    .m-level-2 .m-author-role {
+        font-size: 0.6rem;
+    }
 </style>
 
 <div class="m-content-container">
@@ -380,13 +486,15 @@ require_once __DIR__ . '/header.php';
 
 
     <div class="m-timeline-container">
-        <?php if (empty($history)): ?>
+        <?php if (empty($historyTree)): ?>
             <div class="m-card m-empty-history">
                 <div style="font-size: 3rem; margin-bottom: 1rem;">📭</div>
                 <p>Nenhum registro encontrado no histórico deste aluno.</p>
             </div>
         <?php else: ?>
-            <?php foreach ($history as $item): 
+            <?php 
+            function renderTimelineItem($item, $level = 0) {
+                global $user;
                 $badgeClass = 'm-badge-geral';
                 $icon = '📢';
                 if ($item['categoria'] === 'Aula') { $badgeClass = 'm-badge-aula'; $icon = '📝'; }
@@ -396,40 +504,58 @@ require_once __DIR__ . '/header.php';
                 $isAdmin = ($user['profile'] === 'Administrador');
                 $isAuthor = ($item['autor_id'] == $user['id']);
                 $canDelete = ($item['categoria'] === 'Aula' && ($isAdmin || $isAuthor));
-            ?>
-                <div class="m-card m-history-item" data-history-id="<?= $item['id'] ?>" data-categoria="<?= $item['categoria'] ?>">
-                    <div class="m-history-header">
-                        <div class="m-history-author">
-                            <?php if (!empty($item['autor_foto'])): ?>
-                                <img src="/<?= htmlspecialchars($item['autor_foto']) ?>" class="m-author-img" alt="">
-                            <?php else: ?>
-                                <div class="m-author-placeholder"><?= mb_substr($item['autor_nome'], 0, 1) ?></div>
-                            <?php endif; ?>
-                            <div class="m-author-details">
-                                <span class="m-author-name"><?= htmlspecialchars($item['autor_nome']) ?></span>
-                                <span class="m-author-role"><?= htmlspecialchars($item['autor_perfil']) ?></span>
+                
+                $levelClass = $level > 0 ? 'm-level-' . $level : '';
+                ?>
+                <div class="m-history-group">
+                    <div class="m-card m-history-item <?= $levelClass ?>" data-history-id="<?= $item['id'] ?>" data-categoria="<?= $item['categoria'] ?>">
+                        <div class="m-history-header">
+                            <div class="m-history-author">
+                                <?php if (!empty($item['autor_foto'])): ?>
+                                    <img src="/<?= htmlspecialchars($item['autor_foto']) ?>" class="m-author-img" alt="">
+                                <?php else: ?>
+                                    <div class="m-author-placeholder"><?= mb_substr($item['autor_nome'] ?? '?', 0, 1) ?></div>
+                                <?php endif; ?>
+                                <div class="m-author-details">
+                                    <span class="m-author-name"><?= htmlspecialchars($item['autor_nome'] ?? 'Sistema') ?></span>
+                                    <span class="m-author-role"><?= htmlspecialchars($item['autor_perfil'] ?? 'Automático') ?></span>
+                                </div>
                             </div>
+                            <span class="m-category-badge <?= $badgeClass ?>">
+                                <?= $icon ?> <?= htmlspecialchars($item['categoria']) ?>
+                            </span>
                         </div>
-                        <span class="m-category-badge <?= $badgeClass ?>">
-                            <?= $icon ?> <?= htmlspecialchars($item['categoria']) ?>
-                        </span>
+
+                        <div class="m-history-body"><?= nl2br(htmlspecialchars(trim(html_entity_decode(strip_tags($item['texto'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')))) ?></div>
+
+                        <div class="m-history-footer">
+                            <span>📅 <?= date('d/m/Y \à\s H:i', strtotime($item['data_registro'])) ?></span>
+                        </div>
+
+                        <?php if ($canDelete): ?>
+                            <div class="m-history-item-actions">
+                                <button class="m-btn-delete-small" onclick="deleteComment(<?= $item['id'] ?>)">
+                                    <span>🗑️</span> Excluir Registro
+                                </button>
+                            </div>
+                        <?php endif; ?>
                     </div>
 
-                    <div class="m-history-body"><?= nl2br(htmlspecialchars(trim(html_entity_decode(strip_tags($item['texto']), ENT_QUOTES | ENT_HTML5, 'UTF-8')))) ?></div>
-
-                    <div class="m-history-footer">
-                        <span>📅 <?= date('d/m/Y \à\s H:i', strtotime($item['data_registro'])) ?></span>
-                    </div>
-
-                    <?php if ($canDelete): ?>
-                        <div class="m-history-item-actions">
-                            <button class="m-btn-delete-small" onclick="deleteComment(<?= $item['id'] ?>)">
-                                <span>🗑️</span> Excluir Registro
-                            </button>
+                    <?php if (!empty($item['children'])): ?>
+                        <div class="m-history-children">
+                            <?php foreach ($item['children'] as $child): ?>
+                                <?php renderTimelineItem($child, $level + 1); ?>
+                            <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
                 </div>
-            <?php endforeach; ?>
+            <?php 
+            }
+
+            foreach ($historyTree as $item) {
+                renderTimelineItem($item);
+            }
+            ?>
         <?php endif; ?>
     </div>
 

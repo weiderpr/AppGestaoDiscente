@@ -27,8 +27,8 @@ if ($action === 'save') {
     $alunoId          = (int)($_POST['aluno_id'] ?? 0);
     $turmaId          = (int)($_POST['turma_id'] ?? 0);
     $encaminhamentoId = (int)($_POST['encaminhamento_id'] ?? 0);
-    $professionalText = trim($_POST['professional_text'] ?? '');
-    $publicText       = trim($_POST['public_text'] ?? '');
+    $professionalText = strip_tags(html_entity_decode(str_replace(['<br>', '<br/>', '</p>'], "\n", trim($_POST['professional_text'] ?? ''))));
+    $publicText       = strip_tags(html_entity_decode(str_replace(['<br>', '<br/>', '</p>'], "\n", trim($_POST['public_text'] ?? ''))));
     $dataAtendimento  = $_POST['data_atendimento'] ?? date('Y-m-d');
 
     if (empty($professionalText) && empty($publicText)) {
@@ -72,7 +72,7 @@ if ($action === 'save') {
 
     try {
         $db = getDB();
-        $st = $db->prepare("SELECT user_id FROM atendimentos WHERE id = ? AND institution_id = ?");
+        $st = $db->prepare("SELECT author_id as user_id FROM gestao_atendimentos WHERE id = ? AND institution_id = ?");
         $st->execute([$id, $instId]);
         $atendimento = $st->fetch();
 

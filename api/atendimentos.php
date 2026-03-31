@@ -110,7 +110,7 @@ switch ($action) {
                     'aluno_photo' => $a['aluno_photo'],
                     'turma_id' => $a['turma_id'],
                     'turma_nome' => $a['turma_nome'],
-                    'titulo' => $a['titulo'],
+                    'titulo' => strip_tags(html_entity_decode((string)$a['titulo'])),
                     'status' => $a['status'],
                     'data' => $a['created_at'],
                     'is_encaminhamento' => false,
@@ -316,6 +316,10 @@ switch ($action) {
             $atend = $st->fetch(PDO::FETCH_ASSOC);
 
             if (!$atend) throw new Exception('Atendimento não encontrado.');
+
+            // Limpa as tags HTML do Quill Editor para que não apareçam nos textareas
+            $atend['descricao_publica'] = strip_tags(html_entity_decode(str_replace(['<br>', '<br/>', '</p>'], "\n", (string)$atend['descricao_publica'])));
+            $atend['descricao_profissional'] = strip_tags(html_entity_decode(str_replace(['<br>', '<br/>', '</p>'], "\n", (string)$atend['descricao_profissional'])));
 
             // Get Responsibles
             $stR = $db->prepare("

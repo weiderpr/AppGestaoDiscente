@@ -1,7 +1,7 @@
 -- =======================================================
 -- Vértice Acadêmico — Schema Completo do Banco de Dados
 -- Gerado automaticamente e sincronizado com o ambiente live
--- Data: 2026-03-27 13:48:09
+-- Data: 2026-03-31 10:01:08
 -- =======================================================
 
 CREATE DATABASE IF NOT EXISTS vertice_academico
@@ -17,6 +17,9 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `respostas_perguntas`;
 DROP TABLE IF EXISTS `respostas_avaliacao`;
 DROP TABLE IF EXISTS `perguntas`;
+DROP TABLE IF EXISTS `gestao_atendimento_comentarios`;
+DROP TABLE IF EXISTS `gestao_atendimento_usuarios`;
+DROP TABLE IF EXISTS `gestao_atendimentos`;
 DROP TABLE IF EXISTS `atendimentos`;
 DROP TABLE IF EXISTS `conselho_encaminhamento_usuarios`;
 DROP TABLE IF EXISTS `conselho_encaminhamentos`;
@@ -66,34 +69,58 @@ CREATE TABLE `alunos` (
   UNIQUE KEY `matricula` (`matricula`)
 ) ENGINE=InnoDB AUTO_INCREMENT=165 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Table: atendimentos
-CREATE TABLE `atendimentos` (
+-- Table: gestao_atendimentos
+CREATE TABLE `gestao_atendimentos` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `institution_id` int unsigned NOT NULL,
-  `user_id` int unsigned NOT NULL,
+  `author_id` int unsigned NOT NULL,
   `aluno_id` int unsigned DEFAULT NULL,
   `turma_id` int unsigned DEFAULT NULL,
   `encaminhamento_id` int unsigned DEFAULT NULL,
-  `professional_text` text COLLATE utf8mb4_unicode_ci NOT NULL,
-  `public_text` text COLLATE utf8mb4_unicode_ci NOT NULL,
-  `data_atendimento` date NOT NULL,
-  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `titulo` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `descricao_profissional` text COLLATE utf8mb4_unicode_ci,
+  `descricao_publica` text COLLATE utf8mb4_unicode_ci,
+  `status` enum('Aberto','Em Atendimento','Finalizado') COLLATE utf8mb4_unicode_ci DEFAULT 'Aberto',
   `deleted_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_atend_inst` (`institution_id`),
-  KEY `idx_atend_user` (`user_id`),
-  KEY `idx_atend_aluno` (`aluno_id`),
-  KEY `idx_atend_turma` (`turma_id`),
-  KEY `idx_atend_data` (`data_atendimento`),
-  KEY `idx_atend_encaminhamento` (`encaminhamento_id`),
-  CONSTRAINT `fk_atend_aluno` FOREIGN KEY (`aluno_id`) REFERENCES `alunos` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_atend_encaminhamento` FOREIGN KEY (`encaminhamento_id`) REFERENCES `conselho_encaminhamentos` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_atend_inst` FOREIGN KEY (`institution_id`) REFERENCES `institutions` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_atend_turma` FOREIGN KEY (`turma_id`) REFERENCES `turmas` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_atend_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  KEY `idx_ga_inst` (`institution_id`),
+  KEY `idx_ga_author` (`author_id`),
+  KEY `idx_ga_aluno` (`aluno_id`),
+  KEY `idx_ga_turma` (`turma_id`),
+  KEY `idx_ga_encaminhamento` (`encaminhamento_id`),
+  CONSTRAINT `fk_ga_aluno` FOREIGN KEY (`aluno_id`) REFERENCES `alunos` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_ga_author` FOREIGN KEY (`author_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ga_encaminhamento` FOREIGN KEY (`encaminhamento_id`) REFERENCES `conselho_encaminhamentos` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_ga_inst` FOREIGN KEY (`institution_id`) REFERENCES `institutions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ga_turma` FOREIGN KEY (`turma_id`) REFERENCES `turmas` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table: gestao_atendimento_usuarios
+CREATE TABLE `gestao_atendimento_usuarios` (
+  `atendimento_id` int unsigned NOT NULL,
+  `usuario_id` int unsigned NOT NULL,
+  PRIMARY KEY (`atendimento_id`,`usuario_id`),
+  KEY `idx_gau_user` (`usuario_id`),
+  CONSTRAINT `fk_gau_atend` FOREIGN KEY (`atendimento_id`) REFERENCES `gestao_atendimentos` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_gau_user` FOREIGN KEY (`usuario_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table: gestao_atendimento_comentarios
+CREATE TABLE `gestao_atendimento_comentarios` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `atendimento_id` int unsigned NOT NULL,
+  `usuario_id` int unsigned NOT NULL,
+  `texto` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `is_private` tinyint(1) NOT NULL DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_gac_atendimento` (`atendimento_id`),
+  KEY `idx_gac_user` (`usuario_id`),
+  CONSTRAINT `fk_gac_atendimento` FOREIGN KEY (`atendimento_id`) REFERENCES `gestao_atendimentos` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_gac_user` FOREIGN KEY (`usuario_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table: avaliacoes
 CREATE TABLE `avaliacoes` (
