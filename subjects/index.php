@@ -277,107 +277,109 @@ require_once __DIR__ . '/../includes/header.php';
 
 <!-- Modal: Adicionar/Editar Disciplina -->
 <div id="subjectModal" class="modal-wrapper" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="modal-overlay" onclick="closeModal()"></div>
-    <div class="modal-dialog modal-md">
-        <div class="modal-content">
-            <div class="modal-header">
-                <span class="modal-title" id="modalTitle">➕ Nova Disciplina</span>
-                <button type="button" class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-overlay" onclick="closeModal()">
+        <div class="modal-dialog modal-md" onclick="event.stopPropagation()">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <span class="modal-title" id="modalTitle">➕ Nova Disciplina</span>
+                    <button type="button" class="modal-close" onclick="closeModal()">✕</button>
+                </div>
+                <form method="POST" id="subjectForm">
+                    <input type="hidden" name="old_codigo" id="field_old_codigo">
+                    <?= csrf_field() ?>
+                    <div class="modal-body">
+
+                        <div style="display:grid;grid-template-columns:1fr 2fr;gap:.875rem;">
+                            <div class="form-group">
+                                <label class="form-label">Código <span class="required">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-icon">🔢</span>
+                                    <input type="text" name="codigo" id="field_codigo" class="form-control" 
+                                        placeholder="Ex: MAT101" maxlength="15" required autofocus>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Descrição da Disciplina <span class="required">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-icon">📖</span>
+                                    <input type="text" name="descricao" id="field_descricao" class="form-control" 
+                                        placeholder="Ex: Matemática Aplicada II" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <?php if (empty($allCategories)): ?>
+                        <div class="alert alert-warning" style="margin:0;">
+                            ⚠️ Cadastre uma <a href="/subjects/categories.php">categoria</a> primeiro.
+                        </div>
+                        <?php else: ?>
+                        <div class="form-group">
+                            <label class="form-label">Categoria <span class="required">*</span></label>
+                            <select name="categoria_id" id="field_categoria_id" class="form-control" required>
+                                <option value="" disabled selected>Selecione a categoria...</option>
+                                <?php foreach ($allCategories as $cat): ?>
+                                <option value="<?= $cat['id'] ?>"><?= htmlspecialchars($cat['nome']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <?php endif; ?>
+
+                        <div class="form-group">
+                            <label class="form-label">Observações</label>
+                            <textarea name="observacoes" id="field_observacoes" class="form-control" rows="4" 
+                                    placeholder="Conteúdo programático, pré-requisitos, etc..."></textarea>
+                            <small style="color:var(--text-muted);">Opcional. Você pode usar quebras de linha para organizar.</small>
+                        </div>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnSubmit" <?= empty($allCategories) ? 'disabled' : '' ?>>
+                            💾 Salvar Disciplina
+                        </button>
+                    </div>
+                </form>
             </div>
-            <form method="POST" id="subjectForm">
-                <input type="hidden" name="old_codigo" id="field_old_codigo">
-                <?= csrf_field() ?>
-                <div class="modal-body">
-
-                    <div style="display:grid;grid-template-columns:1fr 2fr;gap:.875rem;">
-                        <div class="form-group">
-                            <label class="form-label">Código <span class="required">*</span></label>
-                            <div class="input-group">
-                                <span class="input-icon">🔢</span>
-                                <input type="text" name="codigo" id="field_codigo" class="form-control" 
-                                    placeholder="Ex: MAT101" maxlength="15" required autofocus>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Descrição da Disciplina <span class="required">*</span></label>
-                            <div class="input-group">
-                                <span class="input-icon">📖</span>
-                                <input type="text" name="descricao" id="field_descricao" class="form-control" 
-                                    placeholder="Ex: Matemática Aplicada II" required>
-                            </div>
-                        </div>
-                    </div>
-
-                    <?php if (empty($allCategories)): ?>
-                    <div class="alert alert-warning" style="margin:0;">
-                        ⚠️ Cadastre uma <a href="/subjects/categories.php">categoria</a> primeiro.
-                    </div>
-                    <?php else: ?>
-                    <div class="form-group">
-                        <label class="form-label">Categoria <span class="required">*</span></label>
-                        <select name="categoria_id" id="field_categoria_id" class="form-control" required>
-                            <option value="" disabled selected>Selecione a categoria...</option>
-                            <?php foreach ($allCategories as $cat): ?>
-                            <option value="<?= $cat['id'] ?>"><?= htmlspecialchars($cat['nome']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <?php endif; ?>
-
-                    <div class="form-group">
-                        <label class="form-label">Observações</label>
-                        <textarea name="observacoes" id="field_observacoes" class="form-control" rows="4" 
-                                placeholder="Conteúdo programático, pré-requisitos, etc..."></textarea>
-                        <small style="color:var(--text-muted);">Opcional. Você pode usar quebras de linha para organizar.</small>
-                    </div>
-
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-                    <button type="submit" class="btn btn-primary" id="btnSubmit" <?= empty($allCategories) ? 'disabled' : '' ?>>
-                        💾 Salvar Disciplina
-                    </button>
-                </div>
-            </form>
         </div>
     </div>
 </div>
 
 <!-- Modal: Importar Disciplinas -->
 <div id="importFileModal" class="modal-wrapper" role="dialog" aria-modal="true">
-    <div class="modal-overlay" onclick="closeImportModal()"></div>
-    <div class="modal-dialog modal-md">
-        <div class="modal-content">
-            <div class="modal-header">
-                <span class="modal-title">📥 Importar Disciplinas via CSV</span>
-                <button type="button" class="modal-close" onclick="closeImportModal()">✕</button>
-            </div>
-            <form method="POST" action="?action=import_file" enctype="multipart/form-data" id="importForm">
-                <?= csrf_field() ?>
-                <div class="modal-body">
-                    <div style="padding:1rem; border-radius:var(--radius-md); background:var(--bg-surface-2nd); border:1px dashed var(--border-color); margin-bottom:0.5rem;">
-                        <p style="font-size:0.875rem; font-weight:600; margin-bottom:0.5rem; color:var(--text-primary);">📝 Layout do Arquivo CSV:</p>
-                        <ul style="font-size:0.8125rem; color:var(--text-muted); padding-left:1.25rem;">
-                            <li>O arquivo deve ser um **CSV** (delimitado por `;` ou `,`).</li>
-                            <li>Colunas na ordem: **Código**, **Descrição**, **ID Categoria**.</li>
-                            <li>A primeira linha (cabeçalho) pode ser ignorada.</li>
-                            <li>Exemplo: `MAT101;Matemática I;5`</li>
-                        </ul>
-                    </div>
+    <div class="modal-overlay" onclick="closeImportModal()">
+        <div class="modal-dialog modal-md" onclick="event.stopPropagation()">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <span class="modal-title">📥 Importar Disciplinas via CSV</span>
+                    <button type="button" class="modal-close" onclick="closeImportModal()">✕</button>
+                </div>
+                <form method="POST" action="?action=import_file" enctype="multipart/form-data" id="importForm">
+                    <?= csrf_field() ?>
+                    <div class="modal-body">
+                        <div style="padding:1rem; border-radius:var(--radius-md); background:var(--bg-surface-2nd); border:1px dashed var(--border-color); margin-bottom:0.5rem;">
+                            <p style="font-size:0.875rem; font-weight:600; margin-bottom:0.5rem; color:var(--text-primary);">📝 Layout do Arquivo CSV:</p>
+                            <ul style="font-size:0.8125rem; color:var(--text-muted); padding-left:1.25rem;">
+                                <li>O arquivo deve ser um **CSV** (delimitado por `;` ou `,`).</li>
+                                <li>Colunas na ordem: **Código**, **Descrição**, **ID Categoria**.</li>
+                                <li>A primeira linha (cabeçalho) pode ser ignorada.</li>
+                                <li>Exemplo: `MAT101;Matemática I;5`</li>
+                            </ul>
+                        </div>
 
-                    <div class="form-group">
-                        <label class="form-label">Selecione o arquivo (.csv)</label>
-                        <div class="input-group">
-                            <span class="input-icon">📄</span>
-                            <input type="file" name="import_file" class="form-control" accept=".csv" required style="padding-left:2.75rem;">
+                        <div class="form-group">
+                            <label class="form-label">Selecione o arquivo (.csv)</label>
+                            <div class="input-group">
+                                <span class="input-icon">📄</span>
+                                <input type="file" name="import_file" class="form-control" accept=".csv" required style="padding-left:2.75rem;">
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">🚀 Iniciar Importação</button>
-                </div>
-            </form>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">🚀 Iniciar Importação</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -459,6 +461,9 @@ document.addEventListener('keydown', function(e) {
         closeImportModal();
     }
 });
+
+document.getElementById('subjectModal').addEventListener('click', function(e) { if(e.target === this) closeModal(); });
+document.getElementById('importFileModal').addEventListener('click', function(e) { if(e.target === this) closeImportModal(); });
 
 document.addEventListener('DOMContentLoaded', () => {
     <?php if ($success): ?> Toast.success(<?= json_encode($success) ?>); <?php endif; ?>

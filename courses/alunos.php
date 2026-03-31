@@ -870,6 +870,22 @@ async function openHistoryModal(alunoId, silent = false) {
                 size: 'lg'
             });
             
+            // Ajustar overflow para permitir rolagem
+            setTimeout(() => {
+                const modal = document.getElementById('history_modal');
+                if (modal) {
+                    const content = modal.querySelector('.modal-content');
+                    const body = modal.querySelector('.modal-body');
+                    if (content) {
+                        content.style.overflowY = 'auto';
+                        content.style.maxHeight = '80vh';
+                    }
+                    if (body) {
+                        body.style.overflowY = 'auto';
+                    }
+                }
+            }, 100);
+            
             // Manual script execution because innerHTML doesn't run scripts
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = html;

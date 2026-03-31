@@ -9,7 +9,7 @@
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 
 <style>
-    .atend-xl { max-width: 850px !important; }
+    .atend-xl { max-width: 850px !important; max-height: 90vh; }
     .quill-editor { height: 180px; background: var(--bg-surface); }
     .ql-toolbar { border-radius: var(--radius-md) var(--radius-md) 0 0; background: var(--bg-surface-2nd); border-color: var(--border-color) !important; }
     .ql-container { border-color: var(--border-color) !important; font-family: 'Inter', sans-serif; font-size: 0.875rem; border-radius: 0 0 var(--radius-md) var(--radius-md); }
@@ -17,12 +17,29 @@
     
     /* Ajuste para o formulário dentro do modal-content */
     #atendimentoForm { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+    
+    /* Modal de atendimento específico */
+    #atendimentoModal .modal-dialog.atend-xl {
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    #atendimentoModal .modal-content {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    #atendimentoModal .modal-body {
+        flex: 1;
+        overflow-y: auto;
+    }
 </style>
 
-<div class="modal-wrapper" id="atendimentoModal" style="display:none;">
-    <div class="modal-overlay" onclick="closeAtendimentoModal()"></div>
-    <div class="modal-dialog modal-lg atend-xl">
-        <div class="modal-content">
+<div class="modal-wrapper" id="atendimentoModal" role="dialog" aria-modal="true">
+    <div class="modal-overlay" onclick="closeAtendimentoModal()">
+        <div class="modal-dialog modal-lg atend-xl" onclick="event.stopPropagation()">
+            <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <div style="display:flex;align-items:center;gap:.75rem;">
                     <!-- Foto ou Ícone (Padrão do student_comment_modal.php) -->
@@ -46,7 +63,7 @@
                 <input type="hidden" name="encaminhamento_id" id="atend_encaminhamento_id">
                 <input type="hidden" name="atend_id" id="atend_id">
                 
-                <div class="modal-body" style="padding: 1.5rem 2rem;">
+                <div class="modal-body" style="padding: 1.5rem 2rem; overflow-y: auto; flex: 1;">
                     
                     <!-- Contexto do Encaminhamento (quando houver) -->
                     <div id="atend_referral_context" style="display:none; margin-bottom:1.5rem; padding:1rem; background:rgba(var(--color-primary-rgb), 0.05); border-left:4px solid var(--color-primary); border-radius:var(--radius-md);">
@@ -92,6 +109,7 @@
                     </button>
                 </div>
             </form>
+        </div>
         </div>
     </div>
 </div>
@@ -283,4 +301,8 @@ function openAtendimentoModal(data) {
     modal.classList.add('modal-show');
     document.body.style.overflow = 'hidden';
 }
+
+document.getElementById('atendimentoModal').addEventListener('click', function(e) { 
+    if(e.target === this) closeAtendimentoModal(); 
+});
 </script>

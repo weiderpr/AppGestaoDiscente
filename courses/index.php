@@ -289,8 +289,8 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Modal: Novo Curso -->
 <div id="courseModal" class="modal-wrapper" role="dialog" aria-modal="true">
     <div class="modal-overlay" onclick="closeModal()">
-        <div class="modal-dialog modal-md">
-        <div class="modal-content">
+        <div class="modal-dialog modal-md" onclick="event.stopPropagation()">
+        <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <span class="modal-title">📚 Novo Curso</span>
                 <button type="button" class="modal-close" onclick="closeModal()">✕</button>
