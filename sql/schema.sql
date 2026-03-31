@@ -81,6 +81,7 @@ CREATE TABLE `gestao_atendimentos` (
   `descricao_profissional` text COLLATE utf8mb4_unicode_ci,
   `descricao_publica` text COLLATE utf8mb4_unicode_ci,
   `status` enum('Aberto','Em Atendimento','Finalizado') COLLATE utf8mb4_unicode_ci DEFAULT 'Aberto',
+  `is_archived` tinyint(1) NOT NULL DEFAULT '0',
   `deleted_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

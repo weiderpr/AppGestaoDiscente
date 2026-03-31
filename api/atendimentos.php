@@ -23,6 +23,8 @@ header('Content-Type: application/json');
 switch ($action) {
     case 'fetch_board':
         try {
+            $showArchived = ($_POST['show_archived'] ?? $_GET['show_archived'] ?? 'false') === 'true';
+
             // 1. Demandas (Encaminhamentos Pendentes)
             // Filtro: encaminhamentos do conselho pendentes
             $stDemandas = $db->prepare("
@@ -76,7 +78,7 @@ switch ($action) {
                 LEFT JOIN turmas t ON at.turma_id = t.id
                 LEFT JOIN users u ON at.author_id = u.id
                 JOIN gestao_atendimento_usuarios gau ON at.id = gau.atendimento_id
-                WHERE at.institution_id = ? AND at.deleted_at IS NULL AND gau.usuario_id = ?
+                WHERE at.institution_id = ? AND at.deleted_at IS NULL AND gau.usuario_id = ?" . ($showArchived ? "" : " AND at.is_archived = 0") . "
             ");
             $stAtend->execute([$instId, $user['id']]);
             $atendimentos = $stAtend->fetchAll(PDO::FETCH_ASSOC);
@@ -112,6 +114,7 @@ switch ($action) {
                     'turma_nome' => $a['turma_nome'],
                     'titulo' => strip_tags(html_entity_decode((string)$a['titulo'])),
                     'status' => $a['status'],
+                    'is_archived' => (bool)$a['is_archived'],
                     'data' => $a['created_at'],
                     'is_encaminhamento' => false,
                     'responsaveis' => $responsaveisMap[$a['id']] ?? []
@@ -352,6 +355,41 @@ switch ($action) {
         }
         break;
 
+    case 'archive_atendimento':
+        $atendId = (int)($_POST['atendimento_id'] ?? 0);
+        $archive = (int)($_POST['archive'] ?? 1); // 1 para arquivar, 0 para desarquivar
+
+        if (!$atendId) {
+            echo json_encode(['success' => false, 'error' => 'ID inválido.']);
+            exit;
+        }
+
+        try {
+            // Verifica permissão (Autor, Admin, Coordenador, Pedagogo)
+            $stCheck = $db->prepare("SELECT author_id FROM gestao_atendimentos WHERE id = ? AND institution_id = ?");
+            $stCheck->execute([$atendId, $instId]);
+            $owner = $stCheck->fetch();
+
+            if (!$owner) {
+                echo json_encode(['success' => false, 'error' => 'Atendimento não encontrado.']);
+                exit;
+            }
+
+            $allowed = ['Administrador', 'Coordenador', 'Pedagogo'];
+            if ($owner['author_id'] != $user['id'] && !in_array($user['profile'], $allowed)) {
+                echo json_encode(['success' => false, 'error' => 'Você não tem permissão para arquivar este atendimento.']);
+                exit;
+            }
+
+            $db->prepare("UPDATE gestao_atendimentos SET is_archived = ? WHERE id = ?")
+               ->execute([$archive, $atendId]);
+
+            echo json_encode(['success' => true, 'message' => $archive ? 'Atendimento arquivado.' : 'Atendimento desarquivado.']);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        break;
+
     case 'save_info':
         $atendId = (int)($_POST['atendimento_id'] ?? 0);
         $descPublica = trim($_POST['descricao_publica'] ?? '');
@@ -506,10 +544,11 @@ switch ($action) {
             SELECT t.id, t.description as nome, c.name as course_name
             FROM turmas t
             JOIN courses c ON t.course_id = c.id
-            WHERE c.institution_id = ? AND t.description LIKE ?
+            WHERE c.institution_id = ? AND t.is_active = 1 AND c.is_active = 1 AND (t.description LIKE ? OR c.name LIKE ?)
             LIMIT 10
         ");
-        $st->execute([$instId, "%$q%"]);
+        $like = "%$q%";
+        $st->execute([$instId, $like, $like]);
         echo json_encode(['success' => true, 'turmas' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         break;
 

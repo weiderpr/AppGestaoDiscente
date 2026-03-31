@@ -9,6 +9,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let draggedCard = null;
 let currentAtendimentoId = null;
+let currentIsArchived = false;
+let showArchived = false;
+
+function handleArchiveToggle() {
+    showArchived = document.getElementById('toggleShowArchived').checked;
+    loadBoard();
+}
 
 // --- Board Operations ---
 
@@ -21,7 +28,7 @@ async function loadBoard() {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'X-CSRF-Token': csrfToken
             },
-            body: 'action=fetch_board&csrf_token=' + encodeURIComponent(csrfToken)
+            body: `action=fetch_board&show_archived=${showArchived}&csrf_token=` + encodeURIComponent(csrfToken)
         });
         const data = await res.json();
         
@@ -74,7 +81,11 @@ function renderColumn(status, cards) {
         const dateStr = card.data ? new Date(card.data).toLocaleDateString() : '';
 
         const cardEl = document.createElement('div');
-        cardEl.className = 'k-card';
+        cardEl.className = 'k-card' + (card.is_archived ? ' archived' : '');
+        if (card.is_archived) {
+            cardEl.style.opacity = '0.6';
+            cardEl.style.borderStyle = 'dashed';
+        }
         cardEl.draggable = true;
         cardEl.dataset.id = card.id;
         cardEl.dataset.is_encaminhamento = card.is_encaminhamento ? 'true' : 'false';
@@ -232,9 +243,13 @@ function debounceSearchAluno(query) {
 }
 
 function selectAluno(id, name) {
+    if (timeoutAluno) clearTimeout(timeoutAluno);
+    const resEl = document.getElementById('searchAlunoResults');
+    resEl.innerHTML = '';
+    resEl.style.display = 'none';
+
     document.getElementById('inputAlunoId').value = id;
     document.getElementById('searchAlunoInput').style.display = 'none';
-    document.getElementById('searchAlunoResults').style.display = 'none';
     document.getElementById('selectedAlunoName').innerText = name;
     document.getElementById('selectedAlunoInfo').style.display = 'block';
 }
@@ -276,9 +291,13 @@ function debounceSearchTurma(query) {
 }
 
 function selectTurma(id, name) {
+    if (timeoutTurma) clearTimeout(timeoutTurma);
+    const resEl = document.getElementById('searchTurmaResults');
+    resEl.innerHTML = '';
+    resEl.style.display = 'none';
+
     document.getElementById('inputTurmaId').value = id;
     document.getElementById('searchTurmaInput').style.display = 'none';
-    document.getElementById('searchTurmaResults').style.display = 'none';
     document.getElementById('selectedTurmaName').innerText = name;
     document.getElementById('selectedTurmaInfo').style.display = 'block';
 }
@@ -330,6 +349,14 @@ async function openCardDetails(id) {
             
             document.getElementById('cdMainTitle').innerText = at.titulo;
             document.getElementById('cdBadgeStatus').innerText = at.status;
+            currentIsArchived = !!at.is_archived;
+            
+            const archiveText = document.getElementById('archiveText');
+            const archiveIcon = document.getElementById('archiveIcon');
+            if (archiveText) {
+                archiveText.innerText = currentIsArchived ? 'Desarquivar Card' : 'Arquivar Card';
+                archiveIcon.innerText = currentIsArchived ? '♻️' : '📦';
+            }
             
             const photoEl = document.getElementById('cdAlunoPhoto');
             const avatarEl = document.getElementById('cdAlunoAvatar');
@@ -590,6 +617,49 @@ async function deleteAtendimento() {
                 }
             } catch (e) {
                 Toast.show('Erro de conexão.', 'error');
+            }
+        }
+    });
+}
+
+window.archiveAtendimentoToggle = function() {
+    console.log('Toggle archive triggered', {currentAtendimentoId, currentIsArchived});
+    archiveAtendimento(!currentIsArchived);
+};
+
+async function archiveAtendimento(isArchiving = true) {
+    if (!currentAtendimentoId) return;
+
+    const actionText = isArchiving ? 'arquivar' : 'desarquivar';
+    
+    Modal.confirm({
+        title: isArchiving ? 'Arquivar Atendimento' : 'Desarquivar Atendimento',
+        message: `Deseja realmente ${actionText} este atendimento?`,
+        confirmText: isArchiving ? 'Confirmar' : 'Confirmar',
+        onConfirm: async () => {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const fd = new URLSearchParams();
+            fd.append('action', 'archive_atendimento');
+            fd.append('atendimento_id', currentAtendimentoId);
+            fd.append('archive', isArchiving ? 1 : 0);
+            fd.append('csrf_token', csrfToken);
+
+            try {
+                const res = await fetch('/api/atendimentos.php', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-Token': csrfToken },
+                    body: fd
+                });
+                const data = await res.json();
+                if (data.success) {
+                    Toast.show(data.message, 'success');
+                    closeModal('modalCardDetails');
+                    loadBoard();
+                } else {
+                    Toast.show(data.error, 'error');
+                }
+            } catch (e) {
+                Toast.show('Erro de conexão', 'error');
             }
         }
     });

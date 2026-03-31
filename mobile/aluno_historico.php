@@ -61,13 +61,23 @@ function buildHistoryTree(array $flatItems): array {
     // Primeiro mapeia todos por unique_id
     foreach ($flatItems as $item) {
         $item['children'] = [];
+        $item['is_archived_inherited'] = isset($item['is_archived']) && $item['is_archived'] == 1;
         $itemMap[$item['unique_id']] = $item;
     }
 
-    // Depois vincula aos pais
+    // Depois vincula aos pais e propagada arquivo para filhos
     foreach ($itemMap as $id => &$item) {
         if ($item['parent_unique_id'] && isset($itemMap[$item['parent_unique_id']])) {
+            $parent = $itemMap[$item['parent_unique_id']];
             $itemMap[$item['parent_unique_id']]['children'][] = &$item;
+            // Herda arquivo do pai
+            if (isset($parent['is_archived_inherited']) && $parent['is_archived_inherited']) {
+                $item['is_archived_inherited'] = true;
+            }
+            // Se pai tem is_archived, filho também herda
+            if (isset($parent['is_archived']) && $parent['is_archived'] == 1) {
+                $item['is_archived_inherited'] = true;
+            }
         } else {
             $tree[] = &$item;
         }
@@ -591,6 +601,25 @@ require_once __DIR__ . '/header.php';
     .m-level-1 .m-author-name {
         max-width: 120px;
     }
+
+    /* Atendimento arquivado - visual mais apagado */
+    .m-history-item[data-is-archived="1"] {
+        opacity: 0.6;
+        filter: grayscale(30%);
+    }
+
+    .m-history-item[data-is-archived="1"] .m-history-body {
+        color: var(--text-muted);
+    }
+
+    .m-history-item[data-is-archived="1"] .m-author-name {
+        color: var(--text-muted);
+    }
+
+    .m-history-item[data-is-archived="1"] .m-category-badge {
+        opacity: 0.7;
+        text-decoration: line-through;
+    }
 </style>
 
 <div class="m-content-container">
@@ -677,9 +706,11 @@ require_once __DIR__ . '/header.php';
                 $canDelete = ($item['categoria'] === 'Aula' && ($isAdmin || $isAuthor));
                 
                 $levelClass = $level > 0 ? 'm-level-' . $level : '';
+                $isArchived = (isset($item['is_archived']) && $item['is_archived'] == 1) || 
+                              (isset($item['is_archived_inherited']) && $item['is_archived_inherited']) ? '1' : '0';
                 ?>
                 <div class="m-history-branch">
-                    <div class="m-history-item <?= $levelClass ?>" data-history-id="<?= $item['id'] ?>" data-categoria="<?= $item['categoria'] ?>">
+                    <div class="m-history-item <?= $levelClass ?>" data-history-id="<?= $item['id'] ?>" data-categoria="<?= $item['categoria'] ?>" data-is-archived="<?= $isArchived ?>">
                         <div class="m-history-header">
                             <div class="m-history-author">
                                 <?php if (!empty($item['autor_foto'])): ?>
@@ -692,7 +723,7 @@ require_once __DIR__ . '/header.php';
                                     <span class="m-author-role"><?= htmlspecialchars($item['autor_perfil'] ?? 'Automático') ?></span>
                                 </div>
                             </div>
-                            <?php if ($level < 2): ?>
+                            <?php if ($level === 0): ?>
                             <span class="m-category-badge <?= $badgeClass ?>">
                                 <?= $icon ?> <?= htmlspecialchars($badgeText) ?>
                             </span>

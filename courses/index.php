@@ -288,8 +288,8 @@ require_once __DIR__ . '/../includes/header.php';
 
 <!-- Modal: Novo Curso -->
 <div id="courseModal" class="modal-wrapper" role="dialog" aria-modal="true">
-    <div class="modal-overlay" onclick="closeModal()"></div>
-    <div class="modal-dialog modal-md">
+    <div class="modal-overlay" onclick="closeModal()">
+        <div class="modal-dialog modal-md">
         <div class="modal-content">
             <div class="modal-header">
                 <span class="modal-title">📚 Novo Curso</span>
@@ -329,12 +329,13 @@ require_once __DIR__ . '/../includes/header.php';
             </form>
         </div>
     </div>
+    </div>
 </div>
 
 <!-- Modal: Importar Notas -->
 <div id="importGradesModal" class="modal-wrapper" role="dialog" aria-modal="true">
-    <div class="modal-overlay" onclick="closeImportGradesModal()"></div>
-    <div class="modal-dialog modal-md">
+    <div class="modal-overlay" onclick="closeImportGradesModal()">
+        <div class="modal-dialog modal-md">
         <div class="modal-content">
             <div class="modal-header">
                 <span class="modal-title">📊 Importar Notas via Arquivo</span>
@@ -378,6 +379,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
             </form>
         </div>
+    </div>
     </div>
 </div>
 

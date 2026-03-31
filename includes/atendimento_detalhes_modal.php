@@ -105,9 +105,13 @@
                         </div>
                     </div>
 
-                    <!-- Botão de Excluir (Final da Sidebar) -->
-                    <div id="cdDeleteSection" style="margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border-color-light);">
-                        <button class="btn btn-outline-danger btn-sm" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; border-color: transparent;" onclick="deleteAtendimento()">
+                    <!-- Botão de Excluir / Arquivar (Final da Sidebar) -->
+                    <div id="cdDeleteSection" style="margin-top: auto; padding-top: 1.5rem; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.75rem;">
+                        <button id="btnArchiveAtendimento" class="btn btn-outline-secondary btn-sm" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="archiveAtendimentoToggle()">
+                            <span id="archiveIcon">📦</span> <span id="archiveText">Arquivar Card</span>
+                        </button>
+                        <div style="height: 1px; background: var(--border-color-light); margin: 0.25rem 0;"></div>
+                        <button class="btn btn-outline-danger btn-sm" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="deleteAtendimento()">
                             <span>🗑️</span> Excluir Card
                         </button>
                     </div>

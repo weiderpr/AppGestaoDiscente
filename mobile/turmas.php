@@ -47,7 +47,7 @@ $stT = $db->prepare("
     SELECT 1 FROM turmas t 
     JOIN turma_disciplinas td ON t.id = td.turma_id 
     JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id 
-    WHERE t.course_id = ? AND tdp.professor_id = ? LIMIT 1
+    WHERE t.course_id = ? AND tdp.professor_id = ? AND t.is_active = 1 LIMIT 1
 ");
 $stT->execute([$courseId, $user['id']]);
 $isTeacherInCourse = (bool)$stT->fetch();
@@ -75,7 +75,7 @@ if (!$isFullAccess) {
         FROM turmas t2
         JOIN turma_disciplinas td ON t2.id = td.turma_id
         JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
-        WHERE tdp.professor_id = ?
+        WHERE tdp.professor_id = ? AND t2.is_active = 1
     )";
     $params[] = $user['id'];
 }

@@ -370,13 +370,13 @@ require_once __DIR__ . '/../includes/header.php';
 
 <!-- Modal: Novo/Editar Conselho -->
 <div id="conselhoModal" class="modal-wrapper" role="dialog" aria-modal="true">
-    <div class="modal-overlay" onclick="closeModal()"></div>
-    <div class="modal-dialog modal-md">
-        <div class="modal-content">
-            <div class="modal-header">
-                <span class="modal-title" id="modalTitle">🏠 Novo Conselho de Classe</span>
-                <button type="button" class="modal-close" onclick="closeModal()">✕</button>
-            </div>
+    <div class="modal-overlay" onclick="closeModal()">
+        <div class="modal-dialog modal-md">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <span class="modal-title" id="modalTitle">🏠 Novo Conselho de Classe</span>
+                    <button type="button" class="modal-close" onclick="closeModal()">✕</button>
+                </div>
             <form method="POST" onsubmit="return prepareForm()">
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="save">
@@ -460,9 +460,10 @@ require_once __DIR__ . '/../includes/header.php';
                     <button type="submit" class="btn btn-primary">💾 Salvar Conselho</button>
                 </div>
             </form>
-        </div>
-    </div>
-</div>
+        </div> <!-- modal-content -->
+        </div> <!-- modal-dialog -->
+    </div> <!-- modal-overlay -->
+</div> <!-- modal-wrapper -->
 
 <script>
 function prepareForm() {

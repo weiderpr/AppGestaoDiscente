@@ -15,10 +15,12 @@ $search = trim($_GET['search'] ?? '');
 
 // ---- Lógica de Listagem ----
 // Usando subquery para COUNT para evitar problemas de GROUP BY com c.*
+// Só exibe cursos que possuem turmas ativas
 $sql = "SELECT c.*, 
                (SELECT COUNT(*) FROM turmas t WHERE t.course_id = c.id AND t.is_active = 1) as total_turmas
         FROM courses c
-        WHERE c.institution_id = ? AND c.is_active = 1";
+        WHERE c.institution_id = ? AND c.is_active = 1
+          AND (SELECT COUNT(*) FROM turmas t WHERE t.course_id = c.id AND t.is_active = 1) > 0";
 
 $params = [$instId];
 $restrictions = [];
