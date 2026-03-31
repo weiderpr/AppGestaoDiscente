@@ -16,7 +16,7 @@ class Modal {
             closeOnEscape = true,
             buttons = [],
             onClose = null,
-            id = 'modal-' + Date.now()
+            id = 'modal-' + Date.now() + '-' + Math.floor(Math.random() * 1000)
         } = options;
         
         // Remove modal existente com mesmo ID
@@ -66,6 +66,9 @@ class Modal {
         
         document.body.appendChild(modal);
         
+        // Bloqueia scroll do body
+        document.body.style.overflow = 'hidden';
+        
         // Armazena callbacks
         const callbacks = { onClose, buttons: buttons.map(b => b.action) };
         this.instances.set(id, callbacks);
@@ -74,33 +77,45 @@ class Modal {
         requestAnimationFrame(() => {
             modal.classList.add('modal-show');
         });
-        
-        // Event listeners
-        if (closable) {
-            modal.querySelectorAll('[data-modal-close]').forEach(el => {
-                el.addEventListener('click', (e) => {
-                    if (el.classList.contains('modal-overlay') && e.target !== el) return;
-                    this.close(id);
-                });
-            });
-        }
-        
+
+        // Esc handlers individuais por instância (necessário para o handler local)
         if (closeOnEscape) {
             const escapeHandler = (e) => {
                 if (e.key === 'Escape' && this.instances.has(id)) {
-                    this.close(id);
+                    Modal.close(id);
                     document.removeEventListener('keydown', escapeHandler);
                 }
             };
             document.addEventListener('keydown', escapeHandler);
         }
-        
-        // Botões
+
+        // Event listeners para botões de fechamento (data-modal-close)
+        modal.querySelectorAll('[data-modal-close]').forEach(el => {
+            el.addEventListener('click', (e) => {
+                if (el.classList.contains('modal-overlay') && e.target !== el) return;
+                Modal.close(id);
+            });
+        });
+
+        // Event listeners para ações (data-modal-action)
         modal.querySelectorAll('[data-modal-action]').forEach(el => {
             el.addEventListener('click', (e) => {
-                const index = parseInt(e.target.dataset.modalAction);
-                const callback = callbacks.buttons[index];
-                if (callback) callback(e);
+                const index = parseInt(el.dataset.modalAction);
+                const action = buttons[index]?.action;
+                
+                let shouldClose = true;
+                if (action) {
+                    try {
+                        const result = action(e);
+                        if (result === false) shouldClose = false;
+                    } catch (err) {
+                        console.error('Modal Action Error:', err);
+                    }
+                }
+                
+                if (shouldClose) {
+                    Modal.close(id);
+                }
             });
         });
         
@@ -124,6 +139,11 @@ class Modal {
         setTimeout(() => {
             modal.remove();
             this.instances.delete(id);
+            
+            // Restaura scroll apenas se for o último modal
+            if (this.instances.size === 0) {
+                document.body.style.overflow = '';
+            }
             
             if (callbacks && callbacks.onClose) {
                 callbacks.onClose();

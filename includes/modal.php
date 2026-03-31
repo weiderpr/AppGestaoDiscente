@@ -61,16 +61,34 @@ function renderModalScripts() {
     function openModal(id) {
         var modal = document.getElementById(id);
         if (modal) {
-            modal.classList.add('show');
+            modal.style.display = 'flex'; // Garante o display imediato
+            setTimeout(function() {
+                modal.classList.add('show');
+            }, 10);
             document.body.style.overflow = 'hidden';
+            document.body.classList.add('modal-open');
         }
     }
     function closeModal(id) {
+        // Se id não for passado, tenta fechar o modal aberto mais recente (opcional, mas seguro)
+        if (!id) {
+            var openModal = document.querySelector('.modal-backdrop.show');
+            if (openModal) id = openModal.id;
+            else return;
+        }
+
         var modal = document.getElementById(id);
         if (modal) {
             modal.classList.remove('show');
-            modal.style.display = 'none';
             document.body.style.overflow = '';
+            document.body.classList.remove('modal-open');
+            
+            // Espera a transição acabar para esconder o display
+            setTimeout(function() {
+                if (!modal.classList.contains('show')) {
+                    modal.style.display = 'none';
+                }
+            }, 250);
         }
     }
     function globalModal(id, action) {
@@ -80,16 +98,13 @@ function renderModalScripts() {
             closeModal(id);
         }
     }
-    // Event listeners automáticos
+    // Event listeners automáticos (Delegação Global)
     document.addEventListener('DOMContentLoaded', function() {
-        // Fechar ao clicar no backdrop
-        document.querySelectorAll('.modal-backdrop').forEach(function(modal) {
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    modal.classList.remove('show');
-                    document.body.style.overflow = '';
-                }
-            });
+        // Fechar ao clicar no backdrop (Funciona para modais estáticos e dinâmicos via modal.php)
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('modal-backdrop')) {
+                closeModal(e.target.id);
+            }
         });
         // Fechar ao pressionar Escape
         document.addEventListener('keydown', function(e) {

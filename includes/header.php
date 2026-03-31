@@ -60,10 +60,10 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
     <!-- UI Components -->
     <link rel="stylesheet" href="/assets/css/components/toast.css">
     <link rel="stylesheet" href="/assets/css/components/loading.css">
-    <link rel="stylesheet" href="/assets/css/components/modal.css?v=1.1">
+    <link rel="stylesheet" href="/assets/css/components/modal.css?v=1.5">
     <script src="/assets/js/components/Toast.js"></script>
     <script src="/assets/js/components/Loading.js"></script>
-    <script src="/assets/js/components/Modal.js?v=2"></script>
+    <script src="/assets/js/components/Modal.js?v=3"></script>
     <script src="/assets/js/components/LanguageSwitcher.js"></script>
     
     <?php if (isset($extraCSS)): foreach ($extraCSS as $css): ?>

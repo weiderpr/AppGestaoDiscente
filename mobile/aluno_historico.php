@@ -49,7 +49,7 @@ if (!$aluno) {
 }
 
 // Histórico
-$history = $alunoService->getMultidisciplinaryHistory($alunoId);
+$history = $alunoService->getMultidisciplinaryHistory($alunoId, $turmaId);
 
 /**
  * Organiza o histórico em árvore para exibir aninhamento (Encaminhamento -> Atendimento -> Comentário)
@@ -86,15 +86,63 @@ require_once __DIR__ . '/header.php';
 <style>
     * { box-sizing: border-box; }
     .m-content-container {
-        padding: 0.75rem;
+        padding: 1rem;
         max-width: 600px;
         margin: 0 auto;
         animation: fadeIn 0.4s ease-out;
     }
 
+    @media (max-width: 480px) {
+        .m-content-container {
+            padding: 0.75rem;
+        }
+        
+        .m-history-group {
+            margin-left: -0.5rem;
+            margin-right: -0.5rem;
+            padding: 1rem;
+            border-radius: 16px;
+        }
+        
+        .m-history-children {
+            margin-left: 1.5rem;
+            padding-left: 1rem;
+        }
+        
+        .m-level-1::before, .m-level-2::before {
+            left: -1.5rem;
+            width: 1.5rem;
+        }
+        
+        .m-level-1::after, .m-level-2::after {
+            left: -1.5rem;
+        }
+        
+        .m-history-item {
+            padding: 1.25rem;
+        }
+    }
+
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideInHierarchy {
+        from { opacity: 0; transform: translateX(-10px) scale(0.95); }
+        to { opacity: 1; transform: translateX(0) scale(1); }
+    }
+
+    .m-history-group {
+        animation: fadeIn 0.5s ease-out;
+    }
+
+    .m-level-1 {
+        animation: slideInHierarchy 0.4s ease-out 0.1s both;
+    }
+
+    .m-level-2 {
+        animation: slideInHierarchy 0.4s ease-out 0.2s both;
     }
 
     /* Back Header */
@@ -256,6 +304,11 @@ require_once __DIR__ . '/header.php';
     .m-badge-geral { background: #fef3c7; color: #92400e; }
     .m-badge-atendimento { background: #dcfce7; color: #14532d; }
 
+    .m-badge-status-demandas { background: #fef3c7; color: #92400e; }
+    .m-badge-status-aberto { background: #dbeafe; color: #1e40af; }
+    .m-badge-status-em-atendimento { background: #f3e8ff; color: #6b21a8; }
+    .m-badge-status-finalizado { background: #dcfce7; color: #14532d; }
+
     .m-history-body {
         font-size: 0.9375rem;
         color: var(--text-secondary);
@@ -351,83 +404,192 @@ require_once __DIR__ . '/header.php';
     .m-btn-primary { background: var(--color-primary); color: white; border: none; }
     .m-btn-secondary { background: var(--bg-body); border: 1px solid var(--border-color); color: var(--text-secondary); }
 
-    /* Hierarquia e Conectores Refatorados (V3) */
-    .m-history-group {
-        display: flex;
-        flex-direction: column;
-        margin-bottom: 1.5rem;
-        position: relative;
-    }
-
-    .m-history-children {
-        margin-left: 1.5rem;
+    /* Hierarquia e Conectores Refatorados - Layout Correto */
+    .m-history-tree {
         display: flex;
         flex-direction: column;
         gap: 1rem;
-        margin-top: 0.5rem;
-        position: relative;
-        border-left: 2px solid var(--border-color);
-        padding-left: 1rem;
     }
 
-    /* Linha que sai do pai para os filhos */
+    .m-history-branch {
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+
+    /* Container dos filhos - conectado ao pai via borda */
+    .m-history-children {
+        display: flex;
+        flex-direction: column;
+        gap: 0.875rem;
+        margin-left: 1.5rem;
+        padding-left: 1.25rem;
+        position: relative;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+    }
+
+    /* Linha vertical principal da hierarquia */
     .m-history-children::before {
         content: "";
         position: absolute;
-        left: -2px;
-        top: -1rem;
-        height: 1rem;
+        left: 0;
+        top: 0;
+        bottom: 0;
         width: 2px;
-        background: var(--border-color);
+        background: linear-gradient(to bottom, #6366f1 0%, #a5b4fc 50%, #c4b5fd 100%);
     }
 
-    .m-history-item {
-        position: relative;
-        margin-bottom: 0 !important; /* Remove margem padrão para evitar conflitos */
-    }
-
-    /* Conector Horizontal em cada item filho */
-    .m-level-1::before, .m-level-2::before {
+    /* Connector horizontal do pai para os filhos */
+    .m-history-children::after {
         content: "";
         position: absolute;
-        left: -1rem;
-        top: 1.5rem;
-        width: 1rem;
+        left: 0;
+        top: -0.75rem;
+        width: 1.25rem;
         height: 2px;
-        background: var(--border-color);
+        background: linear-gradient(to right, #6366f1, #a5b4fc);
     }
 
-    /* Cards de Nível Inferior - Estilização */
-    .m-level-1 {
-        background: var(--bg-surface);
-        border-color: rgba(79, 70, 229, 0.2);
+    /* Card do comentário */
+    .m-history-item {
+        position: relative;
+        border-radius: 12px;
+        padding: 1rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
     }
 
-    .m-level-2 {
-        background: var(--bg-surface-2nd);
-        border-color: var(--border-color);
-        box-shadow: none; /* Simplifica para evitar bugs de overlap */
-        transform: scale(0.98);
-        transform-origin: left;
+    /* Item raiz (nível 0) */
+    .m-history-tree > .m-history-branch > .m-history-item:first-child {
+        background: linear-gradient(135deg, #f8fafc, #ffffff);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-left: 4px solid #6366f1;
     }
 
-    /* Texto e Autor em Comentários */
+    /* Todos os filhos (nível 1 e 2) - cor de atendimento discreta */
+    .m-history-children > .m-history-branch > .m-history-item,
+    .m-history-children .m-history-children > .m-history-branch > .m-history-item {
+        background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-left: 4px solid #64748b;
+    }
+
+    /* Nível 1 - primeiro filho */
+    .m-history-children > .m-history-branch > .m-history-item {
+        padding: 0.875rem;
+    }
+
+    /* Nível 2 - neto */
+    .m-history-children .m-history-children > .m-history-branch > .m-history-item {
+        padding: 0.75rem;
+        margin-left: 0;
+    }
+
+    /* Container dos filhos nível 2 - mais próximo do nível 1 */
+    .m-history-children .m-history-children {
+        gap: 0.75rem;
+        margin-left: 1rem;
+        padding-left: 0.875rem;
+    }
+
+    /* Ajuste do autor para níveis inferiores */
+    .m-level-1 .m-author-img,
+    .m-level-1 .m-author-placeholder {
+        width: 28px;
+        height: 28px;
+    }
+
+    .m-level-2 .m-author-img,
+    .m-level-2 .m-author-placeholder {
+        width: 24px;
+        height: 24px;
+        font-size: 0.625rem;
+    }
+
+    .m-level-2 .m-author-name {
+        font-size: 0.8125rem;
+    }
+
+    .m-level-2 .m-author-role {
+        font-size: 0.625rem;
+    }
+
     .m-level-2 .m-history-body {
         font-size: 0.8125rem;
     }
 
-    .m-level-2 .m-author-img, .m-level-2 .m-author-placeholder {
-        width: 24px;
-        height: 24px;
-        font-size: 0.6rem;
+    .m-level-2 .m-category-badge {
+        font-size: 0.5625rem;
+        padding: 0.2rem 0.5rem;
     }
-    
-    .m-level-2 .m-author-name {
-        font-size: 0.75rem;
+
+    /* Refinamentos: cards menores para filhos */
+    .m-level-1 .m-history-header {
+        gap: 0.375rem;
     }
-    
-    .m-level-2 .m-author-role {
-        font-size: 0.6rem;
+
+    .m-level-1 .m-history-body {
+        font-size: 0.875rem;
+    }
+
+    .m-level-1 .m-history-footer {
+        font-size: 0.6875rem;
+        padding-top: 0.5rem;
+    }
+
+    .m-level-2 .m-history-header {
+        gap: 0.25rem;
+        flex-wrap: wrap;
+    }
+
+    .m-level-2 .m-author-details {
+        gap: 0;
+    }
+
+    .m-level-2 .m-history-body {
+        font-size: 0.8125rem;
+        line-height: 1.5;
+    }
+
+    .m-level-2 .m-history-footer {
+        font-size: 0.625rem;
+        padding-top: 0.375rem;
+    }
+
+    .m-level-2 .m-history-item-actions {
+        padding-top: 0.5rem;
+    }
+
+    /* Reduzir badge de categoria nos níveis filhos */
+    .m-level-1 .m-category-badge {
+        font-size: 0.5rem;
+        padding: 0.15rem 0.375rem;
+    }
+
+    .m-level-2 .m-category-badge {
+        font-size: 0.5rem;
+        padding: 0.15rem 0.375rem;
+    }
+
+    /* Badge de status do atendimento - tamanho reduzido */
+    .m-badge-status-demandas,
+    .m-badge-status-aberto,
+    .m-badge-status-em-atendimento,
+    .m-badge-status-finalizado {
+        font-size: 0.5rem;
+        padding: 0.15rem 0.375rem;
+    }
+
+    /* Nome do autor com truncate para níveis filhos */
+    .m-author-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .m-level-1 .m-author-name {
+        max-width: 120px;
     }
 </style>
 
@@ -492,14 +654,23 @@ require_once __DIR__ . '/header.php';
                 <p>Nenhum registro encontrado no histórico deste aluno.</p>
             </div>
         <?php else: ?>
+            <div class="m-history-tree">
             <?php 
             function renderTimelineItem($item, $level = 0) {
                 global $user;
                 $badgeClass = 'm-badge-geral';
                 $icon = '📢';
+                $badgeText = $item['categoria'];
+                
                 if ($item['categoria'] === 'Aula') { $badgeClass = 'm-badge-aula'; $icon = '📝'; }
                 if ($item['categoria'] === 'Conselho') { $badgeClass = 'm-badge-conselho'; $icon = '🤝'; }
-                if ($item['categoria'] === 'Atendimento') { $badgeClass = 'm-badge-atendimento'; $icon = '🔒'; }
+                if ($item['categoria'] === 'Atendimento') { 
+                    $atendStatus = $item['atendimento_status'] ?? 'Aberto';
+                    $statusClass = strtolower(str_replace(' ', '-', $atendStatus));
+                    $badgeClass = 'm-badge-status-' . $statusClass;
+                    $icon = '📋';
+                    $badgeText = $atendStatus;
+                }
                 
                 $isAdmin = ($user['profile'] === 'Administrador');
                 $isAuthor = ($item['autor_id'] == $user['id']);
@@ -507,8 +678,8 @@ require_once __DIR__ . '/header.php';
                 
                 $levelClass = $level > 0 ? 'm-level-' . $level : '';
                 ?>
-                <div class="m-history-group">
-                    <div class="m-card m-history-item <?= $levelClass ?>" data-history-id="<?= $item['id'] ?>" data-categoria="<?= $item['categoria'] ?>">
+                <div class="m-history-branch">
+                    <div class="m-history-item <?= $levelClass ?>" data-history-id="<?= $item['id'] ?>" data-categoria="<?= $item['categoria'] ?>">
                         <div class="m-history-header">
                             <div class="m-history-author">
                                 <?php if (!empty($item['autor_foto'])): ?>
@@ -521,9 +692,11 @@ require_once __DIR__ . '/header.php';
                                     <span class="m-author-role"><?= htmlspecialchars($item['autor_perfil'] ?? 'Automático') ?></span>
                                 </div>
                             </div>
+                            <?php if ($level < 2): ?>
                             <span class="m-category-badge <?= $badgeClass ?>">
-                                <?= $icon ?> <?= htmlspecialchars($item['categoria']) ?>
+                                <?= $icon ?> <?= htmlspecialchars($badgeText) ?>
                             </span>
+                            <?php endif; ?>
                         </div>
 
                         <div class="m-history-body"><?= nl2br(htmlspecialchars(trim(html_entity_decode(strip_tags($item['texto'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')))) ?></div>
@@ -535,7 +708,7 @@ require_once __DIR__ . '/header.php';
                         <?php if ($canDelete): ?>
                             <div class="m-history-item-actions">
                                 <button class="m-btn-delete-small" onclick="deleteComment(<?= $item['id'] ?>)">
-                                    <span>🗑️</span> Excluir Registro
+                                    <span>🗑️</span> Excluir
                                 </button>
                             </div>
                         <?php endif; ?>
@@ -549,13 +722,14 @@ require_once __DIR__ . '/header.php';
                         </div>
                     <?php endif; ?>
                 </div>
-            <?php 
+                <?php 
             }
 
             foreach ($historyTree as $item) {
                 renderTimelineItem($item);
             }
             ?>
+            </div>
         <?php endif; ?>
     </div>
 

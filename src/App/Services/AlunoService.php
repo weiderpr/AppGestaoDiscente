@@ -165,147 +165,103 @@ class AlunoService extends Service {
         );
     }
 
-    public function getMultidisciplinaryHistory(int $alunoId): array {
-        $sql = "
-            -- 1. Comentários de Aula (Professores)
-            (SELECT 
-                cp.id as id,
-                CONCAT('cprof_', cp.id) as unique_id,
-                NULL as parent_unique_id,
-                'Aula' COLLATE utf8mb4_unicode_ci as categoria, 
-                cp.conteudo COLLATE utf8mb4_unicode_ci as texto, 
-                cp.created_at as data_registro, 
-                u.id as autor_id,
-                u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
-                u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
-                u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
-             FROM comentarios_professores cp
-             JOIN users u ON cp.professor_id = u.id
-             WHERE cp.aluno_id = ? AND cp.conteudo != '')
- 
-             UNION ALL
- 
-             -- 2. Encaminhamentos de Conselho (Pai de Atendimentos)
-             (SELECT 
-                ce.id as id,
-                CONCAT('enc_', ce.id) as unique_id,
-                NULL as parent_unique_id,
-                'Conselho' COLLATE utf8mb4_unicode_ci as categoria, 
-                ce.texto COLLATE utf8mb4_unicode_ci as texto, 
-                ce.created_at as data_registro, 
-                u.id as autor_id,
-                u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
-                u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
-                u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
-             FROM conselho_encaminhamentos ce
-             JOIN users u ON ce.author_id = u.id
-             WHERE ce.aluno_id = ? AND ce.texto != '')
-             
-             UNION ALL
- 
-             -- 3. Registros Gerais de Conselho (Injetados via aluno_id)
-             (SELECT 
-                cr.id as id,
-                CONCAT('creg_', cr.id) as unique_id,
-                NULL as parent_unique_id,
-                'Conselho' COLLATE utf8mb4_unicode_ci as categoria, 
-                cr.texto COLLATE utf8mb4_unicode_ci as texto, 
-                cr.created_at as data_registro, 
-                u.id as autor_id,
-                u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
-                u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
-                u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
-             FROM conselho_registros cr
-             JOIN users u ON cr.user_id = u.id
-             WHERE cr.aluno_id = ? AND cr.texto != '')
- 
-             UNION ALL
- 
-             -- 4. Registros de Turma (Contexto Geral)
-             (SELECT 
-                cr.id as id,
-                CONCAT('creg_', cr.id) as unique_id,
-                NULL as parent_unique_id,
-                'Geral' COLLATE utf8mb4_unicode_ci as categoria, 
-                cr.texto COLLATE utf8mb4_unicode_ci as texto, 
-                cr.created_at as data_registro, 
-                u.id as autor_id,
-                u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
-                u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
-                u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
-             FROM conselho_registros cr
-             JOIN conselhos_classe cc ON cr.conselho_id = cc.id
-             JOIN users u ON cr.user_id = u.id
-             WHERE cr.aluno_id IS NULL 
-                AND cc.turma_id IN (SELECT turma_id FROM turma_alunos WHERE aluno_id = ?)
-                AND cr.texto != '')
- 
-             UNION ALL
- 
-             -- 5. Comentários Gerais de Conselho
-             (SELECT 
-                ccm.id as id,
-                CONCAT('ccom_', ccm.id) as unique_id,
-                NULL as parent_unique_id,
-                'Geral' COLLATE utf8mb4_unicode_ci as categoria, 
-                ccm.comentario COLLATE utf8mb4_unicode_ci as texto, 
-                ccm.created_at as data_registro, 
-                u.id as autor_id,
-                u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
-                u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
-                u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
-             FROM conselhos_comentarios ccm
-             JOIN conselhos_classe cc ON ccm.conselho_id = cc.id
-             JOIN users u ON ccm.user_id = u.id
-             WHERE cc.turma_id IN (SELECT turma_id FROM turma_alunos WHERE aluno_id = ?)
-                AND ccm.comentario != '')
-
-             UNION ALL
-
-             -- 6. Gestão de Atendimentos (Público)
-             (SELECT 
-                ga.id as id,
-                CONCAT('gatend_', ga.id) as unique_id,
+    public function getMultidisciplinaryHistory(int $alunoId, ?int $turmaId = null): array {
+        $db = getDB();
+        
+        $queries = [];
+        $params = [];
+        
+        // Queries 1-5 and 7 all use $alunoId
+        $queries[] = "(-- 1. Comentários de Aula
+            SELECT cp.id, CONCAT('cprof_', cp.id) as unique_id, NULL as parent_unique_id,
+                'Aula' COLLATE utf8mb4_unicode_ci as categoria, cp.conteudo COLLATE utf8mb4_unicode_ci as texto, cp.created_at as data_registro, 
+                u.id as autor_id, u.name COLLATE utf8mb4_unicode_ci as autor_nome, u.photo COLLATE utf8mb4_unicode_ci as autor_foto, u.profile COLLATE utf8mb4_unicode_ci as autor_perfil,
+                NULL as atendimento_status, 0 as is_turma
+            FROM comentarios_professores cp
+            JOIN users u ON cp.professor_id = u.id
+            WHERE cp.aluno_id = ? AND cp.conteudo != '')";
+        $params[] = $alunoId;
+        
+        $queries[] = "(-- 2. Encaminhamentos
+            SELECT ce.id, CONCAT('enc_', ce.id) as unique_id, NULL as parent_unique_id,
+                'Conselho' COLLATE utf8mb4_unicode_ci as categoria, ce.texto COLLATE utf8mb4_unicode_ci as texto, ce.created_at as data_registro,
+                u.id as autor_id, u.name COLLATE utf8mb4_unicode_ci as autor_nome, u.photo COLLATE utf8mb4_unicode_ci as autor_foto, u.profile COLLATE utf8mb4_unicode_ci as autor_perfil,
+                NULL as atendimento_status, 0 as is_turma
+            FROM conselho_encaminhamentos ce
+            JOIN users u ON ce.author_id = u.id
+            WHERE ce.aluno_id = ? AND ce.texto != '')";
+        $params[] = $alunoId;
+        
+        $queries[] = "(-- 3. Registros Gerais
+            SELECT cr.id, CONCAT('creg_', cr.id) as unique_id, NULL as parent_unique_id,
+                'Conselho' COLLATE utf8mb4_unicode_ci as categoria, cr.texto COLLATE utf8mb4_unicode_ci as texto, cr.created_at as data_registro,
+                u.id as autor_id, u.name COLLATE utf8mb4_unicode_ci as autor_nome, u.photo COLLATE utf8mb4_unicode_ci as autor_foto, u.profile COLLATE utf8mb4_unicode_ci as autor_perfil,
+                NULL as atendimento_status, 0 as is_turma
+            FROM conselho_registros cr
+            JOIN users u ON cr.user_id = u.id
+            WHERE cr.aluno_id = ? AND cr.texto != '')";
+        $params[] = $alunoId;
+        
+        $queries[] = "(-- 4. Registros de Turma
+            SELECT cr.id, CONCAT('creg_', cr.id) as unique_id, NULL as parent_unique_id,
+                'Geral' COLLATE utf8mb4_unicode_ci as categoria, cr.texto COLLATE utf8mb4_unicode_ci as texto, cr.created_at as data_registro,
+                u.id as autor_id, u.name COLLATE utf8mb4_unicode_ci as autor_nome, u.photo COLLATE utf8mb4_unicode_ci as autor_foto, u.profile COLLATE utf8mb4_unicode_ci as autor_perfil,
+                NULL as atendimento_status, 0 as is_turma
+            FROM conselho_registros cr
+            JOIN conselhos_classe cc ON cr.conselho_id = cc.id
+            JOIN users u ON cr.user_id = u.id
+            WHERE cr.aluno_id IS NULL AND cc.turma_id IN (SELECT turma_id FROM turma_alunos WHERE aluno_id = ?) AND cr.texto != '')";
+        $params[] = $alunoId;
+        
+        $queries[] = "(-- 5. Comentários Gerais
+            SELECT ccm.id, CONCAT('ccom_', ccm.id) as unique_id, NULL as parent_unique_id,
+                'Geral' COLLATE utf8mb4_unicode_ci as categoria, ccm.comentario COLLATE utf8mb4_unicode_ci as texto, ccm.created_at as data_registro,
+                u.id as autor_id, u.name COLLATE utf8mb4_unicode_ci as autor_nome, u.photo COLLATE utf8mb4_unicode_ci as autor_foto, u.profile COLLATE utf8mb4_unicode_ci as autor_perfil,
+                NULL as atendimento_status, 0 as is_turma
+            FROM conselhos_comentarios ccm
+            JOIN conselhos_classe cc ON ccm.conselho_id = cc.id
+            JOIN users u ON ccm.user_id = u.id
+            WHERE cc.turma_id IN (SELECT turma_id FROM turma_alunos WHERE aluno_id = ?) AND ccm.comentario != '')";
+        $params[] = $alunoId;
+        
+        $queries[] = "(-- 6. Atendimentos do aluno
+            SELECT ga.id, CONCAT('gatend_', ga.id) as unique_id,
                 CASE WHEN ga.encaminhamento_id IS NOT NULL THEN CONCAT('enc_', ga.encaminhamento_id) ELSE NULL END as parent_unique_id,
-                'Atendimento' COLLATE utf8mb4_unicode_ci as categoria, 
-                ga.descricao_publica COLLATE utf8mb4_unicode_ci as texto, 
-                ga.created_at as data_registro, 
-                u.id as autor_id,
-                u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
-                u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
-                u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
-             FROM gestao_atendimentos ga
-             JOIN users u ON ga.author_id = u.id
-             WHERE ga.aluno_id = ? 
-                AND ga.descricao_publica IS NOT NULL 
-                AND ga.deleted_at IS NULL
-                AND ga.descricao_publica != '')
-
-            UNION ALL
-
-            -- 7. Comentários de Atendimento (Gestão - Não Privados)
-            (SELECT 
-                gac.id as id,
-                CONCAT('gcomm_', gac.id) as unique_id,
-                CONCAT('gatend_', gac.atendimento_id) as parent_unique_id,
-                'Atendimento' COLLATE utf8mb4_unicode_ci as categoria, 
-                gac.texto COLLATE utf8mb4_unicode_ci as texto, 
-                gac.created_at as data_registro, 
-                u.id as autor_id,
-                u.name COLLATE utf8mb4_unicode_ci as autor_nome, 
-                u.photo COLLATE utf8mb4_unicode_ci as autor_foto,
-                u.profile COLLATE utf8mb4_unicode_ci as autor_perfil
-             FROM gestao_atendimento_comentarios gac
-             JOIN gestao_atendimentos ga ON gac.atendimento_id = ga.id
-             JOIN users u ON gac.usuario_id = u.id
-             WHERE ga.aluno_id = ? 
-                AND gac.is_private = 0
-                AND ga.deleted_at IS NULL
-                AND gac.texto != '')
-
-            ORDER BY data_registro DESC
-        ";
-
-        return $this->fetchAll($sql, [$alunoId, $alunoId, $alunoId, $alunoId, $alunoId, $alunoId, $alunoId]);
+                'Atendimento' COLLATE utf8mb4_unicode_ci as categoria, COALESCE(ga.descricao_publica, ga.titulo) COLLATE utf8mb4_unicode_ci as texto, ga.created_at as data_registro,
+                u.id as autor_id, u.name COLLATE utf8mb4_unicode_ci as autor_nome, u.photo COLLATE utf8mb4_unicode_ci as autor_foto, u.profile COLLATE utf8mb4_unicode_ci as autor_perfil,
+                ga.status COLLATE utf8mb4_unicode_ci as atendimento_status, 0 as is_turma
+            FROM gestao_atendimentos ga
+            JOIN users u ON ga.author_id = u.id
+            WHERE ga.aluno_id = ? AND ga.deleted_at IS NULL AND (ga.descricao_publica IS NOT NULL OR ga.titulo IS NOT NULL))";
+        $params[] = $alunoId;
+        
+        if ($turmaId) {
+            $queries[] = "(-- 6b. Atendimentos da turma
+                SELECT ga.id, CONCAT('gatend_turma_', ga.id) as unique_id, NULL as parent_unique_id,
+                    'Atendimento' COLLATE utf8mb4_unicode_ci as categoria, COALESCE(ga.descricao_publica, ga.titulo) COLLATE utf8mb4_unicode_ci as texto, ga.created_at as data_registro,
+                    u.id as autor_id, u.name COLLATE utf8mb4_unicode_ci as autor_nome, u.photo COLLATE utf8mb4_unicode_ci as autor_foto, u.profile COLLATE utf8mb4_unicode_ci as autor_perfil,
+                    ga.status COLLATE utf8mb4_unicode_ci as atendimento_status, 1 as is_turma
+                FROM gestao_atendimentos ga
+                JOIN users u ON ga.author_id = u.id
+                WHERE ga.turma_id = ? AND ga.aluno_id IS NULL AND ga.deleted_at IS NULL AND ga.encaminhamento_id IS NULL AND (ga.descricao_publica IS NOT NULL OR ga.titulo IS NOT NULL))";
+            $params[] = $turmaId;
+        }
+        
+        $queries[] = "(-- 7. Comentários de Atendimento
+            SELECT gac.id, CONCAT('gcomm_', gac.id) as unique_id, CONCAT('gatend_', gac.atendimento_id) as parent_unique_id,
+                'Atendimento' COLLATE utf8mb4_unicode_ci as categoria, gac.texto COLLATE utf8mb4_unicode_ci as texto, gac.created_at as data_registro,
+                u.id as autor_id, u.name COLLATE utf8mb4_unicode_ci as autor_nome, u.photo COLLATE utf8mb4_unicode_ci as autor_foto, u.profile COLLATE utf8mb4_unicode_ci as autor_perfil,
+                NULL as atendimento_status, 0 as is_turma
+            FROM gestao_atendimento_comentarios gac
+            JOIN gestao_atendimentos ga ON gac.atendimento_id = ga.id
+            JOIN users u ON gac.usuario_id = u.id
+            WHERE ga.aluno_id = ? AND gac.is_private = 0 AND ga.deleted_at IS NULL AND gac.texto != '')";
+        $params[] = $alunoId;
+        
+        $sql = implode("\nUNION ALL\n", $queries) . "\nORDER BY data_registro DESC";
+        
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
     }
 }
