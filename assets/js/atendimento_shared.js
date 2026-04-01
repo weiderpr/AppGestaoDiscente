@@ -98,6 +98,23 @@ function populateAtendimentoModal(data, options = {}) {
     const statusEl = document.getElementById('cdBadgeStatus');
     if (statusEl) statusEl.innerText = at.status;
     
+    const tipoBadgeEl = document.getElementById('cdTipoBadge');
+    if (tipoBadgeEl) {
+        if (at.aluno_id) {
+            tipoBadgeEl.innerText = 'Aluno';
+            tipoBadgeEl.className = 'k-badge k-badge-aluno';
+        } else if (at.turma_id) {
+            tipoBadgeEl.innerText = 'Turma';
+            tipoBadgeEl.className = 'k-badge k-badge-turma';
+        } else if (at.encaminhamento_id) {
+            tipoBadgeEl.innerText = 'Encaminhamento';
+            tipoBadgeEl.className = 'k-badge k-badge-encaminhamento';
+        } else {
+            tipoBadgeEl.innerText = 'Geral';
+            tipoBadgeEl.className = 'k-badge';
+        }
+    }
+    
     const photoEl = document.getElementById('cdAlunoPhoto');
     const avatarEl = document.getElementById('cdAlunoAvatar');
     const subtitleEl = document.getElementById('cdAlunoSubtitle');
@@ -127,11 +144,18 @@ function populateAtendimentoModal(data, options = {}) {
     }
 
     const demandContext = document.getElementById('cdDemandaContext');
-    const editorSec = document.getElementById('cdEditorSection');
-    const timelineSec = document.getElementById('cdTimelineSection');
     const profSec = document.getElementById('cdProfessionalsSection');
     const deleteSec = document.getElementById('cdDeleteSection');
 
+    const tabInfo = document.getElementById('tab-info');
+    const tabTimeline = document.getElementById('tab-timeline');
+
+    // Reset to first tab when opening
+    const firstTabBtn = document.querySelector('.tab-btn');
+    if (firstTabBtn) {
+        switchTab(firstTabBtn, 'info');
+    }
+    
     // Contexto de Demanda sempre visível se houver
     if (at.encaminhamento_id || at.is_encaminhamento_pure) {
         if (demandContext) {
@@ -145,13 +169,13 @@ function populateAtendimentoModal(data, options = {}) {
     }
 
     if (at.is_encaminhamento_pure) {
-        if (editorSec) editorSec.style.display = 'none';
-        if (timelineSec) timelineSec.style.display = 'none';
+        if (tabInfo) tabInfo.style.display = 'none';
+        if (tabTimeline) tabTimeline.style.display = 'none';
         if (profSec) profSec.style.display = 'none';
         if (deleteSec) deleteSec.style.display = 'none';
     } else {
-        if (editorSec) editorSec.style.display = 'block';
-        if (timelineSec) timelineSec.style.display = 'block';
+        if (tabInfo) tabInfo.style.display = 'block';
+        if (tabTimeline) tabTimeline.style.display = 'block';
         if (profSec) profSec.style.display = 'block';
         if (deleteSec) deleteSec.style.display = isRestricted ? 'none' : 'block';
 
@@ -209,5 +233,19 @@ function populateAtendimentoModal(data, options = {}) {
         // Render timeline e responsaveis
         renderTimeline(data.comentarios || [], isRestricted);
         renderResponsaveis(data.responsaveis || [], !isRestricted);
+    }
+}
+
+function switchTab(btn, tabName) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.style.display = 'none';
+    });
+    
+    const targetContent = document.getElementById('tab-' + tabName);
+    if (targetContent) {
+        targetContent.style.display = 'block';
     }
 }

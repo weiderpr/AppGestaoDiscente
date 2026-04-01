@@ -2,92 +2,120 @@
     Vértice Acadêmico — Modal de Detalhes de Atendimento (Compartilhado)
 -->
 <div class="modal-backdrop" id="modalCardDetails" role="dialog">
-    <div class="modal" style="max-width: 800px; width: 95vw;">
-        <div class="modal-header">
-            <h3 id="cdTitle">Detalhes do Atendimento</h3>
-            <button class="modal-close" onclick="closeModal('modalCardDetails')">×</button>
+    <div class="modal" style="max-width: 800px; width: 95vw; height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
+        <!-- Fixed Header with Photo and Name -->
+        <div id="modalFixedHeader" style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color); background: var(--bg-surface); display: flex; align-items: center; gap: 1rem;">
+            <img id="cdAlunoPhoto" src="" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; display: none; border: 2px solid var(--border-color);">
+            <div id="cdAlunoAvatar" class="m-aluno-avatar-text" style="width: 48px; height: 48px; font-size: 1.25rem; display: none; border-radius: 50%;"></div>
+            <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span id="cdTipoBadge" class="k-badge" style="font-size: 0.6rem; padding: 2px 6px;">Tipo</span>
+                    <span id="cdBadgeStatus" class="kanban-badge" style="font-size: 0.6rem;"></span>
+                </div>
+                <div id="cdAlunoSubtitle" style="font-size: 0.9375rem; color: var(--text-primary); font-weight: 600; margin-top: 0.25rem;"></div>
+            </div>
+            <button class="modal-close" onclick="closeModal('modalCardDetails')" style="position: static;">×</button>
         </div>
-        <div class="modal-body" style="padding: 0;">
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 0; min-height: 400px;">
-                <!-- Main Area (Left) -->
-                <div style="padding: 2rem; border-right: 1px solid var(--border-color); overflow-y: auto; max-height: 80vh;">
-                    
-                    <!-- Student Header -->
-                    <div style="display: flex; align-items: flex-start; gap: 1.5rem; margin-bottom: 2rem;">
-                        <img id="cdAlunoPhoto" src="" style="width: 84px; height: 84px; border-radius: var(--radius-lg); object-fit: cover; display: none; border: 2px solid var(--border-color); box-shadow: var(--shadow-sm);">
-                        <div id="cdAlunoAvatar" class="m-aluno-avatar-text" style="width: 84px; height: 84px; font-size: 2rem; display: none; border-radius: var(--radius-lg);"></div>
+
+        <div class="modal-body" style="padding: 0; flex: 1; overflow: hidden;">
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 0; height: 100%; overflow: hidden;">
+                <!-- Main Area (Left) with Tabs -->
+                <div style="border-right: 1px solid var(--border-color); display: flex; flex-direction: column; overflow: hidden;">
+                    <!-- Tabs Navigation -->
+                    <div style="display: flex; border-bottom: 1px solid var(--border-color); background: var(--bg-surface-2nd); padding: 0 1rem; flex-shrink: 0;">
+                        <button class="tab-btn active" data-tab="info" onclick="switchTab(this, 'info')">
+                            <span>📋</span> Informações
+                        </button>
+                        <button class="tab-btn" data-tab="timeline" onclick="switchTab(this, 'timeline')">
+                            <span>💬</span> Timeline
+                        </button>
+                        <button class="tab-btn" data-tab="anexos" onclick="switchTab(this, 'anexos')">
+                            <span>📎</span> Anexos
+                        </button>
+                    </div>
+
+                    <!-- Tab Content -->
+                    <div style="flex: 1; overflow-y: auto; padding: 1.5rem; min-height: 0;">
                         
-                        <div style="flex: 1;">
-                            <div id="cdBadgeStatus" class="kanban-badge" style="margin-bottom: 0.5rem; display: inline-block;">Status</div>
-                            <h2 id="cdMainTitle" style="margin: 0.25rem 0 0.5rem 0; line-height: 1.2; font-size: 1.5rem;">Título</h2>
-                            <div id="cdAlunoSubtitle" style="font-size: 0.9375rem; color: var(--text-muted); font-weight: 600;"></div>
-                        </div>
-                    </div>
+                        <!-- Tab: Informações -->
+                        <div id="tab-info" class="tab-content" style="display: block;">
+                            <h2 id="cdMainTitle" style="margin: 0 0 1.5rem 0; line-height: 1.2; font-size: 1.25rem; font-weight: 700;">Título</h2>
 
-                    <!-- Contexto da Demanda (Original Council Info) -->
-                    <div id="cdDemandaContext" style="background: var(--bg-surface-2nd); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 2rem; display: none; position: relative; overflow: hidden;">
-                        <div style="position: absolute; right: -10px; top: -10px; font-size: 4rem; opacity: 0.05; transform: rotate(15deg);">📋</div>
-                        <h4 style="font-size: 0.7rem; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.375rem;">
-                            <span>📌</span> Origem: Conselho de Classe
-                        </h4>
-                        <div style="font-size: 0.9rem; line-height: 1.5; color: var(--text-primary);">
-                             <div id="cdCouncilName" style="font-weight: 700; margin-bottom: 0.25rem;"></div>
-                             <div id="cdDemandText" style="font-style: italic; color: var(--text-muted); border-left: 3px solid var(--border-color); padding-left: 1rem; margin: 0.75rem 0;"></div>
-                             <div id="cdDeadline" style="font-size: 0.8125rem; font-weight: 700; color: #ef4444; display: flex; align-items: center; gap: 0.375rem;">
-                                 <span>⏰</span> Prazo esperado: <span id="cdDeadlineValue"></span>
-                             </div>
-                        </div>
-                    </div>
+                            <div id="cdDemandaContext" style="background: var(--bg-surface-2nd); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 1.5rem; display: none; position: relative; overflow: hidden;">
+                                <div style="position: absolute; right: -10px; top: -10px; font-size: 4rem; opacity: 0.05; transform: rotate(15deg);">📋</div>
+                                <h4 style="font-size: 0.7rem; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.375rem;">
+                                    <span>📌</span> Origem: Conselho de Classe
+                                </h4>
+                                <div style="font-size: 0.9rem; line-height: 1.5; color: var(--text-primary);">
+                                     <div id="cdCouncilName" style="font-weight: 700; margin-bottom: 0.25rem;"></div>
+                                     <div id="cdDemandText" style="font-style: italic; color: var(--text-muted); border-left: 3px solid var(--border-color); padding-left: 1rem; margin: 0.75rem 0;"></div>
+                                     <div id="cdDeadline" style="font-size: 0.8125rem; font-weight: 700; color: #ef4444; display: flex; align-items: center; gap: 0.375rem;">
+                                         <span>⏰</span> Prazo esperado: <span id="cdDeadlineValue"></span>
+                                     </div>
+                                </div>
+                            </div>
 
-                    <!-- Editor / Descrições -->
-                    <div id="cdEditorSection">
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label class="form-label">Informação Pública (Visível para o aluno em relatórios)</label>
-                            <textarea class="form-control" id="cdDescPublica" rows="3" placeholder="Descreva o que será visível para o aluno..."></textarea>
-                        </div>
+                            <div id="cdEditorSection">
+                                <div class="form-group" style="margin-bottom: 1rem;">
+                                    <label class="form-label">Informação Pública (Visível para o aluno em relatórios)</label>
+                                    <textarea class="form-control" id="cdDescPublica" rows="3" placeholder="Descreva o que será visível para o aluno..."></textarea>
+                                </div>
 
-                        <div class="form-group" style="margin-bottom: 0.75rem;">
-                            <label class="form-label">Anotação Profissional (Privado ao conselho/equipe)</label>
-                            <div id="cdDescProfissionalWrapper" style="position:relative;">
-                                <textarea class="form-control" id="cdDescProfissional" rows="3" placeholder="Anotações internas para a equipe..."></textarea>
+                                <div class="form-group" style="margin-bottom: 0.75rem;">
+                                    <label class="form-label">Anotação Profissional (Privado ao conselho/equipe)</label>
+                                    <div id="cdDescProfissionalWrapper" style="position:relative;">
+                                        <textarea class="form-control" id="cdDescProfissional" rows="3" placeholder="Anotações internas para a equipe..."></textarea>
+                                    </div>
+                                </div>
+
+                                <div style="text-align: right; margin-bottom: 1rem; border-top: 1px solid var(--border-color-light); padding-top: 0.75rem; display:none;" id="cdSaveInfoBtnContainer">
+                                    <button class="btn btn-primary" onclick="saveAtendimentoInfo()">
+                                        <span style="margin-right:0.5rem;">💾</span> Salvar Descrições
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        <div style="text-align: right; margin-bottom: 2rem; border-top: 1px solid var(--border-color-light); padding-top: 0.75rem; display:none;" id="cdSaveInfoBtnContainer">
-                            <button class="btn btn-primary" onclick="saveAtendimentoInfo()">
-                                <span style="margin-right:0.5rem;">💾</span> Salvar Descrições
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Timeline de Comentários -->
-                    <div id="cdTimelineSection">
-                        <h4 style="display:flex; align-items:center; gap:0.375rem; margin-bottom:0.75rem; font-size:0.75rem; text-transform:uppercase; font-weight:800; letter-spacing:0.05em; color: var(--text-muted);">
-                            <span>💬</span> Timeline de Ações e Comentários
-                        </h4>
-                        <div style="background: var(--bg-surface-2nd); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
-                            <form id="formNewComment" style="display:flex; gap:0.75rem; flex-direction:column;">
-                                <textarea class="form-control" id="ncTexto" rows="2" placeholder="Escreva uma atualização ou observação..."></textarea>
-                                <div style="display:flex; justify-content: space-between; align-items: center;">
-                                    <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.8125rem; color:var(--text-muted); cursor:pointer;">
-                                        <input type="checkbox" id="ncPrivate" style="width:14px; height:14px;"> 
-                                        <span style="display:flex; align-items:center; gap:0.25rem;">🔒 Registro Privado</span>
-                                    </label>
-                                    <button type="button" class="btn btn-secondary btn-sm" onclick="submitComment()">
-                                        Postar Registro
-                                    </button>
+                        <!-- Tab: Timeline -->
+                        <div id="tab-timeline" class="tab-content" style="display: none;">
+                            <div id="cdTimelineSection">
+                                <h4 style="display:flex; align-items:center; gap:0.375rem; margin-bottom:0.75rem; font-size:0.75rem; text-transform:uppercase; font-weight:800; letter-spacing:0.05em; color: var(--text-muted);">
+                                    <span>💬</span> Timeline de Ações e Comentários
+                                </h4>
+                                <div style="background: var(--bg-surface-2nd); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+                                    <form id="formNewComment" style="display:flex; gap:0.75rem; flex-direction:column;">
+                                        <textarea class="form-control" id="ncTexto" rows="2" placeholder="Escreva uma atualização ou observação..."></textarea>
+                                        <div style="display:flex; justify-content: space-between; align-items: center;">
+                                            <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.8125rem; color:var(--text-muted); cursor:pointer;">
+                                                <input type="checkbox" id="ncPrivate" style="width:14px; height:14px;"> 
+                                                <span style="display:flex; align-items:center; gap:0.25rem;">🔒 Registro Privado</span>
+                                            </label>
+                                            <button type="button" class="btn btn-secondary btn-sm" onclick="submitComment()">
+                                                Postar Registro
+                                            </button>
+                                        </div>
+                                    </form>
                                 </div>
-                            </form>
+
+                                <div class="timeline-container" id="cdTimeline">
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="timeline-container" id="cdTimeline">
-                            <!-- Comentários via JS -->
+                        <!-- Tab: Anexos -->
+                        <div id="tab-anexos" class="tab-content" style="display: none;">
+                            <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+                                <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;">📎</div>
+                                <p style="font-size: 0.9375rem;">Funcionalidade de anexos em breve</p>
+                                <p style="font-size: 0.8125rem; margin-top: 0.5rem;">Você poderá adicionar arquivos e documentos a este atendimento.</p>
+                            </div>
                         </div>
+
                     </div>
                 </div>
 
                 <!-- Sidebar (Right) -->
-                <div style="padding: 1.5rem; background: var(--bg-surface-2nd); overflow-y: auto; max-height: 80vh; display:flex; flex-direction:column; gap:1.5rem;">
+                <div style="padding: 1.5rem; background: var(--bg-surface-2nd); overflow-y: auto; display:flex; flex-direction:column; gap:1.5rem;">
                     <div id="cdProfessionalsSection">
                         <h4 style="margin-bottom: 1rem; font-size: 0.75rem; text-transform: uppercase; font-weight: 800; letter-spacing: 0.05em; color: var(--text-muted); display:flex; align-items:center; gap:0.375rem;">
                             <span>👥</span> Equipe Responsável
@@ -203,4 +231,52 @@
     opacity: 0;
     pointer-events: none;
 }
+
+/* Tab Navigation Styles */
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 0.875rem 1rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+.tab-btn:hover {
+    color: var(--text-secondary);
+    background: var(--bg-surface);
+}
+.tab-btn.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    background: var(--bg-surface);
+}
+.tab-content {
+    animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 </style>
+
+<script>
+function switchTab(btn, tabName) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.style.display = 'none';
+    });
+    
+    const targetContent = document.getElementById('tab-' + tabName);
+    if (targetContent) {
+        targetContent.style.display = 'block';
+    }
+}
+</script>

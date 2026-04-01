@@ -349,6 +349,24 @@ async function openCardDetails(id) {
             
             document.getElementById('cdMainTitle').innerText = at.titulo;
             document.getElementById('cdBadgeStatus').innerText = at.status;
+            
+            const tipoBadgeEl = document.getElementById('cdTipoBadge');
+            if (tipoBadgeEl) {
+                if (at.aluno_id) {
+                    tipoBadgeEl.innerText = 'Aluno';
+                    tipoBadgeEl.className = 'k-badge k-badge-aluno';
+                } else if (at.turma_id) {
+                    tipoBadgeEl.innerText = 'Turma';
+                    tipoBadgeEl.className = 'k-badge k-badge-turma';
+                } else if (at.encaminhamento_id) {
+                    tipoBadgeEl.innerText = 'Encaminhamento';
+                    tipoBadgeEl.className = 'k-badge k-badge-encaminhamento';
+                } else {
+                    tipoBadgeEl.innerText = 'Geral';
+                    tipoBadgeEl.className = 'k-badge';
+                }
+            }
+            
             currentIsArchived = !!at.is_archived;
             
             const archiveText = document.getElementById('archiveText');
