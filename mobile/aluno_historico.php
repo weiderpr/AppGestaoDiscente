@@ -602,10 +602,13 @@ require_once __DIR__ . '/header.php';
         max-width: 120px;
     }
 
-    /* Atendimento arquivado - visual mais apagado */
+    /* Atendimento arquivado - visual mais apagado/esmaecido */
     .m-history-item[data-is-archived="1"] {
-        opacity: 0.6;
-        filter: grayscale(30%);
+        opacity: 0.4;
+        filter: grayscale(50%);
+        background: linear-gradient(135deg, #f1f5f9, #e2e8f0) !important;
+        border-color: rgba(148, 163, 184, 0.15) !important;
+        border-left-color: #94a3b8 !important;
     }
 
     .m-history-item[data-is-archived="1"] .m-history-body {
@@ -617,8 +620,32 @@ require_once __DIR__ . '/header.php';
     }
 
     .m-history-item[data-is-archived="1"] .m-category-badge {
-        opacity: 0.7;
+        opacity: 0.6;
         text-decoration: line-through;
+    }
+
+    .m-history-item[data-is-archived="1"] .m-history-footer {
+        opacity: 0.5;
+    }
+
+    /* Tag de status para atendimentos nos níveis 1 e 2 */
+    .m-atendimento-status-tag {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 8px;
+        font-size: 0.625rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        max-width: 70px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .m-history-item {
+        position: relative;
     }
 </style>
 
@@ -708,6 +735,14 @@ require_once __DIR__ . '/header.php';
                 $levelClass = $level > 0 ? 'm-level-' . $level : '';
                 $isArchived = (isset($item['is_archived']) && $item['is_archived'] == 1) || 
                               (isset($item['is_archived_inherited']) && $item['is_archived_inherited']) ? '1' : '0';
+                
+                $showStatusTag = ($level > 0 && $item['categoria'] === 'Atendimento' && !empty($item['atendimento_status']));
+                if ($showStatusTag) {
+                    $statusTagClass = 'm-badge-status-' . strtolower(str_replace(' ', '-', $item['atendimento_status']));
+                    $statusTagText = mb_strlen($item['atendimento_status']) > 6 
+                        ? mb_substr($item['atendimento_status'], 0, 6) . '...' 
+                        : $item['atendimento_status'];
+                }
                 ?>
                 <div class="m-history-branch">
                     <div class="m-history-item <?= $levelClass ?>" data-history-id="<?= $item['id'] ?>" data-categoria="<?= $item['categoria'] ?>" data-is-archived="<?= $isArchived ?>">
@@ -726,6 +761,11 @@ require_once __DIR__ . '/header.php';
                             <?php if ($level === 0): ?>
                             <span class="m-category-badge <?= $badgeClass ?>">
                                 <?= $icon ?> <?= htmlspecialchars($badgeText) ?>
+                            </span>
+                            <?php endif; ?>
+                            <?php if ($showStatusTag): ?>
+                            <span class="m-atendimento-status-tag <?= $statusTagClass ?>">
+                                <?= htmlspecialchars($statusTagText) ?>
                             </span>
                             <?php endif; ?>
                         </div>
