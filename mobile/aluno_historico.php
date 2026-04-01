@@ -87,6 +87,13 @@ function buildHistoryTree(array $flatItems): array {
 
 $historyTree = buildHistoryTree($history);
 
+function safeHtml($html) {
+    $allowedTags = '<b><strong><i><em><u><s><p><br><br/><br /><ul><ol><li><a><code><blockquote><h1><h2><h3><h4><h5><h6>';
+    $text = strip_tags($html, $allowedTags);
+    $text = preg_replace('/([a-záàâãéèêíìîíòôõúùûç])([A-ZÁÀÂÃÉÈÊÍÌÎÍÒÔÕÚÙÛ])/', '$1 $2', $text);
+    return nl2br($text);
+}
+
 
 $pageTitle = "Histórico: " . $aluno['nome'];
 $currentPage = 'cursos';
@@ -647,6 +654,19 @@ require_once __DIR__ . '/header.php';
     .m-history-item {
         position: relative;
     }
+
+    .m-history-body b, .m-history-body strong { font-weight: 700; }
+    .m-history-body i, .m-history-body em { font-style: italic; }
+    .m-history-body u { text-decoration: underline; }
+    .m-history-body s { text-decoration: line-through; }
+    .m-history-body ul, .m-history-body ol { padding-left: 1.25rem; margin: 0.5rem 0; }
+    .m-history-body li { margin-bottom: 0.25rem; }
+    .m-history-body p { margin: 0.5rem 0; }
+    .m-history-body a { color: var(--color-primary); text-decoration: underline; }
+    .m-history-body code { background: #f1f5f9; padding: 0.125rem 0.25rem; border-radius: 4px; font-family: monospace; font-size: 0.85em; }
+    .m-history-body blockquote { border-left: 3px solid #cbd5e1; padding-left: 0.75rem; margin: 0.5rem 0; color: var(--text-muted); }
+    .m-history-body br { display: block; content: ""; margin-top: 0.5rem; }
+    .m-history-body .mention { background: #e0e7ff; color: #3730a3; padding: 0.125rem 0.375rem; border-radius: 4px; font-weight: 600; font-size: 0.9em; }
 </style>
 
 <div class="m-content-container">
@@ -770,7 +790,7 @@ require_once __DIR__ . '/header.php';
                             <?php endif; ?>
                         </div>
 
-                        <div class="m-history-body"><?= nl2br(htmlspecialchars(trim(html_entity_decode(strip_tags($item['texto'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')))) ?></div>
+                        <div class="m-history-body"><?= safeHtml(trim($item['texto'] ?? '')) ?></div>
 
                         <div class="m-history-footer">
                             <span>📅 <?= date('d/m/Y \à\s H:i', strtotime($item['data_registro'])) ?></span>
@@ -876,4 +896,12 @@ async function deleteComment(id) {
         alert('Erro de conexão');
     }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.m-history-body').forEach(function(el) {
+        var html = el.innerHTML;
+        html = html.replace(/(@[a-zA-ZÀ-ÿ0-9_]+)/g, '<span class="mention">$1</span>');
+        el.innerHTML = html;
+    });
+});
 </script>
