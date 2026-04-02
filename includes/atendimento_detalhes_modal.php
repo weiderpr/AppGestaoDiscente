@@ -100,11 +100,16 @@
                         </div>
 
                         <!-- Tab: Anexos -->
-                        <div id="tab-anexos" class="tab-content tab-hide">
-                            <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
-                                <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;">📎</div>
-                                <p style="font-size: 0.9375rem;">Funcionalidade de anexos em breve</p>
-                                <p style="font-size: 0.8125rem; margin-top: 0.5rem;">Você poderá adicionar arquivos e documentos a este atendimento.</p>
+                        <div id="tab-anexos" class="tab-content tab-hide" style="flex: 1; flex-direction: column; min-height: 0;">
+                            <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-shrink: 0;">
+                                <h3 style="margin:0; font-size:1rem; font-weight:700;">Documentos e Anexos</h3>
+                                <button class="btn btn-secondary btn-sm" onclick="openAddAnexoModal()">
+                                    📎 Adicionar Anexo
+                                </button>
+                            </div>
+
+                            <div id="cdAnexosList" style="flex: 1; overflow-y: auto;">
+                                <!-- Anexos renderizados aqui -->
                             </div>
                         </div>
 
@@ -257,10 +262,102 @@
 }
 .tab-show { display: flex !important; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
 .tab-hide { display: none !important; }
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
+/* Anexos List Styles */
+.anexo-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-surface-2nd);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease;
 }
+.anexo-item:hover {
+    border-color: var(--color-primary);
+    background: var(--bg-surface);
+}
+.anexo-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-surface);
+    border-radius: var(--radius-sm);
+    font-size: 1.25rem;
+}
+.anexo-info {
+    flex: 1;
+    min-width: 0;
+}
+.anexo-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.anexo-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.anexo-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+<!-- Modal: Adicionar Anexo -->
+<div id="modalAddAnexo" class="modal-overlay" style="display:none; z-index: 2000;">
+    <div class="modal-container" style="max-width: 450px;">
+        <div class="modal-header">
+            <h3>📎 Adicionar Novo Anexo</h3>
+            <button class="modal-close" onclick="closeModal('modalAddAnexo')">×</button>
+        </div>
+        <div class="modal-body">
+            <form id="formAddAnexo" onsubmit="event.preventDefault(); submitAnexo();">
+                <div class="form-group">
+                    <label>Selecione o Arquivo (PDF ou Imagem)</label>
+                    <input type="file" id="anexoFile" class="form-control" accept=".pdf,image/*" required>
+                </div>
+                <div class="form-group">
+                    <label>Descrição (Opcional)</label>
+                    <input type="text" id="anexoDescricao" class="form-control" placeholder="Ex: Relatório médico, Foto da ocorrência...">
+                </div>
+                <div id="uploadProgressContainer" style="display:none; margin-top:1rem;">
+                    <div style="height:4px; background:var(--bg-surface-2nd); border-radius:2px; overflow:hidden;">
+                        <div id="uploadProgressBar" style="width:0; height:100%; background:var(--color-primary); transition:width 0.2s;"></div>
+                    </div>
+                    <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem; text-align:center;">Enviando arquivo...</p>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modalAddAnexo')">Cancelar</button>
+            <button class="btn btn-primary" onclick="submitAnexo()">Fazer Upload</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Visualizar Anexo -->
+<div id="modalViewAnexo" class="modal-overlay" style="display:none; z-index: 2100;">
+    <div class="modal-container" style="max-width: 90vw; height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header">
+            <h3 id="viewAnexoTitle">Visualizar Anexo</h3>
+            <div style="display:flex; gap:0.75rem; align-items:center;">
+                <a id="downloadAnexoBtn" href="#" download class="btn btn-secondary btn-sm">⬇️ Download</a>
+                <button class="modal-close" onclick="closeModal('modalViewAnexo')">×</button>
+            </div>
+        </div>
+        <div class="modal-body" style="flex: 1; padding: 0; overflow: hidden; background: #eee; display: flex; align-items: center; justify-content: center;">
+            <div id="anexoPreviewContainer" style="width: 100%; height: 100%; overflow: auto; display: flex; align-items: center; justify-content: center;">
+                <!-- Preview renderizado aqui -->
+            </div>
+        </div>
+    </div>
+</div>
 </style>
 
 

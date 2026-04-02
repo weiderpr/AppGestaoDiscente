@@ -260,9 +260,10 @@ function populateAtendimentoModal(data, options = {}) {
         const userSearchArea = document.querySelector('#cdProfessionalsSection div[style*="border-top"]');
         if (userSearchArea) userSearchArea.style.display = isRestricted ? 'none' : 'block';
 
-        // Render timeline e responsaveis
+        // Render timeline, responsaveis e anexos
         renderTimeline(data.comentarios || [], isRestricted);
         renderResponsaveis(data.responsaveis || [], !isRestricted);
+        loadAnexos(at.id);
     }
 }
 
@@ -293,6 +294,7 @@ function switchTab(btn, tabName) {
     });
 
     // Exibe apenas o alvo
+    // Exibe apenas o alvo
     const targetContent = document.getElementById('tab-' + tabName.trim());
     if (targetContent) {
         targetContent.style.setProperty('display', 'flex', 'important');
@@ -300,4 +302,184 @@ function switchTab(btn, tabName) {
         console.warn('Alvo de aba não encontrado:', 'tab-' + tabName);
     }
 }
+
+/**
+ * Funções de Gestão de Anexos
+ */
+
+async function loadAnexos(atendimentoId) {
+    const container = document.getElementById('cdAnexosList');
+    if (!container) return;
+
+    container.innerHTML = '<div style="padding:1rem;color:var(--text-muted);font-size:0.875rem;">Carregando anexos...</div>';
+
+    try {
+        const res = await fetch(`/api/atendimentos.php?action=fetch_anexos&atendimento_id=${atendimentoId}`);
+        const data = await res.json();
+
+        if (data.success) {
+            renderAnexos(data.anexos);
+        } else {
+            container.innerHTML = `<div style="padding:1rem;color:#ef4444;font-size:0.875rem;">Erro ao carregar: ${data.error}</div>`;
+        }
+    } catch (e) {
+        container.innerHTML = '<div style="padding:1rem;color:#ef4444;font-size:0.875rem;">Erro de conexão ao carregar anexos.</div>';
+    }
+}
+
+function renderAnexos(anexos) {
+    const container = document.getElementById('cdAnexosList');
+    if (!container) return;
+
+    if (anexos.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); background: var(--bg-surface); border-radius: var(--radius-md); border: 1px dashed var(--border-color);">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.5;">📁</div>
+                <p style="font-size: 0.8125rem;">Nenhum anexo encontrado para este atendimento.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let h = '';
+    anexos.forEach(a => {
+        const dateStr = new Date(a.created_at).toLocaleDateString();
+        const icon = a.extensao === 'pdf' ? '📄' : '🖼️';
+        const sizeStr = a.tamanho ? (a.tamanho / 1024 / 1024).toFixed(2) + ' MB' : '';
+
+        h += `
+            <div class="anexo-item">
+                <div class="anexo-icon">${icon}</div>
+                <div class="anexo-info">
+                    <span class="anexo-name" title="${a.descricao || 'Sem descrição'}">${a.descricao || 'Arquivo .' + a.extensao}</span>
+                    <div class="anexo-meta">${dateStr} • ${a.extensao.toUpperCase()} ${sizeStr ? ' • ' + sizeStr : ''} • Por ${a.author_name}</div>
+                </div>
+                <div class="anexo-actions">
+                    <button class="btn btn-secondary btn-sm" style="padding:0.25rem 0.5rem;" onclick="viewAnexo('/${a.arquivo}', '${a.descricao || ''}', '${a.extensao}')">👁️</button>
+                    <button class="btn btn-secondary btn-sm" style="padding:0.25rem 0.5rem; color:#ef4444;" onclick="deleteAnexo(${a.id})">🗑️</button>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = h;
+}
+
+function openAddAnexoModal() {
+    const modal = document.getElementById('modalAddAnexo');
+    if (!modal) return;
+    
+    document.getElementById('formAddAnexo').reset();
+    document.getElementById('uploadProgressContainer').style.display = 'none';
+    document.getElementById('uploadProgressBar').style.width = '0%';
+    
+    modal.style.display = 'flex';
+}
+
+async function submitAnexo() {
+    const fileInput = document.getElementById('anexoFile');
+    const descInput = document.getElementById('anexoDescricao');
+    
+    if (!fileInput.files || fileInput.files.length === 0) {
+        Toast.show('Por favor, selecione um arquivo.', 'warning');
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('action', 'upload_anexo');
+    formData.append('atendimento_id', currentAtendimentoId);
+    formData.append('descricao', descInput.value);
+    formData.append('arquivo', file);
+
+    const progressContainer = document.getElementById('uploadProgressContainer');
+    const progressBar = document.getElementById('uploadProgressBar');
+    
+    progressContainer.style.display = 'block';
+
+    try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/atendimentos.php', true);
+
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                progressBar.style.width = percentComplete + '%';
+            }
+        };
+
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                const res = JSON.parse(xhr.responseText);
+                if (res.success) {
+                    Toast.show('Anexo enviado com sucesso!', 'success');
+                    closeModal('modalAddAnexo');
+                    loadAnexos(currentAtendimentoId);
+                } else {
+                    Toast.show('Erro: ' + res.error, 'error');
+                }
+            } else {
+                Toast.show('Erro no servidor ao enviar arquivo.', 'error');
+            }
+            progressContainer.style.display = 'none';
+        };
+
+        xhr.onerror = function() {
+            Toast.show('Erro de rede ao enviar arquivo.', 'error');
+            progressContainer.style.display = 'none';
+        };
+
+        xhr.send(formData);
+    } catch (e) {
+        Toast.show('Erro inesperado: ' + e.message, 'error');
+        progressContainer.style.display = 'none';
+    }
+}
+
+function viewAnexo(url, descricao, extensao) {
+    const modal = document.getElementById('modalViewAnexo');
+    const container = document.getElementById('anexoPreviewContainer');
+    const title = document.getElementById('viewAnexoTitle');
+    const downloadBtn = document.getElementById('downloadAnexoBtn');
+
+    if (!modal || !container) return;
+
+    title.innerText = descricao || 'Visualizar Anexo';
+    downloadBtn.href = url;
+    
+    container.innerHTML = '';
+    
+    if (extensao === 'pdf') {
+        container.innerHTML = `<iframe src="${url}#toolbar=0" style="width:100%; height:100%; border:none;"></iframe>`;
+    } else {
+        container.innerHTML = `<img src="${url}" style="max-width:100%; max-height:100%; object-fit:contain; box-shadow:0 4px 12px rgba(0,0,0,0.1);">`;
+    }
+
+    modal.style.display = 'flex';
+}
+
+async function deleteAnexo(anexoId) {
+    if (!confirm('Deseja realmente excluir este anexo?')) return;
+
+    try {
+        const formData = new FormData();
+        formData.append('action', 'delete_anexo');
+        formData.append('anexo_id', anexoId);
+
+        const res = await fetch('/api/atendimentos.php', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            Toast.show('Anexo removido.', 'success');
+            loadAnexos(currentAtendimentoId);
+        } else {
+            Toast.show('Erro: ' + data.error, 'error');
+        }
+    } catch (e) {
+        Toast.show('Erro de conexão ao excluir.', 'error');
+    }
+}
+
 

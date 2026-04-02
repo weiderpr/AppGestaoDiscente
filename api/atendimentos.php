@@ -552,6 +552,110 @@ switch ($action) {
         echo json_encode(['success' => true, 'turmas' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         break;
 
+    case 'fetch_anexos':
+        $atendId = (int)($_GET['atendimento_id'] ?? 0);
+        if (!$atendId) {
+            echo json_encode(['success' => false, 'error' => 'ID de atendimento inválido.']);
+            exit;
+        }
+
+        try {
+            $st = $db->prepare("
+                SELECT a.*, u.name as author_name 
+                FROM gestao_atendimentos_anexos a
+                JOIN users u ON a.usuario_id = u.id
+                WHERE a.atendimento_id = ?
+                ORDER BY a.created_at DESC
+            ");
+            $st->execute([$atendId]);
+            $anexos = $st->fetchAll(PDO::FETCH_ASSOC);
+
+            echo json_encode(['success' => true, 'anexos' => $anexos]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        break;
+
+    case 'upload_anexo':
+        $atendId = (int)($_POST['atendimento_id'] ?? 0);
+        $descricao = trim($_POST['descricao'] ?? '');
+        
+        if (!$atendId) {
+            echo json_encode(['success' => false, 'error' => 'ID de atendimento inválido.']);
+            exit;
+        }
+
+        if (!isset($_FILES['arquivo']) || $_FILES['arquivo']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['success' => false, 'error' => 'Erro no envio do arquivo.']);
+            exit;
+        }
+
+        $file = $_FILES['arquivo'];
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        $allowed = ['pdf', 'jpg', 'jpeg', 'png', 'gif'];
+
+        if (!in_array($ext, $allowed)) {
+            echo json_encode(['success' => false, 'error' => 'Extensão não permitida (Apenas PDF e Imagens).']);
+            exit;
+        }
+
+        // Limite de 10MB
+        if ($file['size'] > 10 * 1024 * 1024) {
+            echo json_encode(['success' => false, 'error' => 'Arquivo muito grande (Máximo 10MB).']);
+            exit;
+        }
+
+        $uploadDir = __DIR__ . '/../assets/uploads/atendimentos/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $newName = uniqid('atend_' . $atendId . '_', true) . '.' . $ext;
+        $destPath = $uploadDir . $newName;
+        $dbPath = 'assets/uploads/atendimentos/' . $newName;
+
+        if (move_uploaded_file($file['tmp_name'], $destPath)) {
+            try {
+                $st = $db->prepare("
+                    INSERT INTO gestao_atendimentos_anexos (atendimento_id, usuario_id, arquivo, descricao, extensao, tamanho)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ");
+                $st->execute([$atendId, $user['id'], $dbPath, $descricao, $ext, $file['size']]);
+                echo json_encode(['success' => true, 'message' => 'Arquivo enviado com sucesso.']);
+            } catch (Exception $e) {
+                @unlink($destPath); // Remove arquivo se falhar o banco
+                echo json_encode(['success' => false, 'error' => 'Erro ao salvar no banco: ' . $e->getMessage()]);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Erro ao mover o arquivo para o servidor.']);
+        }
+        break;
+
+    case 'delete_anexo':
+        $anexoId = (int)($_POST['anexo_id'] ?? 0);
+        
+        try {
+            // Pegar caminho do arquivo antes de deletar
+            $st = $db->prepare("SELECT arquivo FROM gestao_atendimentos_anexos WHERE id = ?");
+            $st->execute([$anexoId]);
+            $anexo = $st->fetch(PDO::FETCH_ASSOC);
+
+            if ($anexo) {
+                $filePath = __DIR__ . '/../' . $anexo['arquivo'];
+                if (file_exists($filePath)) {
+                    @unlink($filePath);
+                }
+
+                $db->prepare("DELETE FROM gestao_atendimentos_anexos WHERE id = ?")->execute([$anexoId]);
+                echo json_encode(['success' => true, 'message' => 'Anexo removido.']);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Anexo não encontrado.']);
+            }
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        break;
+
     default:
         echo json_encode(['success' => false, 'error' => 'Ação inválida.']);
         break;
