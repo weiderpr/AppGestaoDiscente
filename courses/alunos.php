@@ -469,7 +469,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <tr>
                     <td>
                         <?php if ($a['photo'] && file_exists(__DIR__ . '/../' . $a['photo'])): ?>
-                            <img src="/<?= htmlspecialchars($a['photo']) ?>" class="aluno-photo">
+                            <img src="/<?= htmlspecialchars($a['photo']) ?>" class="aluno-photo" data-preview-image="/<?= htmlspecialchars($a['photo']) ?>" style="cursor:zoom-in;">
                         <?php else: ?>
                             <div class="aluno-initials"><?= strtoupper(substr($a['nome'],0,1)) ?></div>
                         <?php endif; ?>
@@ -754,7 +754,7 @@ async function loadStudentsForImport(sourceId) {
         list.innerHTML = data.map(a => {
             const initials = a.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
             const photoHtml = a.photo 
-                ? `<img src="/${a.photo}" style="width:32px; height:32px; border-radius:50%; object-fit:cover; flex-shrink:0;">`
+                ? `<img src="/${a.photo}" style="width:32px; height:32px; border-radius:50%; object-fit:cover; flex-shrink:0; cursor:zoom-in;" data-preview-image="/${a.photo}">`
                 : `<div style="width:32px; height:32px; border-radius:50%; background:var(--gradient-brand); color:white; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:700; flex-shrink:0;">${initials}</div>`;
             
             return `

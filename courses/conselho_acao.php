@@ -493,7 +493,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <?php foreach ($alunos as $aluno): ?>
                         <tr data-aluno-id="<?= $aluno['id'] ?>" style="border-bottom:1px solid var(--border-color);">
                             <td style="padding:.75rem 1rem;vertical-align:middle;">
-                                <div style="width:40px;height:40px;border-radius:50%;background:var(--bg-surface-2nd);display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                                <div style="width:40px;height:40px;border-radius:50%;background:var(--bg-surface-2nd);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:zoom-in;"
+                                     data-preview-image="<?= $aluno['photo'] && file_exists(__DIR__ . '/../' . $aluno['photo']) ? '/' . htmlspecialchars($aluno['photo']) : '' ?>">
                                     <?php if ($aluno['photo'] && file_exists(__DIR__ . '/../' . $aluno['photo'])): ?>
                                         <img src="/<?= htmlspecialchars($aluno['photo']) ?>" style="width:100%;height:100%;object-fit:cover;">
                                     <?php else: ?>
@@ -816,7 +817,7 @@ function showDetailTab(tabId) {
             const a = dados.aluno;
             
             let html = '<div style="display:flex;align-items:center;gap:1rem;padding:1rem;background:var(--bg-surface-2nd);border-radius:var(--radius-md);margin-bottom:1.5rem;">';
-            html += '<div style="width:60px;height:60px;border-radius:50%;background:var(--bg-surface);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">';
+            html += '<div style="width:60px;height:60px;border-radius:50%;background:var(--bg-surface);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;cursor:zoom-in;" data-preview-image="' + (a.photo ? '/' + a.photo : '') + '">';
             if (a.photo) {
                 html += '<img src="/' + a.photo + '" style="width:100%;height:100%;object-fit:cover;">';
             } else {

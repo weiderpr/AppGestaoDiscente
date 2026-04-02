@@ -1,0 +1,33 @@
+/* 
+ * Image Preview Balloon 
+ * Used for showing larger student/user photos on hover
+ */
+
+.image-preview-balloon {
+    position: fixed;
+    z-index: 9999; /* Higher than modals */
+    background: var(--bg-surface);
+    border: 3px solid var(--color-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    padding: 2px;
+    display: none;
+    pointer-events: none; /* Don't interfere with mouse events */
+    overflow: hidden;
+    animation: previewFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    width: 260px;
+    height: 260px;
+}
+
+.image-preview-balloon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: calc(var(--radius-lg) - 4px);
+}
+
+@keyframes previewFadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}

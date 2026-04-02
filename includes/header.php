@@ -61,10 +61,12 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
     <link rel="stylesheet" href="/assets/css/components/toast.css">
     <link rel="stylesheet" href="/assets/css/components/loading.css">
     <link rel="stylesheet" href="/assets/css/components/modal.css?v=1.5">
+    <link rel="stylesheet" href="/assets/css/components/image_preview.css">
     <script src="/assets/js/components/Toast.js"></script>
     <script src="/assets/js/components/Loading.js"></script>
     <script src="/assets/js/components/Modal.js?v=3"></script>
     <script src="/assets/js/components/LanguageSwitcher.js"></script>
+    <script src="/assets/js/components/ImagePreview.js"></script>
     
     <?php if (isset($extraCSS)): foreach ($extraCSS as $css): ?>
     <link rel="stylesheet" href="<?= $css ?>">
