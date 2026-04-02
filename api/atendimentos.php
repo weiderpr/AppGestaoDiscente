@@ -656,6 +656,39 @@ switch ($action) {
         }
         break;
 
+    case 'delete_comment':
+        $comentarioId = (int)($_POST['comentario_id'] ?? 0);
+        if (!$comentarioId) {
+            echo json_encode(['success' => false, 'error' => 'ID inválido.']);
+            exit;
+        }
+
+        try {
+            // Verifica se o comentário pertence ao usuário logado ou se é admin/coordenador
+            $stCheck = $db->prepare("SELECT usuario_id FROM gestao_atendimento_comentarios WHERE id = ?");
+            $stCheck->execute([$comentarioId]);
+            $comment = $stCheck->fetch(PDO::FETCH_ASSOC);
+
+            if (!$comment) {
+                echo json_encode(['success' => false, 'error' => 'Comentário não encontrado.']);
+                exit;
+            }
+
+            $allowed = ['Administrador', 'Coordenador'];
+            if ($comment['usuario_id'] != $user['id'] && !in_array($user['profile'], $allowed)) {
+                echo json_encode(['success' => false, 'error' => 'Você não tem permissão para excluir este comentário.']);
+                exit;
+            }
+
+            $db->prepare("DELETE FROM gestao_atendimento_comentarios WHERE id = ?")
+               ->execute([$comentarioId]);
+
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        break;
+
     default:
         echo json_encode(['success' => false, 'error' => 'Ação inválida.']);
         break;
