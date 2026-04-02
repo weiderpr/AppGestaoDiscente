@@ -337,7 +337,7 @@ async function submitNewAtendimento() {
 
 // --- Card Details (Timeline) ---
 
-async function openCardDetails(id) {
+async function openCardDetails(id, preserveTab = false) {
     currentAtendimentoId = id;
 
     try {
@@ -345,104 +345,24 @@ async function openCardDetails(id) {
         const data = await res.json();
         
         if (data.success) {
-            const at = data.atendimento;
+            currentIsArchived = !!data.atendimento.is_archived;
             
-            document.getElementById('cdMainTitle').innerText = at.titulo;
-            document.getElementById('cdBadgeStatus').innerText = at.status;
-            
-            const tipoBadgeEl = document.getElementById('cdTipoBadge');
-            if (tipoBadgeEl) {
-                if (at.aluno_id) {
-                    tipoBadgeEl.innerText = 'Aluno';
-                    tipoBadgeEl.className = 'k-badge k-badge-aluno';
-                } else if (at.turma_id) {
-                    tipoBadgeEl.innerText = 'Turma';
-                    tipoBadgeEl.className = 'k-badge k-badge-turma';
-                } else if (at.encaminhamento_id) {
-                    tipoBadgeEl.innerText = 'Encaminhamento';
-                    tipoBadgeEl.className = 'k-badge k-badge-encaminhamento';
-                } else {
-                    tipoBadgeEl.innerText = 'Geral';
-                    tipoBadgeEl.className = 'k-badge';
-                }
-            }
-            
-            currentIsArchived = !!at.is_archived;
-            
-            const archiveText = document.getElementById('archiveText');
-            const archiveIcon = document.getElementById('archiveIcon');
-            if (archiveText) {
-                archiveText.innerText = currentIsArchived ? 'Desarquivar Card' : 'Arquivar Card';
-                archiveIcon.innerText = currentIsArchived ? '♻️' : '📦';
-            }
-            
-            const photoEl = document.getElementById('cdAlunoPhoto');
-            const avatarEl = document.getElementById('cdAlunoAvatar');
-            const subtitleEl = document.getElementById('cdAlunoSubtitle');
-            
-            if (at.aluno_id) {
-                subtitleEl.innerText = at.aluno_nome + (at.matricula ? ' (#' + at.matricula + ')' : '') + (at.curso_nome ? ' • ' + at.curso_nome : '') + (at.turma_nome ? ' — ' + at.turma_nome : '');
-                
-                if (at.aluno_photo) {
-                    photoEl.src = '/' + at.aluno_photo;
-                    photoEl.style.display = 'block';
-                    avatarEl.style.display = 'none';
-                } else {
-                    photoEl.style.display = 'none';
-                    avatarEl.style.display = 'flex';
-                    const initials = at.aluno_nome.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
-                    avatarEl.innerText = initials;
-                }
-            } else if (at.turma_id) {
-                subtitleEl.innerText = 'Turma: ' + (at.turma_nome || 'Não identificada');
-                photoEl.style.display = 'none';
-                avatarEl.style.display = 'flex';
-                avatarEl.innerText = '👥';
-            } else {
-                subtitleEl.innerText = 'Atendimento Geral';
-                photoEl.style.display = 'none';
-                avatarEl.style.display = 'flex';
-                avatarEl.innerText = '📄';
-            }
-
-            const demandContext = document.getElementById('cdDemandaContext');
-            const editorSec = document.getElementById('cdEditorSection');
-            const timelineSec = document.getElementById('cdTimelineSection');
-            const profSec = document.getElementById('cdProfessionalsSection');
-            const deleteSec = document.getElementById('cdDeleteSection');
-
-            if (at.is_encaminhamento_pure) {
-                demandContext.style.display = 'block';
-                editorSec.style.display = 'none';
-                timelineSec.style.display = 'none';
-                profSec.style.display = 'none';
-                deleteSec.style.display = 'none';
-
-                document.getElementById('cdCouncilName').innerText = at.conselho_nome || 'Conselho de Classe';
-                document.getElementById('cdDemandText').innerText = at.texto || 'Sem descrição adicional.';
-                document.getElementById('cdDeadlineValue').innerText = at.data_expectativa ? new Date(at.data_expectativa + 'T00:00:00').toLocaleDateString() : 'Não definido';
-            } else {
-                demandContext.style.display = 'none';
-                editorSec.style.display = 'block';
-                timelineSec.style.display = 'block';
-                profSec.style.display = 'block';
-                deleteSec.style.display = 'block';
-
-                // Render using shared logic
-                populateAtendimentoModal(data, { isRestricted: false });
-            }
-            
+            // Clean specific Kanban search state
             document.getElementById('userSearchResults').innerHTML = '';
             document.getElementById('userSearch').value = '';
 
+            // Use shared logic for all modal content population and tab management
+            populateAtendimentoModal(data, { isRestricted: false, preserveTab: preserveTab });
+            
             openModal('modalCardDetails');
         } else {
-            showToast(data.error, 'error');
+            Toast.show(data.error, 'error');
         }
     } catch (e) {
-        showToast('Erro ao carregar detalhes', 'error');
+        Toast.show('Erro ao carregar detalhes', 'error');
     }
 }
+
 
 async function saveAtendimentoInfo() {
     if (!currentAtendimentoId) return;
@@ -502,7 +422,8 @@ async function submitComment() {
             document.getElementById('ncTexto').value = '';
             document.getElementById('ncPrivate').checked = false;
             Toast.show('Comentário publicado', 'success');
-            openCardDetails(currentAtendimentoId); // reload timeline
+            // Recarrega mantendo a aba Timeline ativa
+            openCardDetails(currentAtendimentoId, true);
         } else {
             Toast.show('Erro: ' + data.error, 'error');
         }
@@ -562,7 +483,7 @@ async function addResponsible(userId) {
         const data = await res.json();
         if (data.success) {
             Toast.show('Responsável adicionado', 'success');
-            openCardDetails(currentAtendimentoId); // recarrega
+            openCardDetails(currentAtendimentoId, true); // recarrega preservando a aba atual
             loadBoard(); // pra atualizar as fotinhos do card no board
         }
     } catch(e) {}
@@ -593,7 +514,7 @@ async function removeResponsible(userId) {
                 const data = await res.json();
                 if (data.success) {
                     Toast.show('Responsável removido', 'success');
-                    openCardDetails(currentAtendimentoId); 
+                    openCardDetails(currentAtendimentoId, true); // preserva aba
                     loadBoard(); 
                 }
             } catch(e) {

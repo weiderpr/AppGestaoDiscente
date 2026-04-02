@@ -2,6 +2,10 @@
  * Vértice Acadêmico — Lógica Compartilhada de Detalhes de Atendimento
  */
 
+// Rastreia a aba atualmente ativa para preservar a posição após recargas do modal
+let currentActiveTab = 'info';
+
+
 /**
  * Renderiza a timeline de comentários
  */
@@ -91,6 +95,7 @@ function renderResponsaveis(resp, canEdit = true) {
 function populateAtendimentoModal(data, options = {}) {
     const at = data.atendimento;
     const isRestricted = options.isRestricted || false;
+    const preserveTab = options.preserveTab || false;
     
     const titleEl = document.getElementById('cdMainTitle');
     if (titleEl) titleEl.innerText = at.titulo;
@@ -141,19 +146,34 @@ function populateAtendimentoModal(data, options = {}) {
             avatarEl.style.display = 'flex';
             avatarEl.innerText = '👥';
         }
+    } else {
+        if (subtitleEl) subtitleEl.innerText = 'Atendimento Geral';
+        if (photoEl) photoEl.style.display = 'none';
+        if (avatarEl) {
+            avatarEl.style.display = 'flex';
+            avatarEl.innerText = '📄';
+        }
     }
 
     const demandContext = document.getElementById('cdDemandaContext');
     const profSec = document.getElementById('cdProfessionalsSection');
     const deleteSec = document.getElementById('cdDeleteSection');
 
-    const tabInfo = document.getElementById('tab-info');
-    const tabTimeline = document.getElementById('tab-timeline');
+    // Archive / Unarchive Button logic
+    const archiveText = document.getElementById('archiveText');
+    const archiveIcon = document.getElementById('archiveIcon');
+    if (archiveText && typeof currentIsArchived !== 'undefined') {
+        archiveText.innerText = currentIsArchived ? 'Desarquivar Card' : 'Arquivar Card';
+        archiveIcon.innerText = currentIsArchived ? '♻️' : '📦';
+    }
 
-    // Reset to first tab when opening
-    const firstTabBtn = document.querySelector('.tab-btn');
-    if (firstTabBtn) {
-        switchTab(firstTabBtn, 'info');
+    // Determina qual aba inicial mostrar:
+    // - Se 'preserveTab' for true, mantém a aba que estava ativa
+    // - Caso contrário, volta sempre para a primeira aba ('info')
+    const tabToRestore = preserveTab ? currentActiveTab : 'info';
+    const targetBtn = document.querySelector(`.tab-btn[data-tab="${tabToRestore}"]`) || document.querySelector('.tab-btn');
+    if (targetBtn) {
+        switchTab(targetBtn, tabToRestore);
     }
     
     // Contexto de Demanda sempre visível se houver
@@ -169,13 +189,24 @@ function populateAtendimentoModal(data, options = {}) {
     }
 
     if (at.is_encaminhamento_pure) {
-        if (tabInfo) tabInfo.style.display = 'none';
-        if (tabTimeline) tabTimeline.style.display = 'none';
+        if (demandContext) demandContext.style.display = 'block';
+        // For pure referrals, hide all tab containers via direct style
+        const _tabTimeline = document.getElementById('tab-timeline');
+        const _tabInfo = document.getElementById('tab-info');
+        if (_tabTimeline) { _tabTimeline.style.display = 'none'; }
+        if (_tabInfo) { _tabInfo.style.display = 'none'; }
         if (profSec) profSec.style.display = 'none';
         if (deleteSec) deleteSec.style.display = 'none';
+
+        if (demandContext) {
+            document.getElementById('cdCouncilName').innerText = at.conselho_nome || 'Conselho de Classe';
+            document.getElementById('cdDemandText').innerText = at.texto || at.encaminhamento_texto || 'Sem descrição adicional.';
+            document.getElementById('cdDeadlineValue').innerText = at.data_expectativa ? new Date(at.data_expectativa + 'T00:00:00').toLocaleDateString() : 'Não definido';
+        }
     } else {
-        if (tabInfo) tabInfo.style.display = 'block';
-        if (tabTimeline) tabTimeline.style.display = 'block';
+        if (demandContext) demandContext.style.display = 'none';
+        // editorSec and timelineSec visibility is managed by tab switching,
+        // not by direct style manipulation
         if (profSec) profSec.style.display = 'block';
         if (deleteSec) deleteSec.style.display = isRestricted ? 'none' : 'block';
 
@@ -237,15 +268,22 @@ function populateAtendimentoModal(data, options = {}) {
 }
 
 function switchTab(btn, tabName) {
+    // Rastreia a aba ativa globalmente
+    currentActiveTab = tabName;
+
+    // Atualiza botões
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    
+
+    // Esconde todos os conteúdos via inline style (máxima prioridade CSS)
     document.querySelectorAll('.tab-content').forEach(content => {
         content.style.display = 'none';
     });
-    
+
+    // Exibe o conteúdo alvo
     const targetContent = document.getElementById('tab-' + tabName);
     if (targetContent) {
         targetContent.style.display = 'block';
     }
 }
+

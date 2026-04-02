@@ -9,7 +9,6 @@
             <div id="cdAlunoAvatar" class="m-aluno-avatar-text" style="width: 48px; height: 48px; font-size: 1.25rem; display: none; border-radius: 50%;"></div>
             <div style="flex: 1;">
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <span id="cdTipoBadge" class="k-badge" style="font-size: 0.6rem; padding: 2px 6px;">Tipo</span>
                     <span id="cdBadgeStatus" class="kanban-badge" style="font-size: 0.6rem;"></span>
                 </div>
                 <div id="cdAlunoSubtitle" style="font-size: 0.9375rem; color: var(--text-primary); font-weight: 600; margin-top: 0.25rem;"></div>
@@ -35,10 +34,11 @@
                     </div>
 
                     <!-- Tab Content -->
-                    <div style="flex: 1; overflow-y: auto; padding: 1.5rem; min-height: 0;">
+                    <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 1.5rem; min-height: 0;">
                         
                         <!-- Tab: Informações -->
                         <div id="tab-info" class="tab-content" style="display: block;">
+                            
                             <h2 id="cdMainTitle" style="margin: 0 0 1.5rem 0; line-height: 1.2; font-size: 1.25rem; font-weight: 700;">Título</h2>
 
                             <div id="cdDemandaContext" style="background: var(--bg-surface-2nd); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 1.5rem; display: none; position: relative; overflow: hidden;">
@@ -78,11 +78,8 @@
 
                         <!-- Tab: Timeline -->
                         <div id="tab-timeline" class="tab-content" style="display: none;">
-                            <div id="cdTimelineSection">
-                                <h4 style="display:flex; align-items:center; gap:0.375rem; margin-bottom:0.75rem; font-size:0.75rem; text-transform:uppercase; font-weight:800; letter-spacing:0.05em; color: var(--text-muted);">
-                                    <span>💬</span> Timeline de Ações e Comentários
-                                </h4>
-                                <div style="background: var(--bg-surface-2nd); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 1.5rem;">
+                            <div id="cdTimelineSection" style="display: flex; flex-direction: column; height: 100%;">
+                                <div style="background: var(--bg-surface-2nd); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 1rem; flex-shrink: 0;">
                                     <form id="formNewComment" style="display:flex; gap:0.75rem; flex-direction:column;">
                                         <textarea class="form-control" id="ncTexto" rows="2" placeholder="Escreva uma atualização ou observação..."></textarea>
                                         <div style="display:flex; justify-content: space-between; align-items: center;">
@@ -97,7 +94,7 @@
                                     </form>
                                 </div>
 
-                                <div class="timeline-container" id="cdTimeline">
+                                <div class="timeline-container" id="cdTimeline" style="flex: 1; overflow-y: auto;">
                                 </div>
                             </div>
                         </div>
@@ -257,26 +254,13 @@
     background: var(--bg-surface);
 }
 .tab-content {
-    animation: fadeIn 0.2s ease;
 }
+.tab-show { display: block; height: 100%; overflow-y: auto; }
+.tab-hide { display: none; }
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
 }
 </style>
 
-<script>
-function switchTab(btn, tabName) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.style.display = 'none';
-    });
-    
-    const targetContent = document.getElementById('tab-' + tabName);
-    if (targetContent) {
-        targetContent.style.display = 'block';
-    }
-}
-</script>
+
