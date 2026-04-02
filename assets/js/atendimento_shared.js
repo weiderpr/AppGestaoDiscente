@@ -193,6 +193,31 @@ function populateAtendimentoModal(data, options = {}) {
             document.getElementById('cdDemandText').innerText = at.texto || at.encaminhamento_texto || 'Sem descrição adicional.';
             document.getElementById('cdDeadlineValue').innerText = at.data_expectativa ? new Date(at.data_expectativa + 'T00:00:00').toLocaleDateString() : 'Não definido';
         }
+
+        // Preenche a aba "Encaminhamento" (Novos campos)
+        const encCurso = document.getElementById('enc-curso');
+        const encTurma = document.getElementById('enc-turma');
+        const encConselho = document.getElementById('enc-conselho');
+        const encTexto = document.getElementById('enc-texto');
+        const encDataConselho = document.getElementById('enc-data-conselho');
+        const encPrazo = document.getElementById('enc-prazo');
+
+        if (encCurso) encCurso.innerText = at.curso_nome || 'Não definido';
+        if (encTurma) encTurma.innerText = at.turma_nome || 'Não definido';
+        if (encConselho) encConselho.innerText = at.conselho_nome || 'Sem descrição';
+        if (encTexto) encTexto.innerText = at.encaminhamento_texto || at.texto || 'Sem texto adicional';
+        
+        if (encDataConselho) {
+            encDataConselho.innerText = at.conselho_data 
+                ? new Date(at.conselho_data.replace(' ', 'T')).toLocaleDateString() 
+                : 'Não definido';
+        }
+        
+        if (encPrazo) {
+            encPrazo.innerText = at.data_expectativa 
+                ? new Date(at.data_expectativa + 'T00:00:00').toLocaleDateString() 
+                : 'Não definido';
+        }
     } else {
         if (demandContext) demandContext.style.display = 'none';
     }

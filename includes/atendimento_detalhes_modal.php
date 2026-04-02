@@ -117,10 +117,43 @@
                         </div>
 
                         <!-- Tab: Encaminhamento (Extra Info) -->
-                        <div id="tab-encaminhamento" class="tab-content tab-hide" style="flex: 1; flex-direction: column; min-height: 0;">
-                            <h3 style="margin:0 0 1rem 0; font-size:1rem; font-weight:700;">Detalhes do Encaminhamento</h3>
-                            <div style="background: var(--bg-surface-2nd); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); color: var(--text-muted); font-style: italic; text-align: center;">
-                                <p>Informações detalhadas do encaminhamento serão exibidas aqui.</p>
+                        <div id="tab-encaminhamento" class="tab-content tab-hide" style="flex: 1; flex-direction: column; min-height: 0; gap: 1rem;">
+                            <h3 style="margin:0; font-size:1rem; font-weight:700;">Detalhes da Origem</h3>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div class="form-group">
+                                    <label class="form-label" style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); font-weight: 800;">Curso</label>
+                                    <div id="enc-curso" style="font-weight: 600; font-size: 0.875rem;">-</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); font-weight: 800;">Turma</label>
+                                    <div id="enc-turma" style="font-weight: 600; font-size: 0.875rem;">-</div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); font-weight: 800;">Descrição do Conselho</label>
+                                <div id="enc-conselho" style="font-size: 0.875rem; background: var(--bg-surface-2nd); padding: 0.75rem; border-radius: var(--radius-sm); border-left: 3px solid var(--border-color);">
+                                    -
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); font-weight: 800;">Texto do Encaminhamento</label>
+                                <div id="enc-texto" style="font-size: 0.875rem; background: var(--bg-surface-2nd); padding: 0.75rem; border-radius: var(--radius-sm); border-left: 3px solid var(--border-color); font-style: italic;">
+                                    -
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div class="form-group">
+                                    <label class="form-label" style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); font-weight: 800;">Data do Conselho</label>
+                                    <div id="enc-data-conselho" style="font-size: 0.875rem;">-</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); font-weight: 800;">Prazo Esperado</label>
+                                    <div id="enc-prazo" style="font-size: 0.875rem; font-weight: 700; color: #ef4444;">-</div>
+                                </div>
                             </div>
                         </div>
 
