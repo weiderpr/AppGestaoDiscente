@@ -365,14 +365,15 @@ function renderAnexos(anexos) {
 }
 
 function openAddAnexoModal() {
-    const modal = document.getElementById('modalAddAnexo');
-    if (!modal) return;
-    
+    openModal('modalAddAnexo');
     document.getElementById('formAddAnexo').reset();
     document.getElementById('uploadProgressContainer').style.display = 'none';
     document.getElementById('uploadProgressBar').style.width = '0%';
-    
-    modal.style.display = 'flex';
+}
+
+function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
 }
 
 async function submitAnexo() {
@@ -399,6 +400,7 @@ async function submitAnexo() {
     try {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/api/atendimentos.php', true);
+        xhr.setRequestHeader('X-CSRF-TOKEN', getCsrfToken());
 
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
@@ -454,7 +456,7 @@ function viewAnexo(url, descricao, extensao) {
         container.innerHTML = `<img src="${url}" style="max-width:100%; max-height:100%; object-fit:contain; box-shadow:0 4px 12px rgba(0,0,0,0.1);">`;
     }
 
-    modal.style.display = 'flex';
+    openModal('modalViewAnexo');
 }
 
 async function deleteAnexo(anexoId) {
@@ -467,6 +469,7 @@ async function deleteAnexo(anexoId) {
 
         const res = await fetch('/api/atendimentos.php', {
             method: 'POST',
+            headers: { 'X-CSRF-TOKEN': getCsrfToken() },
             body: formData
         });
         const data = await res.json();

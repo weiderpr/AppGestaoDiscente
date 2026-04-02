@@ -309,9 +309,11 @@
     gap: 0.25rem;
 }
 
+</style>
+
 <!-- Modal: Adicionar Anexo -->
-<div id="modalAddAnexo" class="modal-overlay" style="display:none; z-index: 2000;">
-    <div class="modal-container" style="max-width: 450px;">
+<div id="modalAddAnexo" class="modal-backdrop" style="z-index: 3100;">
+    <div class="modal" style="max-width: 450px;">
         <div class="modal-header">
             <h3>📎 Adicionar Novo Anexo</h3>
             <button class="modal-close" onclick="closeModal('modalAddAnexo')">×</button>
@@ -342,8 +344,8 @@
 </div>
 
 <!-- Modal: Visualizar Anexo -->
-<div id="modalViewAnexo" class="modal-overlay" style="display:none; z-index: 2100;">
-    <div class="modal-container" style="max-width: 90vw; height: 90vh; display: flex; flex-direction: column;">
+<div id="modalViewAnexo" class="modal-backdrop" style="z-index: 3200;">
+    <div class="modal" style="max-width: 90vw; height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
         <div class="modal-header">
             <h3 id="viewAnexoTitle">Visualizar Anexo</h3>
             <div style="display:flex; gap:0.75rem; align-items:center;">
@@ -358,6 +360,6 @@
         </div>
     </div>
 </div>
-</style>
+
 
 
