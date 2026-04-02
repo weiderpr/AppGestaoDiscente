@@ -224,32 +224,32 @@ function populateAtendimentoModal(data, options = {}) {
 
     if (at.is_encaminhamento_pure) {
         if (demandContext) demandContext.style.display = 'block';
-        const _tabTimeline = document.getElementById('tab-timeline');
-        const _tabInfo = document.getElementById('tab-info');
-        const _tabAnexos = document.getElementById('tab-anexos');
-        const _tabEnc = document.getElementById('tab-encaminhamento');
-        if (_tabTimeline) _tabTimeline.style.setProperty('display', 'none', 'important');
-        if (_tabInfo) _tabInfo.style.setProperty('display', 'none', 'important');
-        if (_tabAnexos) _tabAnexos.style.setProperty('display', 'none', 'important');
         
-        // Se for puro encaminhamento, mostramos a aba de encaminhamento se disponível
-        const btnTabEnc = document.getElementById('btn-tab-encaminhamento');
-        if (btnTabEnc) {
-            btnTabEnc.style.display = 'flex';
-            switchTab(btnTabEnc, 'encaminhamento');
+        // Desativar abas padrão
+        const btnInfo = document.querySelector('#modalCardDetails .tab-btn[data-tab="info"]');
+        const btnTimeline = document.querySelector('#modalCardDetails .tab-btn[data-tab="timeline"]');
+        const btnAnexos = document.querySelector('#modalCardDetails .tab-btn[data-tab="anexos"]');
+        const btnEnc = document.getElementById('btn-tab-encaminhamento');
+
+        if (btnInfo) btnInfo.classList.add('inactive');
+        if (btnTimeline) btnTimeline.classList.add('inactive');
+        if (btnAnexos) btnAnexos.classList.add('inactive');
+        
+        // Forçar aba encaminhamento
+        if (btnEnc) {
+            btnEnc.style.display = 'flex';
+            btnEnc.classList.remove('inactive');
+            switchTab(btnEnc, 'encaminhamento');
         }
+
         if (profSec) profSec.style.display = 'none';
         if (deleteSec) deleteSec.style.display = 'none';
 
-        if (demandContext) {
-            document.getElementById('cdCouncilName').innerText = at.conselho_nome || 'Conselho de Classe';
-            document.getElementById('cdDemandText').innerText = at.texto || at.encaminhamento_texto || 'Sem descrição adicional.';
-            document.getElementById('cdDeadlineValue').innerText = at.data_expectativa ? new Date(at.data_expectativa + 'T00:00:00').toLocaleDateString() : 'Não definido';
-        }
     } else {
+        // Reativar abas
+        document.querySelectorAll('#modalCardDetails .tab-btn').forEach(b => b.classList.remove('inactive'));
+        
         if (demandContext) demandContext.style.display = 'none';
-        // editorSec and timelineSec visibility is managed by tab switching,
-        // not by direct style manipulation
         if (profSec) profSec.style.display = 'block';
         if (deleteSec) deleteSec.style.display = isRestricted ? 'none' : 'block';
 

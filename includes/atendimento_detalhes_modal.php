@@ -302,6 +302,11 @@
     border-bottom-color: var(--color-primary);
     background: var(--bg-surface);
 }
+.tab-btn.inactive {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 .tab-content {
 }
 .tab-show { display: flex !important; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
