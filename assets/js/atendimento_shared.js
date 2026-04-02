@@ -172,6 +172,12 @@ function populateAtendimentoModal(data, options = {}) {
         archiveIcon.innerText = currentIsArchived ? '♻️' : '📦';
     }
 
+    // Mostrar/Esconder aba de encaminhamento se houver vínculo com encaminhamento
+    const btnTabEnc = document.getElementById('btn-tab-encaminhamento');
+    if (btnTabEnc) {
+        btnTabEnc.style.display = (at.encaminhamento_id) ? 'flex' : 'none';
+    }
+
     // Determina qual aba inicial mostrar:
     const tabToRestore = preserveTab ? currentActiveTab : 'info';
     if (!preserveTab) currentActiveTab = 'info'; 
@@ -196,9 +202,17 @@ function populateAtendimentoModal(data, options = {}) {
         const _tabTimeline = document.getElementById('tab-timeline');
         const _tabInfo = document.getElementById('tab-info');
         const _tabAnexos = document.getElementById('tab-anexos');
+        const _tabEnc = document.getElementById('tab-encaminhamento');
         if (_tabTimeline) _tabTimeline.style.setProperty('display', 'none', 'important');
         if (_tabInfo) _tabInfo.style.setProperty('display', 'none', 'important');
         if (_tabAnexos) _tabAnexos.style.setProperty('display', 'none', 'important');
+        
+        // Se for puro encaminhamento, mostramos a aba de encaminhamento se disponível
+        const btnTabEnc = document.getElementById('btn-tab-encaminhamento');
+        if (btnTabEnc) {
+            btnTabEnc.style.display = 'flex';
+            switchTab(btnTabEnc, 'encaminhamento');
+        }
         if (profSec) profSec.style.display = 'none';
         if (deleteSec) deleteSec.style.display = 'none';
 

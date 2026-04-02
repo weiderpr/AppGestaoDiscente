@@ -31,6 +31,9 @@
                         <button class="tab-btn" data-tab="anexos" onclick="switchTab(this, 'anexos')">
                             <span>📎</span> Anexos
                         </button>
+                        <button class="tab-btn" data-tab="encaminhamento" id="btn-tab-encaminhamento" onclick="switchTab(this, 'encaminhamento')" style="display: none;">
+                            <span>➡️</span> Encaminhamento
+                        </button>
                     </div>
 
                     <!-- Tab Content -->
@@ -110,6 +113,14 @@
 
                             <div id="cdAnexosList" style="flex: 1; overflow-y: auto;">
                                 <!-- Anexos renderizados aqui -->
+                            </div>
+                        </div>
+
+                        <!-- Tab: Encaminhamento (Extra Info) -->
+                        <div id="tab-encaminhamento" class="tab-content tab-hide" style="flex: 1; flex-direction: column; min-height: 0;">
+                            <h3 style="margin:0 0 1rem 0; font-size:1rem; font-weight:700;">Detalhes do Encaminhamento</h3>
+                            <div style="background: var(--bg-surface-2nd); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); color: var(--text-muted); font-style: italic; text-align: center;">
+                                <p>Informações detalhadas do encaminhamento serão exibidas aqui.</p>
                             </div>
                         </div>
 
