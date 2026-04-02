@@ -5,11 +5,39 @@
 const VASentiment = {
     // --- Configurações de Vocabulário ---
     keywords: {
-        criticalPositivePhrases: ['parabéns','parabens','muito bem','excelente trabalho','superou expectativas','acima da média','notas altas','notas boas','apresenta melhora'],
-        strongPositiveWords: ['ótimo','otimo','excelente','maravilhoso','fantástico','fantastico','incrível','incrivel','perfeito','perfeita','exemplar','melhora','evoluiu'],
-        moderatePositiveWords: ['bom','boa','legal','gostei','progresso','melhorou','cresceu','dedicado','dedicada'],
-        criticalNegativePhrases: ['não consegue','não sabe','reprovou','comportamento ruim','problema','muito ruim','notas baixas','notas ruins','não executa','nao executa','não realiza','nao realiza'],
-        strongNegativeWords: ['fraco','fraca','péssimo','péssima','terrível','horrível','pior','dificuldade','insuficiente','ruim','ruins','baixas']
+        criticalPositivePhrases: [
+            'parabéns', 'parabens', 'muito bem', 'excelente trabalho', 'superou expectativas',
+            'acima da média', 'notas altas', 'notas boas', 'apresenta melhora', 'evoluiu bastante',
+            'participação ativa', 'perguntas pertinentes', 'frequência exemplar'
+        ],
+        strongPositiveWords: [
+            'ótimo', 'otimo', 'excelente', 'maravilhoso', 'fantástico', 'fantastico', 'incrível', 'incrivel',
+            'perfeito', 'perfeita', 'exemplar', 'melhora', 'evoluiu', 'destaque', 'brilhante', 'parabéns'
+        ],
+        moderatePositiveWords: [
+            'bom', 'boa', 'legal', 'gostei', 'progresso', 'melhorou', 'cresceu', 'dedicado', 'dedicada',
+            'interessado', 'interessada', 'participativo', 'participativa', 'atento', 'atenta', 
+            'pertinente', 'pertinentes', 'esforçado', 'esforçada', 'pontual', 'comprometido', 'comprometida'
+        ],
+        criticalNegativePhrases: [
+            'não consegue', 'não sabe', 'reprovou', 'comportamento ruim', 'problema grave', 'muito ruim',
+            'notas baixas', 'notas ruins', 'não executa', 'nao executa', 'não realiza', 'nao realiza',
+            'não fez', 'nao fez', 'pouco interesse', 'baixo rendimento', 'conversa bastante',
+            'conversando muito', 'distraído com', 'distraída com', 'zero interesse', 'abaixo da média',
+            'não apresentou', 'nao apresentou', 'não trouxe', 'nao trouxe', 'caderno incompleto',
+            'não está interessado', 'nao esta interessado', 'não está interessada', 'nao esta interessada',
+            'não demonstrou', 'nao demonstrou', 'pouco comprometimento', 'sem comprometimento',
+            'não entendeu', 'nao entendeu', 'falta de interesse'
+        ],
+        strongNegativeWords: [
+            'fraco', 'fraca', 'péssimo', 'péssima', 'terrível', 'horrível', 'pior', 'dificuldade',
+            'dificuldades', 'insuficiente', 'ruim', 'ruins', 'baixas', 'baixo', 'baixa', 'atrasos',
+            'dorme', 'dormindo', 'desinteressado', 'desinteressada', 'desinteresse', 'indisciplina'
+        ],
+        moderateNegativeWords: [
+            'falta', 'faltou', 'conversa', 'conversando', 'disperso', 'dispersa', 'distraído', 
+            'distraída', 'atraso', 'desatento', 'desatenta', 'lento', 'lenta', 'incompleto', 'incompleta'
+        ]
     },
 
     // --- Motor de Análise ---
@@ -26,6 +54,7 @@ const VASentiment = {
         this.keywords.moderatePositiveWords.forEach(w => { if (wordSet.has(w)) score += 2; });
         this.keywords.criticalNegativePhrases.forEach(p => { if (lowerText.includes(p)) score -= 5; });
         this.keywords.strongNegativeWords.forEach(w => { if (wordSet.has(w)) score -= 3; });
+        this.keywords.moderateNegativeWords.forEach(w => { if (wordSet.has(w)) score -= 2; });
         
         return score;
     },
