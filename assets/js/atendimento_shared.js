@@ -168,13 +168,11 @@ function populateAtendimentoModal(data, options = {}) {
     }
 
     // Determina qual aba inicial mostrar:
-    // - Se 'preserveTab' for true, mantém a aba que estava ativa
-    // - Caso contrário, volta sempre para a primeira aba ('info')
     const tabToRestore = preserveTab ? currentActiveTab : 'info';
-    const targetBtn = document.querySelector(`.tab-btn[data-tab="${tabToRestore}"]`) || document.querySelector('.tab-btn');
-    if (targetBtn) {
-        switchTab(targetBtn, tabToRestore);
-    }
+    if (!preserveTab) currentActiveTab = 'info'; 
+    
+    // Chama a troca de abas diretamente
+    switchTab(null, tabToRestore);
     
     // Contexto de Demanda sempre visível se houver
     if (at.encaminhamento_id || at.is_encaminhamento_pure) {
@@ -190,11 +188,12 @@ function populateAtendimentoModal(data, options = {}) {
 
     if (at.is_encaminhamento_pure) {
         if (demandContext) demandContext.style.display = 'block';
-        // For pure referrals, hide all tab containers via direct style
         const _tabTimeline = document.getElementById('tab-timeline');
         const _tabInfo = document.getElementById('tab-info');
-        if (_tabTimeline) { _tabTimeline.style.display = 'none'; }
-        if (_tabInfo) { _tabInfo.style.display = 'none'; }
+        const _tabAnexos = document.getElementById('tab-anexos');
+        if (_tabTimeline) _tabTimeline.style.setProperty('display', 'none', 'important');
+        if (_tabInfo) _tabInfo.style.setProperty('display', 'none', 'important');
+        if (_tabAnexos) _tabAnexos.style.setProperty('display', 'none', 'important');
         if (profSec) profSec.style.display = 'none';
         if (deleteSec) deleteSec.style.display = 'none';
 
@@ -268,22 +267,37 @@ function populateAtendimentoModal(data, options = {}) {
 }
 
 function switchTab(btn, tabName) {
-    // Rastreia a aba ativa globalmente
-    currentActiveTab = tabName;
+    if (!tabName) return;
 
-    // Atualiza botões
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const modal = document.getElementById('modalCardDetails');
+    if (!modal) return;
+
+    // 1. Localiza o botão (seja via clique 'this' ou via nome da aba na restauração)
+    if (!btn || typeof btn === 'string') {
+        const name = (typeof btn === 'string' ? btn : tabName).trim();
+        btn = modal.querySelector(`.tab-btn[data-tab="${name}"]`);
+        tabName = name;
+    }
+
+    if (!btn) return;
+
+    // 2. Atualiza estado e indicador visual (Borda e Cor)
+    currentActiveTab = tabName;
+    modal.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
-    // Esconde todos os conteúdos via inline style (máxima prioridade CSS)
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.style.display = 'none';
+    // 3. Gerenciamento FORÇADO de visibilidade (Inline Style com !important)
+    // Esconde todos os containers de aba
+    modal.querySelectorAll('.tab-content').forEach(content => {
+        content.style.setProperty('display', 'none', 'important');
     });
 
-    // Exibe o conteúdo alvo
-    const targetContent = document.getElementById('tab-' + tabName);
+    // Exibe apenas o alvo
+    const targetContent = document.getElementById('tab-' + tabName.trim());
     if (targetContent) {
-        targetContent.style.display = 'block';
+        targetContent.style.setProperty('display', 'flex', 'important');
+    } else {
+        console.warn('Alvo de aba não encontrado:', 'tab-' + tabName);
     }
 }
 

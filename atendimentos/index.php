@@ -198,18 +198,19 @@ renderToastStyles();
     margin-top: 1rem;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.25rem;
 }
 .comment-item {
     background: var(--bg-surface-2nd);
-    padding: 1rem;
-    border-radius: var(--radius-md);
+    padding: 0.375rem 0.625rem;
+    border-radius: var(--radius-sm);
     font-size: 0.875rem;
+    border: 1px solid var(--border-color);
 }
 .comment-header {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.125rem;
     font-size: 0.75rem;
     color: var(--text-muted);
 }

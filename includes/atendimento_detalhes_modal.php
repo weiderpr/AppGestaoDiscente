@@ -37,7 +37,7 @@
                     <div style="flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 1.5rem; min-height: 0;">
                         
                         <!-- Tab: Informações -->
-                        <div id="tab-info" class="tab-content" style="display: block;">
+                        <div id="tab-info" class="tab-content tab-show" style="flex: 1; flex-direction: column; min-height: 0;">
                             
                             <h2 id="cdMainTitle" style="margin: 0 0 1.5rem 0; line-height: 1.2; font-size: 1.25rem; font-weight: 700;">Título</h2>
 
@@ -77,8 +77,8 @@
                         </div>
 
                         <!-- Tab: Timeline -->
-                        <div id="tab-timeline" class="tab-content" style="display: none;">
-                            <div id="cdTimelineSection" style="display: flex; flex-direction: column; height: 100%;">
+                        <div id="tab-timeline" class="tab-content tab-hide" style="flex: 1; flex-direction: column; min-height: 0;">
+                            <div id="cdTimelineSection" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
                                 <div style="background: var(--bg-surface-2nd); padding: 1.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); margin-bottom: 1rem; flex-shrink: 0;">
                                     <form id="formNewComment" style="display:flex; gap:0.75rem; flex-direction:column;">
                                         <textarea class="form-control" id="ncTexto" rows="2" placeholder="Escreva uma atualização ou observação..."></textarea>
@@ -100,7 +100,7 @@
                         </div>
 
                         <!-- Tab: Anexos -->
-                        <div id="tab-anexos" class="tab-content" style="display: none;">
+                        <div id="tab-anexos" class="tab-content tab-hide">
                             <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
                                 <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;">📎</div>
                                 <p style="font-size: 0.9375rem;">Funcionalidade de anexos em breve</p>
@@ -255,8 +255,8 @@
 }
 .tab-content {
 }
-.tab-show { display: block; height: 100%; overflow-y: auto; }
-.tab-hide { display: none; }
+.tab-show { display: flex !important; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.tab-hide { display: none !important; }
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
