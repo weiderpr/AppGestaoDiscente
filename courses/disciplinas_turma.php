@@ -218,6 +218,10 @@ require_once __DIR__ . '/../includes/header.php';
 .modal-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
 .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid var(--border-color);
     display: flex; gap: .75rem; justify-content: flex-end; }
+
+#aulasModal .modal { width: 80vw; max-width: 1200px; height: 80vh; display: flex; flex-direction: column; }
+#aulasModal .modal-body { flex: 1; min-height: 0; overflow: hidden; padding: 0; display: flex; flex-direction: column; }
+
 .prof-avatars { display: flex; align-items: center; gap: .25rem; }
 .prof-avatar {
     width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--bg-surface);
@@ -353,6 +357,11 @@ require_once __DIR__ . '/../includes/header.php';
                                     title="Gerenciar Professores">
                                 👨‍🏫
                             </button>
+                            <button class="action-btn" 
+                                    onclick='openAulasModal(<?= $turmaId ?>, "<?= $td['disciplina_codigo'] ?>", <?= json_encode($td['descricao']) ?>)'
+                                    title="Horários das Aulas">
+                                🗓️
+                            </button>
                             <form method="POST" style="display:inline;" onsubmit="return confirm('Remover esta disciplina da turma?');">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="action" value="remove_disciplina">
@@ -436,6 +445,19 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <div id="professorModalContent">
             <!-- Conteúdo carregado via AJAX -->
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Horários das Aulas -->
+<div class="modal-backdrop" id="aulasModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title" id="aulasModalTitle">🗓️ Gestão de Horários</span>
+            <button class="modal-close" onclick="closeAulasModal()">✕</button>
+        </div>
+        <div id="aulasModalContent" class="modal-body">
+            <!-- Conteúdo carregado via AJAX de aulas/manage.php -->
         </div>
     </div>
 </div>
@@ -534,16 +556,99 @@ function closeProfessorModal() {
     document.body.style.overflow = '';
 }
 
+// ---- GESTÃO DE AULAS (AULAS/MANAGE.PHP) ----
+function openAulasModal(turmaId, disciplinaCodigo, disciplinaNome) {
+    const container = document.getElementById('aulasModalContent');
+    container.innerHTML = '<div style="padding:4rem;text-align:center;color:var(--text-muted);">Carregando horários...</div>';
+    document.getElementById('aulasModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+    
+    document.getElementById('aulasModalTitle').textContent = `🗓️ Horários - ${disciplinaNome}`;
+
+    fetch(`aulas/manage.php?turma_id=${turmaId}&disciplina_codigo=${disciplinaCodigo}&disciplina_nome=${encodeURIComponent(disciplinaNome)}`)
+        .then(r => r.text())
+        .then(html => {
+            container.innerHTML = html;
+        })
+        .catch(err => {
+            container.innerHTML = '<div class="alert alert-danger">Erro ao carregar horários.</div>';
+        });
+}
+
+function closeAulasModal() {
+    document.getElementById('aulasModal').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+async function saveAula(event) {
+    event.preventDefault();
+    const form = event.target;
+    const btn = form.querySelector('button[type="submit"]');
+    const container = document.getElementById('aulasModalContent');
+
+    btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = 'Salvando...';
+
+    const formData = new FormData(form);
+    
+    try {
+        const res = await fetch('aulas/manage.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const html = await res.text();
+        container.innerHTML = html;
+    } catch(err) {
+        alert('Erro ao salvar aula.');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+async function deleteAula(id) {
+    if (!confirm('Deseja realmente excluir este horário?')) return;
+
+    const container = document.getElementById('aulasModalContent');
+    const form = document.getElementById('formAula');
+    const formData = new FormData();
+    
+    formData.append('action', 'delete_aula');
+    formData.append('aula_id', id);
+    formData.append('turma_id', form.turma_id.value);
+    formData.append('disciplina_codigo', form.disciplina_codigo.value);
+    formData.append('disciplina_nome', form.disciplina_nome.value);
+    formData.append('csrf_token', form.csrf_token.value);
+
+    try {
+        const res = await fetch('aulas/manage.php', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const html = await res.text();
+        container.innerHTML = html;
+    } catch(err) {
+        alert('Erro ao excluir aula.');
+    }
+}
+
 document.getElementById('addDisciplinaModal').addEventListener('click', function(e) {
     if (e.target === this) closeAddDisciplinaModal();
 });
 document.getElementById('professorModal').addEventListener('click', function(e) {
     if (e.target === this) closeProfessorModal();
 });
+document.getElementById('aulasModal').addEventListener('click', function(e) {
+    if (e.target === this) closeAulasModal();
+});
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeAddDisciplinaModal();
         closeProfessorModal();
+        closeAulasModal();
     }
 });
 </script>
