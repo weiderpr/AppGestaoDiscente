@@ -878,7 +878,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-async function openScheduleModal(alunoId, alunoNome, alunoPhoto = '') {
+async function openScheduleModal(alunoId, alunoNome, alunoPhoto = '', activeTab = 'grade') {
     showLoading('Carregando grade...');
     try {
         // Usar caminho relativo para evitar problemas com subdiretórios do servidor
@@ -887,65 +887,85 @@ async function openScheduleModal(alunoId, alunoNome, alunoPhoto = '') {
         const resp = await fetch(url, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
-        
-        if (!resp.ok) {
-            throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
-        }
-        
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
         const html = await resp.text();
-        
-        // Construir Cabeçalho com Foto (Padrão do Sistema)
-        let headerTitle = `Grade Horária Semanal`;
-        let photoHtml = `<div style="width:36px;height:36px;border-radius:50%;background:var(--color-primary);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.875rem;">${alunoNome.charAt(0).toUpperCase()}</div>`;
-        
-        if (alunoPhoto) {
-            photoHtml = `<img src="/${alunoPhoto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--border-color);">`;
-        }
 
         const customTitle = `
-            <div style="display:flex;align-items:center;gap:0.75rem;">
-                ${photoHtml}
-                <div style="text-align:left;">
-                    <div style="font-size:1rem;font-weight:700;line-height:1.2;color:var(--text-primary);">${alunoNome}</div>
-                    <div style="font-size:0.75rem;color:var(--text-muted);font-weight:400;">Grade Horária Semanal</div>
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+                ${alunoPhoto ? `<img src="${alunoPhoto}" style="width:32px; height:32px; border-radius:50%; object-fit:cover; border:2px solid var(--color-primary);">` : '🎓'}
+                <div style="display:flex; flex-direction:column; line-height:1.2;">
+                    <span>Grade Horária</span>
+                    <strong style="font-size:0.875rem; color:var(--text-secondary);">${alunoNome}</strong>
                 </div>
             </div>
         `;
 
         if (typeof Modal !== 'undefined') {
-            const modalId = Modal.open({
-                id: 'schedule_modal',
-                title: customTitle,
-                content: html,
-                size: 'xl'
-            });
-            
-            // Manual script execution because innerHTML doesn't run scripts
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-            const scripts = tempDiv.querySelectorAll('script');
-            scripts.forEach(oldScript => {
-                const newScript = document.createElement('script');
-                Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
-                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
-                document.body.appendChild(newScript);
-                newScript.parentNode.removeChild(newScript);
-            });
+            const existingModal = document.getElementById('schedule_modal');
+            const isAlreadyOpen = existingModal && !existingModal.classList.contains('modal-hide');
+
+            if (isAlreadyOpen) {
+                // Se já estiver aberto, apenas atualiza o conteúdo do corpo para evitar piscar o cabeçalho
+                const body = existingModal.querySelector('.modal-body');
+                if (body) {
+                    body.innerHTML = html;
+                    // Executar scripts no novo conteúdo
+                    const scripts = body.querySelectorAll('script');
+                    scripts.forEach(oldScript => {
+                        const newScript = document.createElement('script');
+                        Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+                        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                        document.body.appendChild(newScript);
+                        newScript.parentNode.removeChild(newScript);
+                    });
+                }
+            } else {
+                // Caso contrário, abre um novo modal completo
+                Modal.open({
+                    id: 'schedule_modal',
+                    title: customTitle,
+                    content: html,
+                    size: 'xl'
+                });
+
+                // Manual script execution
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html;
+                const scripts = tempDiv.querySelectorAll('script');
+                scripts.forEach(oldScript => {
+                    const newScript = document.createElement('script');
+                    Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+                    newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                    document.body.appendChild(newScript);
+                    newScript.parentNode.removeChild(newScript);
+                });
+            }
+
+            // Ativar a aba correta após o carregamento
+            setTimeout(() => {
+                const btn = document.querySelector(`.tab-btn[data-tab="${activeTab}"]`);
+                if (btn) btn.click();
+            }, 50);
             
             setTimeout(() => {
-                const modal = document.getElementById(modalId);
+                const modal = document.getElementById('schedule_modal');
                 if (modal) {
                     const body = modal.querySelector('.modal-body');
                     if (body) {
                         body.style.padding = '0';
-                        body.style.overflow = 'auto';
-                        body.style.maxHeight = '80vh';
+                        body.style.overflow = 'hidden';
+                        body.scrollTop = 0;
                     }
                 }
-            }, 100);
+            }, 50);
         }
-    } catch (e) {
-        if (typeof Toast !== 'undefined') Toast.show(`Erro: ${e.message}`, 'danger');
+    } catch (error) {
+        console.error('Erro ao carregar grade:', error);
+        Modal.open({
+            title: 'Erro',
+            content: `<div class="alert alert-danger" style="margin:1.5rem;">Erro ao carregar grade do aluno: ${error.message}</div>`,
+            size: 'md'
+        });
     } finally {
         hideLoading();
     }

@@ -6,14 +6,22 @@ require_once __DIR__ . '/../../includes/auth.php';
 requireLogin();
 
 $db     = getDB();
-$inst   = getCurrentInstitution();
-$instId = $inst['id'];
 
 $alunoId = (int)($_GET['aluno_id'] ?? 0);
 if (!$alunoId) {
     echo 'Erro: Aluno ID Inválido';
     exit;
 }
+
+// 0. Buscar Foto e Nome do Aluno (para persistir no refresh)
+$stAluno = $db->prepare('SELECT nome, photo FROM alunos WHERE id = ?');
+$stAluno->execute([$alunoId]);
+$alunoData = $stAluno->fetch();
+$alunoPhoto = ($alunoData && isset($alunoData['photo'])) ? $alunoData['photo'] : '';
+$alunoNome  = ($alunoData && isset($alunoData['nome'])) ? $alunoData['nome'] : 'Aluno';
+
+$inst   = getCurrentInstitution();
+$instId = $inst['id'];
 
 // 1. Buscar Turma do Aluno
 $stTurma = $db->prepare('
@@ -45,7 +53,7 @@ if ($turmaId > 0) {
         SELECT a.*, d.descricao as disciplina_nome, "aula" as tipo
         FROM gestao_turma_aulas a
         JOIN disciplinas d ON d.codigo = a.disciplina_codigo
-        WHERE a.turma_id = ? AND a.is_active = 1
+        WHERE a.turma_id = ?
     ');
     $stAulas->execute([$turmaId]);
     $aulas = $stAulas->fetchAll();
@@ -62,6 +70,80 @@ $atividades = $stExtra->fetchAll();
 
 // Mesclar tudo para a Grade
 $eventos = array_merge($aulas, $atividades);
+
+// --- LÓGICA DE ANÁLISE ---
+$stats = [
+    'academic_min' => 0,
+    'extra_min'    => 0,
+    'daily'        => array_fill(1, 6, 0)
+];
+
+foreach ($eventos as $ev) {
+    $t1 = strtotime($ev['horario_inicio']);
+    $t2 = strtotime($ev['horario_fim']);
+    $diff = ($t2 - $t1) / 60;
+    if ($diff < 0) $diff = 0;
+
+    if ($ev['tipo'] === 'aula') $stats['academic_min'] += $diff;
+    else $stats['extra_min'] += $diff;
+
+    if (isset($stats['daily'][$ev['dia_semana']])) {
+        $stats['daily'][$ev['dia_semana']] += $diff;
+    }
+}
+
+function formatMinutos($min) {
+    if ($min <= 0) return '0h';
+    $h = floor($min / 60);
+    $m = $min % 60;
+    return $h . "h " . ($m > 0 ? $m . "min" : "");
+}
+
+// --- LÓGICA DE ESFORÇO ACADÊMICO (Neuroeducação) ---
+$totalMinutosT = $stats['academic_min'] + $stats['extra_min'];
+$mediaDiariaT  = $totalMinutosT / 6;
+
+$escalas = [
+    'ideal' => [
+        'label' => 'Ideal',
+        'color' => '#10b981', 
+        'bg'    => 'rgba(16, 185, 129, 0.1)',
+        'hint'  => 'Alta retenção cognitiva e equilíbrio total.',
+        'msg'   => 'Até 6h/dia (30h/sem). Perfeito para o aprendizado profundo.'
+    ],
+    'razoavel' => [
+        'label' => 'Razoável',
+        'color' => '#06b6d4', 
+        'bg'    => 'rgba(6, 182, 212, 0.1)',
+        'hint'  => 'Limite do esforço sustentável.',
+        'msg'   => '7h a 8h/dia (35-40h/sem). Requer atenção contínua.'
+    ],
+    'excessiva' => [
+        'label' => 'Excessiva',
+        'color' => '#f59e0b', 
+        'bg'    => 'rgba(245, 158, 11, 0.1)',
+        'hint'  => 'Risco de fadiga cognitiva.',
+        'msg'   => '9h a 10h/dia (45-50h/sem). Queda de desempenho iminente.'
+    ],
+    'critica' => [
+        'label' => 'Crítica',
+        'color' => '#ef4444', 
+        'bg'    => 'rgba(239, 68, 68, 0.1)',
+        'hint'  => 'Zona de Burnout / Exaustão.',
+        'msg'   => '>10h/dia (>55h/sem). Privação de sono e fadiga severa.'
+    ]
+];
+
+$nivelKey = 'ideal';
+if ($mediaDiariaT > 600) $nivelKey = 'critica';
+elseif ($mediaDiariaT > 480) $nivelKey = 'excessiva';
+elseif ($mediaDiariaT > 360) $nivelKey = 'razoavel';
+
+$diag = $escalas[$nivelKey];
+
+// --- CONFIGURAÇÃO DA GRADE ---
+$minHour = 7; // Padrão Inicial
+$maxHour = 22; // Padrão Final
 
 if (!empty($eventos)) {
     $firstClass = 23;
@@ -112,7 +194,7 @@ function timeToRowIndex($time, $startHour) {
 }
 ?>
 
-<div class="schedule-grid-wrap">
+<div class="schedule-grid-wrap" data-student-photo="<?= htmlspecialchars($alunoPhoto ?? '') ?>">
     
     <!-- Tab Navigation -->
     <div class="modal-tabs-on-grid">
@@ -121,6 +203,9 @@ function timeToRowIndex($time, $startHour) {
         </button>
         <button class="tab-btn" data-tab="atividades" onclick="switchStudentTab(this, 'atividades')">
             <span>📝</span> Atividades
+        </button>
+        <button class="tab-btn" data-tab="analise" onclick="switchStudentTab(this, 'analise')">
+            <span>📊</span> Análise
         </button>
     </div>
 
@@ -286,12 +371,92 @@ function timeToRowIndex($time, $startHour) {
         </div>
     </div>
 
+    <!-- Tab Content: Análise -->
+    <div id="tab-analise" class="tab-content-pane" style="display:none;">
+        <div class="analysis-container">
+            
+            <!-- KPIs Compactos -->
+            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:0.75rem; margin-bottom:1rem;">
+                <div class="stat-badge">
+                    <div class="stat-badge-val"><?= formatMinutos($totalMinutosT) ?></div>
+                    <div class="stat-badge-lbl">Total Semanal</div>
+                </div>
+                <div class="stat-badge">
+                    <div class="stat-badge-val"><?= $totalMinutosT > 0 ? round(($stats['academic_min'] / $totalMinutosT) * 100) : 0 ?>%</div>
+                    <div class="stat-badge-lbl">Acadêmico</div>
+                </div>
+                <div class="stat-badge">
+                    <div class="stat-badge-val"><?= $totalMinutosT > 0 ? round(($stats['extra_min'] / $totalMinutosT) * 100) : 0 ?>%</div>
+                    <div class="stat-badge-lbl">Extra</div>
+                </div>
+            </div>
+
+            <!-- Diagnóstico de Esforço -->
+            <div class="diagnostic-card" style="border-left-color: <?= $diag['color'] ?>; background: <?= $diag['bg'] ?>;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
+                    <div>
+                        <div style="font-size:0.6875rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Diagnóstico Neuroeducacional</div>
+                        <div style="font-size:1.125rem; font-weight:800; color:<?= $diag['color'] ?>;">Esforço: <?= $diag['label'] ?></div>
+                    </div>
+                    <div style="font-size:1.5rem;">🎓</div>
+                </div>
+                <div style="font-size:0.8125rem; font-weight:700; color:var(--text-primary); margin-bottom:0.25rem;"><?= $diag['hint'] ?></div>
+                <div style="font-size:0.75rem; color:var(--text-secondary); line-height:1.4;"><?= $diag['msg'] ?></div>
+            </div>
+
+            <!-- Distribuição Diária Compacta -->
+            <div class="daily-breakdown">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                    <h5 style="font-size:0.75rem; font-weight:800; color:var(--text-muted); margin:0; text-transform:uppercase; letter-spacing:0.05em;">Carga Diária</h5>
+                    <div style="font-size:0.6875rem; font-weight:700; color:var(--text-secondary); background:var(--bg-surface-2nd); padding:2px 6px; border-radius:4px;">Média: <?= formatMinutos($mediaDiariaT) ?></div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:0.625rem;">
+                    <?php 
+                    $maxDaily = max(max($stats['daily']), 1);
+                    foreach ($diasLabels as $d => $label): 
+                        $pct = ($stats['daily'][$d] / $maxDaily) * 100;
+                        $isHeavy = ($stats['daily'][$d] === max($stats['daily']) && max($stats['daily']) > 0);
+                    ?>
+                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                            <div style="width:50px; font-size:0.6875rem; font-weight:700; color:<?= $isHeavy ? 'var(--color-primary)' : 'var(--text-muted)' ?>;"><?= substr($label, 0, 3) ?>.</div>
+                            <div style="flex:1; height:6px; background:var(--bg-surface-2nd); border-radius:3px; overflow:hidden;">
+                                <div style="height:100%; width:<?= $pct ?>%; background:<?= $isHeavy ? 'var(--color-primary)' : 'var(--text-secondary)' ?>; opacity:0.7; border-radius:3px;"></div>
+                            </div>
+                            <div style="width:50px; font-size:0.6875rem; font-weight:700; color:var(--text-secondary); text-align:right;">
+                                <?= formatMinutos($stats['daily'][$d]) ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
 </div>
 
 <script>
 /**
  * Tab Switching Logic
  */
+function switchStudentTab(btn, tabId) {
+    const container = btn.closest('.schedule-grid-wrap');
+    if (!container) return;
+
+    // Toggle Buttons
+    container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    // Toggle Panes
+    container.querySelectorAll('.tab-content-pane').forEach(p => p.style.display = 'none');
+    const target = container.querySelector('#tab-' + tabId);
+    if (target) {
+        target.style.display = 'flex';
+        target.style.flexDirection = 'column';
+        target.style.flex = '1';
+    }
+}
+
 /**
  * Activity CRUD Logic
  */
@@ -324,8 +489,13 @@ async function saveActivity(e) {
         
         if (res.success) {
             Toast.show(res.message, 'success');
-            // Recarregar o modal para atualizar grade e lista
-            openScheduleModal(alunoId, document.querySelector('.modal-title strong')?.innerText || 'Aluno');
+            // Recarregar mantendo o contexto
+            const container = document.querySelector('.schedule-grid-wrap');
+            const photo     = container?.dataset.studentPhoto || '';
+            const name      = document.querySelector('.modal-title strong, .modal-title div')?.innerText || 'Aluno';
+            const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'atividades';
+            
+            openScheduleModal(alunoId, name, photo, activeTab);
         } else {
             Toast.show(res.message, 'danger');
         }
@@ -372,7 +542,12 @@ async function deleteActivity(id) {
         
         if (res.success) {
             Toast.show(res.message, 'success');
-            openScheduleModal(alunoId, document.querySelector('.modal-title strong')?.innerText || 'Aluno');
+            const container = document.querySelector('.schedule-grid-wrap');
+            const photo     = container?.dataset.studentPhoto || '';
+            const name      = document.querySelector('.modal-title strong, .modal-title div')?.innerText || 'Aluno';
+            const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'atividades';
+            
+            openScheduleModal(alunoId, name, photo, activeTab);
         } else {
             Toast.show(res.message, 'danger');
         }
@@ -380,34 +555,17 @@ async function deleteActivity(id) {
         Toast.show('Erro ao excluir atividade.', 'danger');
     }
 }
-
-function switchStudentTab(btn, tabId) {
-    const container = btn.closest('.schedule-grid-wrap');
-    if (!container) return;
-
-    // Toggle Buttons
-    container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-
-    // Toggle Panes
-    container.querySelectorAll('.tab-content-pane').forEach(p => p.style.display = 'none');
-    const target = container.querySelector('#tab-' + tabId);
-    if (target) {
-        target.style.display = 'flex';
-        target.style.flexDirection = 'column';
-        target.style.flex = '1';
-    }
-}
 </script>
 
 <style>
 .schedule-grid-wrap {
-    height: 80vh; /* Mantém o modal com tamanho fixo ao alternar abas */
+    height: 80vh; 
     display: flex;
     flex-direction: column;
-    padding: 0; /* Padding movido para as abas */
+    padding: 0; 
     box-sizing: border-box;
     background: var(--bg-surface);
+    overflow: hidden; /* Scroll movido apenas para o interior das abas */
 }
 
 .modal-tabs-on-grid {
@@ -455,6 +613,53 @@ function switchStudentTab(btn, tabId) {
 
 .tab-content-pane.active {
     display: flex;
+}
+
+/* Analysis Tab Styles */
+.analysis-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.stat-badge {
+    background: var(--bg-surface-2nd);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 0.625rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.stat-badge-val {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.stat-badge-lbl {
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.diagnostic-card {
+    border: 1px solid var(--border-color);
+    border-left-width: 5px;
+    border-radius: var(--radius-lg);
+    padding: 1.125rem;
+}
+
+.daily-breakdown {
+    background: var(--bg-surface-2nd);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
 }
 
 /* Activities CRUD Styles */
