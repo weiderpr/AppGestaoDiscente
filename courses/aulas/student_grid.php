@@ -218,8 +218,7 @@ function timeToRowIndex($time, $startHour, $slotsPerHour) {
     display: grid;
     grid-template-columns: 80px repeat(6, 1fr);
     grid-template-rows: 50px repeat(<?= ($horaFimGlobal - $horaInicioGlobal) * $slotsPorHora ?>, 25px);
-    background: var(--border-color);
-    gap: 1px;
+    position: relative;
     min-width: 900px; /* Garante que as colunas apareçam bem */
 }
 
@@ -306,17 +305,18 @@ function timeToRowIndex($time, $startHour, $slotsPerHour) {
 
 .aula-meta span { display: block; margin-top: 2px; }
 
-/* Adicionar linhas de fundo para facilitar leitura */
+/* Linhas discretas na área das aulas */
 .schedule-grid::after {
     content: '';
-    grid-column: 1 / -1;
-    grid-row: 1 / -1;
+    grid-column: 2 / -1;
+    grid-row: 2 / -1;
     z-index: 1;
     pointer-events: none;
-    /* Grid de fundo */
+    /* Linhas discretas: vertical (dias) e horizontal (horários) */
     background-image: 
         linear-gradient(to right, var(--border-color) 1px, transparent 1px),
         linear-gradient(to bottom, var(--border-color) 1px, transparent 1px);
-    background-size: calc(100% / 7) 25px;
+    background-size: calc(100% / 6) 25px;
+    opacity: 0.4;
 }
 </style>
