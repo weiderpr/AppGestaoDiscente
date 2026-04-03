@@ -28,34 +28,45 @@ $stTurma->execute([$alunoId]);
 $turmaInfo = $stTurma->fetch();
 
 if (!$turmaInfo) {
-    echo '<div style="padding:4rem; text-align:center; color:var(--text-muted);">';
-    echo '<div style="font-size:3rem; margin-bottom:1rem;">🔍</div>';
-    echo '<p>Não encontramos uma turma ativa vinculada a este aluno (ID: '.$alunoId.').</p>';
-    echo '</div>';
-    exit;
+    // Caso o aluno não tenha turma, não exibimos erro. Apenas grade vazia + aba de atividades.
+    $turmaId = 0;
+    $turmaInfo = [
+        'turma_nome' => 'Sem Turma Vinculada',
+        'curso_nome' => 'Atividades Extra-curriculares'
+    ];
+} else {
+    $turmaId = $turmaInfo['id'];
 }
 
-$turmaId = $turmaInfo['id'];
-
 // 2. Buscar Aulas da Turma
-$stAulas = $db->prepare('
-    SELECT a.*, d.descricao as disciplina_nome
-    FROM gestao_turma_aulas a
-    JOIN disciplinas d ON d.codigo = a.disciplina_codigo
-    WHERE a.turma_id = ? AND a.is_active = 1
-    ORDER BY a.dia_semana, a.horario_inicio
+$aulas = [];
+if ($turmaId > 0) {
+    $stAulas = $db->prepare('
+        SELECT a.*, d.descricao as disciplina_nome, "aula" as tipo
+        FROM gestao_turma_aulas a
+        JOIN disciplinas d ON d.codigo = a.disciplina_codigo
+        WHERE a.turma_id = ? AND a.is_active = 1
+    ');
+    $stAulas->execute([$turmaId]);
+    $aulas = $stAulas->fetchAll();
+}
+
+// 3. Buscar Atividades Extra-curriculares
+$stExtra = $db->prepare('
+    SELECT *, titulo as disciplina_nome, "extra" as tipo 
+    FROM gestao_alunos_atividadesextra 
+    WHERE aluno_id = ? AND is_active = 1
 ');
-$stAulas->execute([$turmaId]);
-$aulas = $stAulas->fetchAll();
+$stExtra->execute([$alunoId]);
+$atividades = $stExtra->fetchAll();
 
-// Dynamic Time Range Calculation
-$minHour = 7; // Default Lower Limit
-$maxHour = 22; // Default Upper Limit
+// Mesclar tudo para a Grade
+$eventos = array_merge($aulas, $atividades);
 
-if (!empty($aulas)) {
+if (!empty($eventos)) {
     $firstClass = 23;
     $lastClass  = 0;
-    foreach ($aulas as $a) {
+    foreach ($eventos as $a) {
         $start = (int)explode(':', $a['horario_inicio'])[0];
         $end   = (int)explode(':', $a['horario_fim'])[0];
         if ($start < $firstClass) $firstClass = $start;
@@ -136,21 +147,23 @@ function timeToRowIndex($time, $startHour) {
                     </div>
                 <?php endfor; ?>
 
-                <!-- Aulas -->
-                <?php foreach ($aulas as $aula): ?>
+                <!-- Eventos (Aulas e Extras) -->
+                <?php foreach ($eventos as $aula): ?>
                     <?php 
                         $rowStart = timeToRowIndex($aula['horario_inicio'], $horaInicioGlobal);
                         $rowEnd   = timeToRowIndex($aula['horario_fim'], $horaInicioGlobal);
                         $diaCol   = $aula['dia_semana'] + 1;
                         
-                        // Gerar cor baseada na disciplina (puro visual)
-                        $colorSeed = md5($aula['disciplina_codigo']);
-                        $hue = hexdec(substr($colorSeed, 0, 2)) % 360;
+                        // Gerar cor baseada no tipo e nome
+                        $isExtra   = ($aula['tipo'] === 'extra');
+                        $colorSeed = md5($aula['disciplina_nome'] . ($isExtra ? 'extra' : 'aula'));
+                        $hue       = hexdec(substr($colorSeed, 0, 2)) % 360;
                     ?>
-                    <div class="grid-item-aula" 
+                    <div class="grid-item-aula <?= $isExtra ? 'is-extra' : '' ?>" 
                          style="grid-column: <?= $diaCol ?>; grid-row: <?= $rowStart ?> / <?= $rowEnd ?>; --item-hue: <?= $hue ?>;">
                         <div class="aula-content">
                             <div class="aula-title" title="<?= htmlspecialchars($aula['disciplina_nome']) ?>">
+                                <?= $isExtra ? '<span class="extra-badge">EXTRA</span> ' : '' ?>
                                 <?= htmlspecialchars($aula['disciplina_nome']) ?>
                             </div>
                             <div class="aula-meta">
@@ -169,10 +182,107 @@ function timeToRowIndex($time, $startHour) {
 
     <!-- Tab Content: Atividades -->
     <div id="tab-atividades" class="tab-content-pane" style="display:none;">
-        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:3rem; color:var(--text-muted); background:var(--bg-surface-2nd); border:1px solid var(--border-color); border-radius:var(--radius-xl);">
-            <div style="font-size:3rem; margin-bottom:1rem; opacity:0.5;">📝</div>
-            <h4 style="margin:0; font-size:1.1rem; color:var(--text-primary);">Atividades e Tarefas</h4>
-            <p style="margin:0.5rem 0 0; font-size:0.875rem;">Em breve: Acompanhamento de atividades e entregas do aluno.</p>
+        <div class="activities-manager">
+            <div class="activities-header">
+                <h4 style="margin:0; font-size:1rem; color:var(--text-primary);">📍 Minhas Atividades Extras</h4>
+                <button class="btn btn-primary btn-sm" onclick="toggleActivityForm()">+ Adicionar</button>
+            </div>
+
+            <!-- Form: Nova/Editar Atividade -->
+            <div id="activityFormContainer" style="display:none; background:var(--bg-surface-2nd); padding:1.25rem; border-radius:var(--radius-lg); border:1px solid var(--border-color); margin-bottom:1.5rem;">
+                <form id="activityForm" onsubmit="saveActivity(event)">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="id" id="act_id" value="">
+                    <input type="hidden" name="aluno_id" value="<?= $alunoId ?>">
+                    
+                    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">
+                        <div class="form-group">
+                            <label class="form-label">Título da Atividade</label>
+                            <input type="text" name="titulo" id="act_titulo" class="form-control" placeholder="Ex: Natação, Inglês..." required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Dia da Semana</label>
+                            <select name="dia_semana" id="act_dia" class="form-control" required>
+                                <?php foreach ($diasLabels as $val => $label): ?>
+                                    <option value="<?= $val ?>"><?= $label ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">
+                        <div class="form-group">
+                            <label class="form-label">Início</label>
+                            <input type="time" name="horario_inicio" id="act_inicio" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Término</label>
+                            <input type="time" name="horario_fim" id="act_fim" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Data Inicial</label>
+                            <input type="date" name="data_inicio" id="act_data_ini" class="form-control" placeholder="Indeterminado">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Data Final</label>
+                            <input type="date" name="data_fim" id="act_data_fim" class="form-control" placeholder="Indeterminado">
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:0.75rem;">
+                        <label class="form-label">Local</label>
+                        <input type="text" name="local" id="act_local" class="form-control" placeholder="Opcional">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:1rem;">
+                        <label class="form-label">Descrição</label>
+                        <textarea name="descricao" id="act_desc" class="form-control" rows="2"></textarea>
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="toggleActivityForm()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary btn-sm">💾 Salvar Atividade</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="activitiesList" class="activities-list">
+                <?php if (empty($atividades)): ?>
+                    <div style="text-align:center; padding:3rem; color:var(--text-muted);">
+                        <div style="font-size:2.5rem; margin-bottom:0.5rem; opacity:0.3;">📝</div>
+                        <p>Nenhuma atividade extracurricular cadastrada.</p>
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($atividades as $act): ?>
+                        <div class="activity-card" data-act='<?= json_encode($act) ?>'>
+                            <div class="activity-info">
+                                <div class="activity-title"><?= htmlspecialchars($act['titulo']) ?></div>
+                                <div class="activity-meta">
+                                    <div style="display:flex; gap:0.75rem; margin-bottom:2px;">
+                                        <span>🗓️ <?= $diasLabels[$act['dia_semana']] ?></span>
+                                        <span>🕒 <?= substr($act['horario_inicio'], 0, 5) ?> - <?= substr($act['horario_fim'], 0, 5) ?></span>
+                                    </div>
+                                    <div style="font-size:0.6875rem; color:var(--text-muted); display:flex; align-items:center; gap:0.375rem;">
+                                        <span>📅 Período:</span>
+                                        <?php if ($act['data_inicio'] || $act['data_fim']): ?>
+                                            <span><?= $act['data_inicio'] ? date('d/m/y', strtotime($act['data_inicio'])) : '...' ?></span>
+                                            <span>até</span>
+                                            <span><?= $act['data_fim'] ? date('d/m/y', strtotime($act['data_fim'])) : 'Indeterminado' ?></span>
+                                        <?php else: ?>
+                                            <span>Indeterminado</span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php if ($act['local']): ?><div style="margin-top:2px;">📍 <?= htmlspecialchars($act['local']) ?></div><?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="activity-actions">
+                                <button onclick="editActivity(this)" class="btn-icon" title="Editar">✏️</button>
+                                <button onclick="deleteActivity(<?= $act['id'] ?>)" class="btn-icon danger" title="Excluir">🗑️</button>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 
@@ -182,6 +292,95 @@ function timeToRowIndex($time, $startHour) {
 /**
  * Tab Switching Logic
  */
+/**
+ * Activity CRUD Logic
+ */
+function toggleActivityForm() {
+    const container = document.getElementById('activityFormContainer');
+    const form = document.getElementById('activityForm');
+    if (container.style.display === 'none') {
+        form.reset();
+        document.getElementById('act_id').value = '';
+        container.style.display = 'block';
+        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+        container.style.display = 'none';
+    }
+}
+
+async function saveActivity(e) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const alunoId = formData.get('aluno_id');
+    
+    try {
+        const resp = await fetch('aulas/student_activities_ajax.php?action=save', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const res = await resp.json();
+        
+        if (res.success) {
+            Toast.show(res.message, 'success');
+            // Recarregar o modal para atualizar grade e lista
+            openScheduleModal(alunoId, document.querySelector('.modal-title strong')?.innerText || 'Aluno');
+        } else {
+            Toast.show(res.message, 'danger');
+        }
+    } catch (err) {
+        Toast.show('Erro ao salvar atividade.', 'danger');
+    }
+}
+
+function editActivity(btn) {
+    const card = btn.closest('.activity-card');
+    const data = JSON.parse(card.dataset.act);
+    
+    document.getElementById('act_id').value = data.id;
+    document.getElementById('act_titulo').value = data.titulo;
+    document.getElementById('act_dia').value = data.dia_semana;
+    document.getElementById('act_inicio').value = data.horario_inicio;
+    document.getElementById('act_fim').value = data.horario_fim;
+    document.getElementById('act_data_ini').value = data.data_inicio || '';
+    document.getElementById('act_data_fim').value = data.data_fim || '';
+    document.getElementById('act_local').value = data.local || '';
+    document.getElementById('act_desc').value = data.descricao || '';
+    
+    const container = document.getElementById('activityFormContainer');
+    container.style.display = 'block';
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function deleteActivity(id) {
+    if (!confirm('Deseja realmente excluir esta atividade?')) return;
+    
+    const alunoId = <?= $alunoId ?>;
+    const formData = new FormData();
+    formData.append('id', id);
+    formData.append('aluno_id', alunoId);
+    formData.append('csrf_token', '<?= csrf_token() ?>');
+    
+    try {
+        const resp = await fetch('aulas/student_activities_ajax.php?action=delete', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const res = await resp.json();
+        
+        if (res.success) {
+            Toast.show(res.message, 'success');
+            openScheduleModal(alunoId, document.querySelector('.modal-title strong')?.innerText || 'Aluno');
+        } else {
+            Toast.show(res.message, 'danger');
+        }
+    } catch (err) {
+        Toast.show('Erro ao excluir atividade.', 'danger');
+    }
+}
+
 function switchStudentTab(btn, tabId) {
     const container = btn.closest('.schedule-grid-wrap');
     if (!container) return;
@@ -256,6 +455,102 @@ function switchStudentTab(btn, tabId) {
 
 .tab-content-pane.active {
     display: flex;
+}
+
+/* Activities CRUD Styles */
+.activities-manager {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    height: 100%;
+}
+
+.activities-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.activities-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+    overflow-y: auto;
+}
+
+.activity-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.activity-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.activity-title {
+    font-weight: 700;
+    font-size: 0.9375rem;
+    color: var(--text-primary);
+    margin-bottom: 0.375rem;
+}
+
+.activity-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.activity-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-icon:hover {
+    background: var(--bg-surface-2nd);
+}
+
+.btn-icon.danger:hover {
+    background: #fee2e2;
+}
+
+/* Grid Integration Styles */
+.grid-item-aula.is-extra {
+    border-left-style: dashed;
+    background: hsla(var(--item-hue), 80%, 97%, 0.85);
+}
+
+.extra-badge {
+    font-size: 0.6rem;
+    font-weight: 800;
+    background: hsla(var(--item-hue), 70%, 50%, 0.15);
+    color: hsla(var(--item-hue), 70%, 40%, 1);
+    padding: 1px 4px;
+    border-radius: 4px;
+    margin-right: 4px;
+    border: 1px solid hsla(var(--item-hue), 70%, 50%, 0.3);
 }
 
 .schedule-container {
