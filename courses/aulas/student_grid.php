@@ -141,6 +141,47 @@ elseif ($mediaDiariaT > 360) $nivelKey = 'razoavel';
 
 $diag = $escalas[$nivelKey];
 
+// --- ANÁLISE PREMIUM (Turnos, Janelas e Consistência) ---
+$turnos = ['Manhã (07-13h)' => 0, 'Tarde (13-19h)' => 0, 'Noite (19-00h)' => 0];
+$janelasLazer = 0;
+$payloads = [];
+
+foreach ($diasLabels as $d => $label) {
+    $eventosDia = array_filter($eventos, fn($e) => $e['dia_semana'] == $d);
+    usort($eventosDia, fn($a, $b) => strcmp($a['horario_inicio'], $b['horario_inicio']));
+    
+    $totalDia = 0;
+    $lastEnd = '08:00:00';
+    
+    foreach ($eventosDia as $ev) {
+        $ini = $ev['horario_inicio'];
+        $fim = $ev['horario_fim'];
+        
+        // Janelas de Lazer (entre 08h e 20h)
+        $t1 = strtotime($ini);
+        $t0 = strtotime($lastEnd);
+        if ($t1 > $t0 && $t1 <= strtotime('20:00:00')) {
+            if (($t1 - $t0) >= 3600) $janelasLazer++;
+        }
+        $lastEnd = max($lastEnd, $fim);
+
+        // Turnos
+        $hIni = (int)explode(':', $ini)[0];
+        $dur  = (strtotime($fim) - strtotime($ini)) / 60;
+        $totalDia += $dur;
+
+        if ($hIni < 13) $turnos['Manhã (07-13h)'] += $dur;
+        elseif ($hIni < 19) $turnos['Tarde (13-19h)'] += $dur;
+        else $turnos['Noite (19-00h)'] += $dur;
+    }
+    if ($totalDia > 0) $payloads[] = $totalDia;
+}
+
+arsort($turnos);
+$turnoPredom = key($turnos);
+$consistencia = count($payloads) > 1 ? (max($payloads) - min($payloads)) : 0;
+$consistenciaLabel = ($consistencia < 120) ? 'Estável' : (($consistencia < 240) ? 'Variável' : 'Irregular');
+
 // --- CONFIGURAÇÃO DA GRADE ---
 $minHour = 7; // Padrão Inicial
 $maxHour = 22; // Padrão Final
@@ -373,63 +414,93 @@ function timeToRowIndex($time, $startHour) {
 
     <!-- Tab Content: Análise -->
     <div id="tab-analise" class="tab-content-pane" style="display:none;">
-        <div class="analysis-container">
+        <div class="analysis-dashboard">
             
-            <!-- KPIs Compactos -->
-            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:0.75rem; margin-bottom:1rem;">
-                <div class="stat-badge">
-                    <div class="stat-badge-val"><?= formatMinutos($totalMinutosT) ?></div>
-                    <div class="stat-badge-lbl">Total Semanal</div>
-                </div>
-                <div class="stat-badge">
-                    <div class="stat-badge-val"><?= $totalMinutosT > 0 ? round(($stats['academic_min'] / $totalMinutosT) * 100) : 0 ?>%</div>
-                    <div class="stat-badge-lbl">Acadêmico</div>
-                </div>
-                <div class="stat-badge">
-                    <div class="stat-badge-val"><?= $totalMinutosT > 0 ? round(($stats['extra_min'] / $totalMinutosT) * 100) : 0 ?>%</div>
-                    <div class="stat-badge-lbl">Extra</div>
-                </div>
-            </div>
-
-            <!-- Diagnóstico de Esforço -->
-            <div class="diagnostic-card" style="border-left-color: <?= $diag['color'] ?>; background: <?= $diag['bg'] ?>;">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
-                    <div>
-                        <div style="font-size:0.6875rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Diagnóstico Neuroeducacional</div>
-                        <div style="font-size:1.125rem; font-weight:800; color:<?= $diag['color'] ?>;">Esforço: <?= $diag['label'] ?></div>
+            <!-- Diagnóstico Principal (Header) -->
+            <div class="diag-header-compact" style="border-left-color: <?= $diag['color'] ?>; background: <?= $diag['bg'] ?>;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-size:1.125rem; font-weight:800; color:<?= $diag['color'] ?>;">
+                        <span style="font-size:0.625rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; display:block; letter-spacing:0.1em; margin-bottom:2px;">Status de Esforço</span>
+                        <?= $diag['label'] ?>
                     </div>
-                    <div style="font-size:1.5rem;">🎓</div>
+                    <div class="stat-badge-mini" style="background:#fff; border:1px solid <?= $diag['color'] ?>70; color:<?= $diag['color'] ?>;">
+                        <?= round($mediaDiariaT / 60, 1) ?>h/dia
+                    </div>
                 </div>
-                <div style="font-size:0.8125rem; font-weight:700; color:var(--text-primary); margin-bottom:0.25rem;"><?= $diag['hint'] ?></div>
-                <div style="font-size:0.75rem; color:var(--text-secondary); line-height:1.4;"><?= $diag['msg'] ?></div>
             </div>
 
-            <!-- Distribuição Diária Compacta -->
-            <div class="daily-breakdown">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-                    <h5 style="font-size:0.75rem; font-weight:800; color:var(--text-muted); margin:0; text-transform:uppercase; letter-spacing:0.05em;">Carga Diária</h5>
-                    <div style="font-size:0.6875rem; font-weight:700; color:var(--text-secondary); background:var(--bg-surface-2nd); padding:2px 6px; border-radius:4px;">Média: <?= formatMinutos($mediaDiariaT) ?></div>
+            <!-- Dashboard Grid -->
+            <div class="analysis-grid">
+                
+                <!-- Coluna Esquerda: Carga e Saúde -->
+                <div class="analysis-col">
+                    <div class="premium-card">
+                        <div class="card-title-mini">Neurologia do Aprendizado</div>
+                        <p style="font-size:0.75rem; color:var(--text-primary); font-weight:700; margin:0.5rem 0 0.25rem 0;"><?= $diag['hint'] ?></p>
+                        <p style="font-size:0.6875rem; color:var(--text-secondary); line-height:1.4; margin:0;"><?= $diag['msg'] ?></p>
+                    </div>
+
+                    <div class="premium-card" style="margin-top:0.75rem;">
+                        <div class="card-title-mini">Carga Diária (Evolução)</div>
+                        <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.75rem;">
+                            <?php 
+                            $maxDaily = max(max($stats['daily']), 1);
+                            foreach ($diasLabels as $d => $label): 
+                                $pct = ($stats['daily'][$d] / $maxDaily) * 100;
+                                $isHeavy = ($stats['daily'][$d] === max($stats['daily']) && max($stats['daily']) > 0);
+                            ?>
+                                <div style="display:flex; align-items:center; gap:0.5rem;">
+                                    <span style="width:28px; font-size:0.625rem; font-weight:800; color:var(--text-muted);"><?= substr($label, 0, 3) ?></span>
+                                    <div style="flex:1; height:4px; background:var(--bg-surface-2nd); border-radius:2px; overflow:hidden;">
+                                        <div style="height:100%; width:<?= $pct ?>%; background:<?= $isHeavy ? 'var(--color-primary)' : 'var(--text-secondary)' ?>; opacity:0.8;"></div>
+                                    </div>
+                                    <span style="width:35px; font-size:0.625rem; font-weight:700; color:var(--text-secondary); text-align:right;"><?= round($stats['daily'][$d]/60,1) ?>h</span>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
                 </div>
-                <div style="display:flex; flex-direction:column; gap:0.625rem;">
-                    <?php 
-                    $maxDaily = max(max($stats['daily']), 1);
-                    foreach ($diasLabels as $d => $label): 
-                        $pct = ($stats['daily'][$d] / $maxDaily) * 100;
-                        $isHeavy = ($stats['daily'][$d] === max($stats['daily']) && max($stats['daily']) > 0);
-                    ?>
-                        <div style="display:flex; align-items:center; gap:0.75rem;">
-                            <div style="width:50px; font-size:0.6875rem; font-weight:700; color:<?= $isHeavy ? 'var(--color-primary)' : 'var(--text-muted)' ?>;"><?= substr($label, 0, 3) ?>.</div>
-                            <div style="flex:1; height:6px; background:var(--bg-surface-2nd); border-radius:3px; overflow:hidden;">
-                                <div style="height:100%; width:<?= $pct ?>%; background:<?= $isHeavy ? 'var(--color-primary)' : 'var(--text-secondary)' ?>; opacity:0.7; border-radius:3px;"></div>
+
+                <!-- Coluna Direita: Estilo de Vida e Gaps -->
+                <div class="analysis-col">
+                    <div class="metric-grid-mini">
+                        <div class="mini-metric-item">
+                            <span class="mini-metric-lbl">Total Semanal</span>
+                            <span class="mini-metric-val"><?= formatMinutos($totalMinutosT) ?></span>
+                        </div>
+                        <div class="mini-metric-item">
+                            <span class="mini-metric-lbl">Turno Predom.</span>
+                            <span class="mini-metric-val" style="font-size:0.75rem;"><?= explode(' ', $turnoPredom)[0] ?></span>
+                        </div>
+                        <div class="mini-metric-item">
+                            <span class="mini-metric-lbl">Janelas Lazer</span>
+                            <span class="mini-metric-val"><?= $janelasLazer ?></span>
+                        </div>
+                        <div class="mini-metric-item">
+                            <span class="mini-metric-lbl">Consistência</span>
+                            <span class="mini-metric-val" style="color:<?= $consistencia < 150 ? '#10b981':'#f59e0b' ?>"><?= $consistenciaLabel ?></span>
+                        </div>
+                    </div>
+                    
+                    <div class="premium-card" style="margin-top:0.75rem;">
+                        <div class="card-title-mini">Balanço de Atividades</div>
+                        <div style="margin-top:0.75rem;">
+                            <div style="display:flex; justify-content:space-between; font-size:0.625rem; font-weight:700; margin-bottom:4px;">
+                                <span style="color:var(--color-primary);">Acadêmico: <?= round(($stats['academic_min']/max($totalMinutosT,1))*100) ?>%</span>
+                                <span style="color:var(--text-muted);">Extra: <?= round(($stats['extra_min']/max($totalMinutosT,1))*100) ?>%</span>
                             </div>
-                            <div style="width:50px; font-size:0.6875rem; font-weight:700; color:var(--text-secondary); text-align:right;">
-                                <?= formatMinutos($stats['daily'][$d]) ?>
+                            <div style="height:6px; background:var(--bg-surface-2nd); border-radius:3px; display:flex; overflow:hidden;">
+                                <div style="height:100%; width:<?= ($stats['academic_min']/max($totalMinutosT,1))*100 ?>%; background:var(--color-primary);"></div>
+                                <div style="height:100%; width:<?= ($stats['extra_min']/max($totalMinutosT,1))*100 ?>%; background:var(--text-muted); opacity:0.4;"></div>
                             </div>
                         </div>
-                    <?php endforeach; ?>
+                        <div style="margin-top:0.75rem; padding-top:0.5rem; border-top:1px solid var(--border-color); font-size:0.625rem; color:var(--text-muted); line-height:1.3;">
+                            Insights: <?= $janelasLazer > 4 ? "Ótima distribuição de pausas." : "Considere adicionar pequenas pausas cognitivas." ?>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
+            </div>
         </div>
     </div>
 
@@ -616,50 +687,82 @@ async function deleteActivity(id) {
 }
 
 /* Analysis Tab Styles */
-.analysis-container {
+.analysis-dashboard {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
     height: 100%;
     overflow-y: auto;
+    padding: 0.25rem;
 }
 
-.stat-badge {
+.diag-header-compact {
+    border: 1px solid var(--border-color);
+    border-left-width: 6px;
+    border-radius: var(--radius-lg);
+    padding: 0.875rem 1.125rem;
+}
+
+.analysis-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.analysis-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.premium-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 0.875rem;
+    flex: 1;
+}
+
+.card-title-mini {
+    font-size: 0.625rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.metric-grid-mini {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.mini-metric-item {
     background: var(--bg-surface-2nd);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     padding: 0.625rem;
-    text-align: center;
     display: flex;
     flex-direction: column;
-    gap: 0.125rem;
 }
 
-.stat-badge-val {
-    font-size: 1rem;
-    font-weight: 800;
-    color: var(--text-primary);
-}
-
-.stat-badge-lbl {
-    font-size: 0.625rem;
+.mini-metric-lbl {
+    font-size: 0.5625rem;
     font-weight: 700;
     color: var(--text-muted);
     text-transform: uppercase;
 }
 
-.diagnostic-card {
-    border: 1px solid var(--border-color);
-    border-left-width: 5px;
-    border-radius: var(--radius-lg);
-    padding: 1.125rem;
+.mini-metric-val {
+    font-size: 0.875rem;
+    font-weight: 800;
+    color: var(--text-primary);
 }
 
-.daily-breakdown {
-    background: var(--bg-surface-2nd);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    padding: 1rem;
+.stat-badge-mini {
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.6875rem;
+    font-weight: 800;
 }
 
 /* Activities CRUD Styles */
