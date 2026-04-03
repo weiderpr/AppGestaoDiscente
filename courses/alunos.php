@@ -494,7 +494,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <button type="button" class="action-btn" title="Atendimento Profissional" onclick="openAtendimentoModal({aluno_id: <?= $a['id'] ?>, target_name: '<?= addslashes($a['nome']) ?>', aluno_photo: '<?= $a['photo'] ?>', turma_id: <?= $turmaId ?>})">📝</button>
                             <button type="button" class="action-btn" title="Adicionar Comentário" onclick="openCommentModal(<?= htmlspecialchars(json_encode(['id' => $a['id'], 'nome' => $a['nome'], 'photo' => $a['photo'], 'photo_url' => ($a['photo'] && file_exists(__DIR__.'/../'.$a['photo']) ? '/'.$a['photo'] : null)]), ENT_QUOTES) ?>, <?= $turmaId ?>)">💬</button>
                             <button type="button" class="action-btn" title="Histórico Multidisciplinar" onclick="openHistoryModal(<?= $a['id'] ?>)">🕒</button>
-                            <button type="button" class="action-btn" title="Grade Horária / Horários" onclick="openScheduleModal(<?= $a['id'] ?>, '<?= addslashes($a['nome']) ?>')">🗓️</button>
+                            <button type="button" class="action-btn" title="Grade Horária / Horários" onclick="openScheduleModal(<?= $a['id'] ?>, '<?= addslashes($a['nome']) ?>', '<?= $a['photo'] ?>')">🗓️</button>
                             
                             <?php if (hasDbPermission('students.manage', false)): ?>
                             <button type="button" class="action-btn" title="Editar"
@@ -878,34 +878,58 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-let currentHistoryAlunoId = null;
-async function openScheduleModal(alunoId, alunoNome) {
+async function openScheduleModal(alunoId, alunoNome, alunoPhoto = '') {
     showLoading('Carregando grade...');
     try {
         // Usar caminho relativo para evitar problemas com subdiretórios do servidor
         const url = `aulas/student_grid.php?aluno_id=${alunoId}`;
-        console.log('Fetching schedule from:', url);
         
         const resp = await fetch(url, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
         
-        console.log('Response Status:', resp.status, resp.statusText);
-        
         if (!resp.ok) {
-            const errorText = await resp.text();
-            console.error('Server Error Response:', errorText);
             throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
         }
         
         const html = await resp.text();
         
+        // Construir Cabeçalho com Foto (Padrão do Sistema)
+        let headerTitle = `Grade Horária Semanal`;
+        let photoHtml = `<div style="width:36px;height:36px;border-radius:50%;background:var(--color-primary);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.875rem;">${alunoNome.charAt(0).toUpperCase()}</div>`;
+        
+        if (alunoPhoto) {
+            photoHtml = `<img src="/${alunoPhoto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--border-color);">`;
+        }
+
+        const customTitle = `
+            <div style="display:flex;align-items:center;gap:0.75rem;">
+                ${photoHtml}
+                <div style="text-align:left;">
+                    <div style="font-size:1rem;font-weight:700;line-height:1.2;color:var(--text-primary);">${alunoNome}</div>
+                    <div style="font-size:0.75rem;color:var(--text-muted);font-weight:400;">Grade Horária Semanal</div>
+                </div>
+            </div>
+        `;
+
         if (typeof Modal !== 'undefined') {
             const modalId = Modal.open({
                 id: 'schedule_modal',
-                title: `Grade Horária — ${alunoNome}`,
+                title: customTitle,
                 content: html,
                 size: 'xl'
+            });
+            
+            // Manual script execution because innerHTML doesn't run scripts
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            const scripts = tempDiv.querySelectorAll('script');
+            scripts.forEach(oldScript => {
+                const newScript = document.createElement('script');
+                Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+                newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                document.body.appendChild(newScript);
+                newScript.parentNode.removeChild(newScript);
             });
             
             setTimeout(() => {
