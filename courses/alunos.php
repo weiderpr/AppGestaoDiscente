@@ -494,6 +494,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <button type="button" class="action-btn" title="Atendimento Profissional" onclick="openAtendimentoModal({aluno_id: <?= $a['id'] ?>, target_name: '<?= addslashes($a['nome']) ?>', aluno_photo: '<?= $a['photo'] ?>', turma_id: <?= $turmaId ?>})">📝</button>
                             <button type="button" class="action-btn" title="Adicionar Comentário" onclick="openCommentModal(<?= htmlspecialchars(json_encode(['id' => $a['id'], 'nome' => $a['nome'], 'photo' => $a['photo'], 'photo_url' => ($a['photo'] && file_exists(__DIR__.'/../'.$a['photo']) ? '/'.$a['photo'] : null)]), ENT_QUOTES) ?>, <?= $turmaId ?>)">💬</button>
                             <button type="button" class="action-btn" title="Histórico Multidisciplinar" onclick="openHistoryModal(<?= $a['id'] ?>)">🕒</button>
+                            <button type="button" class="action-btn" title="Grade Horária / Horários" onclick="openScheduleModal(<?= $a['id'] ?>, '<?= addslashes($a['nome']) ?>')">🗓️</button>
                             
                             <?php if (hasDbPermission('students.manage', false)): ?>
                             <button type="button" class="action-btn" title="Editar"
@@ -513,6 +514,32 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php endforeach; ?>
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Modal: Histórico Multidisciplinar -->
+<div class="modal-backdrop" id="historyModal" role="dialog" style="display:none;">
+    <div class="modal" style="width:90vw;max-width:1000px;height:90vh;display:flex;flex-direction:column;">
+        <div class="modal-header">
+            <span class="modal-title">🕒 Histórico Multidisciplinar</span>
+            <button class="modal-close" onclick="closeHistoryModal()">✕</button>
+        </div>
+        <div id="historyModalContent" style="flex:1;overflow-y:auto;background:var(--bg-surface-2nd);">
+            <!-- Conteúdo AJAX -->
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Grade Horária / Schedule Grid -->
+<div class="modal-backdrop" id="scheduleModal" role="dialog" style="display:none;">
+    <div class="modal" style="width:85vw;max-width:1100px;height:85vh;display:flex;flex-direction:column;overflow:hidden;">
+        <div class="modal-header">
+            <span class="modal-title" id="scheduleModalTitle">🗓️ Grade Horária Semanal</span>
+            <button class="modal-close" onclick="closeScheduleModal()">✕</button>
+        </div>
+        <div id="scheduleModalContent" style="flex:1;overflow:hidden;background:var(--bg-surface-2nd);display:flex;flex-direction:column;">
+            <!-- Conteúdo AJAX -->
+        </div>
     </div>
 </div>
 
@@ -852,6 +879,53 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 let currentHistoryAlunoId = null;
+async function openScheduleModal(alunoId, alunoNome) {
+    showLoading('Carregando grade...');
+    try {
+        // Usar caminho relativo para evitar problemas com subdiretórios do servidor
+        const url = `aulas/student_grid.php?aluno_id=${alunoId}`;
+        console.log('Fetching schedule from:', url);
+        
+        const resp = await fetch(url, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        
+        console.log('Response Status:', resp.status, resp.statusText);
+        
+        if (!resp.ok) {
+            const errorText = await resp.text();
+            console.error('Server Error Response:', errorText);
+            throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        }
+        
+        const html = await resp.text();
+        
+        if (typeof Modal !== 'undefined') {
+            const modalId = Modal.open({
+                id: 'schedule_modal',
+                title: `Grade Horária — ${alunoNome}`,
+                content: html,
+                size: 'xl'
+            });
+            
+            setTimeout(() => {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    const body = modal.querySelector('.modal-body');
+                    if (body) {
+                        body.style.padding = '0';
+                        body.style.overflow = 'auto';
+                        body.style.maxHeight = '80vh';
+                    }
+                }
+            }, 100);
+        }
+    } catch (e) {
+        if (typeof Toast !== 'undefined') Toast.show(`Erro: ${e.message}`, 'danger');
+    } finally {
+        hideLoading();
+    }
+}
 async function openHistoryModal(alunoId, silent = false) {
     currentHistoryAlunoId = alunoId;
     if (!silent) showLoading('Buscando histórico...');
