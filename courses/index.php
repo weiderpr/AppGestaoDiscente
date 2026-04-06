@@ -7,11 +7,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador', 'Professor'];
-if (!$user || !in_array($user['profile'], $allowed)) {
-    header('Location: /dashboard.php');
-    exit;
-}
+hasDbPermission('courses.index'); // Verifica se o usuário tem permissão para acessar esta página e redireciona se não tiver.
 
 $db      = getDB();
 $inst    = getCurrentInstitution();
@@ -35,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action) {
 }
 
 // ---- CRIAR ----
-if ($action === 'create' && $user['profile'] === 'Administrador') {
+if ($action === 'create' && hasDbPermission('courses.create', false)) {
     $name     = trim($_POST['name']     ?? '');
     $location = trim($_POST['location'] ?? '');
 
@@ -62,7 +58,7 @@ if ($action === 'create' && $user['profile'] === 'Administrador') {
 }
 
 // ---- TOGGLE ----
-if ($action === 'toggle' && !empty($_POST['course_id']) && $user['profile'] === 'Administrador') {
+if ($action === 'toggle' && !empty($_POST['course_id']) && hasDbPermission('courses.update', false)) {
     $cid = (int)$_POST['course_id'];
     $db->prepare('UPDATE courses SET is_active = !is_active WHERE id=? AND institution_id=?')
        ->execute([$cid, $instId]);
@@ -70,7 +66,7 @@ if ($action === 'toggle' && !empty($_POST['course_id']) && $user['profile'] === 
 }
 
 // ---- EXCLUIR ----
-if ($action === 'delete' && !empty($_POST['course_id']) && $user['profile'] === 'Administrador') {
+if ($action === 'delete' && !empty($_POST['course_id']) && hasDbPermission('courses.delete', false)) {
     $cid = (int)$_POST['course_id'];
     $db->prepare('DELETE FROM courses WHERE id=? AND institution_id=?')
        ->execute([$cid, $instId]);
@@ -89,20 +85,27 @@ $sql    = "SELECT c.*,
 $params = [$instId];
 $where  = "WHERE c.institution_id=?";
 
-if ($user['profile'] === 'Coordenador') {
-    $where .= " AND c.id IN (SELECT course_id FROM course_coordinators WHERE user_id = ?)";
-    $params[] = $user['id'];
-} elseif ($user['profile'] === 'Pedagogo' || $user['profile'] === 'Assistente Social' || $user['profile'] === 'Psicólogo') {
-    // Pedagogo e outros profissionais veem todos os cursos da instituição
-} elseif ($user['profile'] === 'Professor') {
-    $where .= " AND c.id IN (
-        SELECT DISTINCT t.course_id 
-        FROM turmas t
-        JOIN turma_disciplinas td ON t.id = td.turma_id
-        JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
-        WHERE tdp.professor_id = ?
-    )";
-    $params[] = $user['id'];
+// Lógica de visibilidade: Administrador ou quem tem permissão 'view_all' vê tudo da instituição.
+// Caso contrário, filtra por vínculo de Coordenador ou Professor.
+$canViewAll = hasDbPermission('courses.view_all', false);
+
+if (!$canViewAll) {
+    if ($user['profile'] === 'Coordenador') {
+        $where .= " AND c.id IN (SELECT course_id FROM course_coordinators WHERE user_id = ?)";
+        $params[] = $user['id'];
+    } elseif ($user['profile'] === 'Professor') {
+        $where .= " AND c.id IN (
+            SELECT DISTINCT t.course_id 
+            FROM turmas t
+            JOIN turma_disciplinas td ON t.id = td.turma_id
+            JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
+            WHERE tdp.professor_id = ?
+        )";
+        $params[] = $user['id'];
+    } else {
+        // Se não for VIP nem Prof/Coord, não vê cursos (mesmo tendo acesso à página)
+        $where .= " AND 1=0";
+    }
 }
 
 if ($search) {
@@ -165,7 +168,7 @@ require_once __DIR__ . '/../includes/header.php';
             Instituição: <strong><?= htmlspecialchars($inst['name']) ?></strong>
         </p>
     </div>
-    <?php if ($user['profile'] === 'Administrador'): ?>
+    <?php if (hasDbPermission('courses.create', false)): ?>
     <button class="btn btn-primary" onclick="openModal()">➕ Novo Curso</button>
     <?php endif; ?>
 </div>
@@ -255,25 +258,27 @@ require_once __DIR__ . '/../includes/header.php';
                     </td>
                     <td>
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
-                            <?php if ($user['profile'] === 'Administrador'): ?>
+                            <?php if (hasDbPermission('coordinators.manage', false)): ?>
                             <a href="/courses/coordinators.php?course_id=<?= $c['id'] ?>"
                                class="action-btn" title="Relacionar Coordenadores">👥</a>
                             <?php endif; ?>
                             <a href="/courses/turmas.php?course_id=<?= $c['id'] ?>"
                                class="action-btn" title="Gerenciar Turmas">🎓</a>
-                            <?php if ($user['profile'] !== 'Professor'): ?>
+                            <?php if (hasDbPermission('grades.manage', false)): ?>
                             <button type="button" class="action-btn" title="Importar Notas (CSV)"
                                     onclick='openImportGradesModal(<?= $c['id'] ?>, <?= json_encode($c['name']) ?>)'>
                                 📊
                             </button>
                             <?php endif; ?>
-                            <?php if ($user['profile'] === 'Administrador'): ?>
+                            <?php if (hasDbPermission('courses.update', false)): ?>
                                 <a href="/courses/edit.php?id=<?= $c['id'] ?>" class="action-btn" title="Editar">✏️</a>
                                 <button type="button" class="action-btn"
                                         title="<?= $c['is_active'] ? 'Desativar' : 'Ativar' ?>"
                                         onclick='toggleCourse(<?= $c['id'] ?>, <?= json_encode($c['name']) ?>, <?= $c['is_active'] ? 'true' : 'false' ?>)'>
                                     <?= $c['is_active'] ? '⏸' : '▶' ?>
                                 </button>
+                            <?php endif; ?>
+                            <?php if (hasDbPermission('courses.delete', false)): ?>
                                 <button type="button" class="action-btn danger" title="Excluir"
                                         onclick='deleteCourse(<?= $c['id'] ?>, <?= json_encode($c['name']) ?>)'>🗑</button>
                             <?php endif; ?>
