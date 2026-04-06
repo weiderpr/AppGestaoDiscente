@@ -416,12 +416,13 @@ input:checked + .slider:before {
 </div>
 
 <?php require_once __DIR__ . '/../includes/atendimento_detalhes_modal.php'; ?>
+<?php require_once __DIR__ . '/../includes/student_schedule_modal.php'; ?>
 
 <!-- Import Shared Logic -->
-<script src="/assets/js/atendimento_shared.js"></script>
+<script src="/assets/js/atendimento_shared.js?v=<?= time() ?>"></script>
 
 <!-- Import Kanban Logic -->
-<script src="/assets/js/atendimentos_kanban.js?v=1.2"></script>
+<script src="/assets/js/atendimentos_kanban.js?v=<?= time() ?>"></script>
 
 <script>
     const currentUserId = <?= (int)$user['id'] ?>;

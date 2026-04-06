@@ -19,7 +19,9 @@ DROP TABLE IF EXISTS `respostas_avaliacao`;
 DROP TABLE IF EXISTS `perguntas`;
 DROP TABLE IF EXISTS `gestao_atendimento_comentarios`;
 DROP TABLE IF EXISTS `gestao_atendimento_usuarios`;
+DROP TABLE IF EXISTS `gestao_atendimentos_anexos`;
 DROP TABLE IF EXISTS `gestao_atendimentos`;
+DROP TABLE IF EXISTS `gestao_turma_aulas`;
 DROP TABLE IF EXISTS `atendimentos`;
 DROP TABLE IF EXISTS `conselho_encaminhamento_usuarios`;
 DROP TABLE IF EXISTS `conselho_encaminhamentos`;
@@ -121,6 +123,23 @@ CREATE TABLE `gestao_atendimento_comentarios` (
   KEY `idx_gac_user` (`usuario_id`),
   CONSTRAINT `fk_gac_atendimento` FOREIGN KEY (`atendimento_id`) REFERENCES `gestao_atendimentos` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_gac_user` FOREIGN KEY (`usuario_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Table: gestao_atendimentos_anexos
+CREATE TABLE `gestao_atendimentos_anexos` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `atendimento_id` int unsigned NOT NULL,
+  `usuario_id` int unsigned NOT NULL,
+  `arquivo` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `descricao` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `extensao` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `tamanho` int unsigned DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_gaa_atendimento` (`atendimento_id`),
+  KEY `idx_gaa_usuario` (`usuario_id`),
+  CONSTRAINT `fk_gaa_atendimento` FOREIGN KEY (`atendimento_id`) REFERENCES `gestao_atendimentos` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_gaa_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table: avaliacoes
@@ -565,6 +584,27 @@ CREATE TABLE `turmas` (
   CONSTRAINT `fk_turmas_course` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Table: gestao_turma_aulas
+CREATE TABLE `gestao_turma_aulas` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `turma_id` int unsigned NOT NULL,
+  `disciplina_codigo` varchar(15) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `dia_semana` tinyint unsigned NOT NULL COMMENT '1-Segunda-feira, ..., 7-Domingo',
+  `horario_inicio` time NOT NULL,
+  `horario_fim` time NOT NULL,
+  `local` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `ocupacao` enum('Turma inteira','Grupo 1','Grupo 2','Grupo 3','Grupo 4') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Turma inteira',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `created_by` int unsigned DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_gta_turma` (`turma_id`),
+  KEY `idx_gta_disciplina` (`disciplina_codigo`),
+  CONSTRAINT `fk_gta_disciplina` FOREIGN KEY (`disciplina_codigo`) REFERENCES `disciplinas` (`codigo`) ON DELETE CASCADE,
+  CONSTRAINT `fk_gta_turma` FOREIGN KEY (`turma_id`) REFERENCES `turmas` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Table: user_institutions
 CREATE TABLE `user_institutions` (
   `user_id` int unsigned NOT NULL,
@@ -584,7 +624,7 @@ CREATE TABLE `users` (
   `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `phone` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `photo` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  `profile` enum('Administrador','Coordenador','Diretor','Professor','Pedagogo','Assistente Social','Naapi','Outro') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Outro',
+  `profile` enum('Administrador','Coordenador','Diretor','Professor','Pedagogo','Assistente Social','Naapi','Psicólogo','Outro') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Outro',
   `is_teacher` tinyint(1) NOT NULL DEFAULT '0',
   `theme` enum('light','dark') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'light',
   `is_active` tinyint(1) NOT NULL DEFAULT '1',

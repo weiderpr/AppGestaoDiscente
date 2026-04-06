@@ -80,11 +80,18 @@ function getFriendlyName($res) {
         'manage' => 'Gerir',
         'backup' => 'Backup',
         'avaliacoes' => 'Avaliações',
-        'permissoes' => 'Acesso'
+        'permissoes' => 'Acesso',
+        'schedule' => 'Grade Horária',
+        'activities' => 'Atividades Extras',
+        'config' => 'Configurações de Grupo'
     ];
     
     $base = $names[$obj] ?? ucfirst($obj);
     $action = $actions[$act] ?? $act;
+    
+    if (isset($parts[2]) && isset($actions[$parts[2]])) {
+        $action = $actions[$parts[2]];
+    }
     
     return "<strong>$base</strong> ($action)";
 }

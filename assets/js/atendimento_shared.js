@@ -4,6 +4,9 @@
 
 // Rastreia a aba atualmente ativa para preservar a posição após recargas do modal
 let currentActiveTab = 'info';
+let currentAtendimentoAlunoId = null;
+let currentAtendimentoAlunoNome = null;
+let currentAtendimentoAlunoPhoto = null;
 
 
 /**
@@ -129,7 +132,20 @@ function populateAtendimentoModal(data, options = {}) {
     const avatarEl = document.getElementById('cdAlunoAvatar');
     const subtitleEl = document.getElementById('cdAlunoSubtitle');
     
+    const btnGrade = document.getElementById('cdBtnGrade');
+
     if (at.aluno_id) {
+        console.log('Populating modal for student:', at.aluno_id, at.aluno_nome);
+        currentAtendimentoAlunoId = at.aluno_id;
+        currentAtendimentoAlunoNome = at.aluno_nome;
+        currentAtendimentoAlunoPhoto = at.aluno_photo;
+        if (btnGrade) {
+            console.log('Showing Grade button');
+            btnGrade.style.setProperty('display', 'inline-block', 'important');
+        } else {
+            console.warn('Button cdBtnGrade not found in DOM');
+        }
+
         if (subtitleEl) subtitleEl.innerText = at.aluno_nome + (at.matricula ? ' (#' + at.matricula + ')' : '') + (at.curso_nome ? ' • ' + at.curso_nome : '') + (at.turma_nome ? ' — ' + at.turma_nome : '');
         
         if (photoEl && avatarEl) {
@@ -144,19 +160,24 @@ function populateAtendimentoModal(data, options = {}) {
                 avatarEl.innerText = initials;
             }
         }
-    } else if (at.turma_id) {
-        if (subtitleEl) subtitleEl.innerText = 'Turma: ' + (at.turma_nome || 'Não identificada');
-        if (photoEl) photoEl.style.display = 'none';
-        if (avatarEl) {
-            avatarEl.style.display = 'flex';
-            avatarEl.innerText = '👥';
-        }
     } else {
-        if (subtitleEl) subtitleEl.innerText = 'Atendimento Geral';
-        if (photoEl) photoEl.style.display = 'none';
-        if (avatarEl) {
-            avatarEl.style.display = 'flex';
-            avatarEl.innerText = '📄';
+        currentAtendimentoAlunoId = null;
+        if (btnGrade) btnGrade.style.setProperty('display', 'none', 'important');
+
+        if (at.turma_id) {
+            if (subtitleEl) subtitleEl.innerText = 'Turma: ' + (at.turma_nome || 'Não identificada');
+            if (photoEl) photoEl.style.display = 'none';
+            if (avatarEl) {
+                avatarEl.style.display = 'flex';
+                avatarEl.innerText = '👥';
+            }
+        } else {
+            if (subtitleEl) subtitleEl.innerText = 'Atendimento Geral';
+            if (photoEl) photoEl.style.display = 'none';
+            if (avatarEl) {
+                avatarEl.style.display = 'flex';
+                avatarEl.innerText = '📄';
+            }
         }
     }
 
@@ -554,5 +575,20 @@ async function deleteComment(comentarioId) {
         }
     } catch (e) {
         Toast.show('Erro de conexão ao excluir comentário.', 'error');
+    }
+}
+
+/**
+ * Abre a grade horária/configurações do aluno a partir do modal de atendimento
+ */
+function openScheduleFromAtendimento() {
+    if (typeof openScheduleModal === 'function' && currentAtendimentoAlunoId) {
+        openScheduleModal(currentAtendimentoAlunoId, currentAtendimentoAlunoNome, currentAtendimentoAlunoPhoto);
+    } else {
+        if (typeof Toast !== 'undefined') {
+            Toast.show('Sistema de grade horária não carregado ou aluno não identificado.', 'warning');
+        } else {
+            alert('Sistema de grade horária não carregado ou aluno não identificado.');
+        }
     }
 }

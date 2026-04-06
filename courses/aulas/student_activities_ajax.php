@@ -4,6 +4,7 @@
  */
 require_once __DIR__ . '/../../includes/auth.php';
 requireLogin();
+hasDbPermission('students.schedule.activities');
 
 header('Content-Type: application/json');
 

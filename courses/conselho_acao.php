@@ -845,6 +845,11 @@ function showDetailTab(tabId) {
             // Botão Encaminhamentos (Roxo/Indigo)
             html += '<button type="button" title="Encaminhamentos" style="background:#f5f3ff;color:#7c3aed;border:1px solid #ddd6fe;padding:.625rem;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;transition:all .2s ease;cursor:pointer;" onmouseover="this.style.background=\'#ddd6fe\'" onmouseout="this.style.background=\'#f5f3ff\'" onclick="openReferralModal(' + a.id + ', \'' + a.nome.replace(/'/g, "\\'") + '\', ' + conselhoId + ')">' + 
                     '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg></button>';
+
+            // Botão Grade Horária (Verde/Teal)
+            html += '<button type="button" title="Grade Horária" style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;padding:.625rem;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;transition:all .2s ease;cursor:pointer;" onmouseover="this.style.background=\'#dcfce7\'" onmouseout="this.style.background=\'#f0fdf4\'" onclick="openScheduleModal(' + a.id + ', \'' + a.nome.replace(/'/g, "\\'") + '\', \'' + (a.photo || '') + '\')">' + 
+                    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></button>';
+            
             html += '</div>';
             html += '</div>';
             html += '</div>';
@@ -1116,6 +1121,7 @@ function openAlunoModal(aluno) {
 <!-- Componente de Registros do Conselho -->
 <script src="/assets/js/conselho_registros_system.js?v=2.5"></script>
 <?php require_once __DIR__ . '/../includes/conselho_registro_modal.php'; ?>
+<?php require_once __DIR__ . '/../includes/student_schedule_modal.php'; ?>
 
 <!-- Componente de Ata do Conselho -->
 <script src="/assets/js/conselho_ata_system.js?v=2.0"></script>

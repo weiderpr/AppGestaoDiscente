@@ -11,7 +11,10 @@
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                     <span id="cdBadgeStatus" class="kanban-badge" style="font-size: 0.6rem;"></span>
                 </div>
-                <div id="cdAlunoSubtitle" style="font-size: 0.9375rem; color: var(--text-primary); font-weight: 600; margin-top: 0.25rem;"></div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                    <div id="cdAlunoSubtitle" style="font-size: 0.9375rem; color: var(--text-primary); font-weight: 600;"></div>
+                    <button id="cdBtnGrade" type="button" title="Ver Grade Horária / Configurações" style="display:none; padding: 0 8px; line-height: 26px; min-width: 34px; height: 26px; border-radius: var(--radius-sm); background: var(--bg-surface-2nd); color: var(--color-primary); cursor: pointer; border: 1px solid var(--color-primary); font-size: 0.9375rem; transition: all 0.2s ease; margin-left: 6px;" onmouseover="this.style.background='var(--color-primary)'; this.style.color='white';" onmouseout="this.style.background='var(--bg-surface-2nd)'; this.style.color='var(--color-primary)';" onclick="openScheduleFromAtendimento()">🗓️</button>
+                </div>
             </div>
             <button class="modal-close" onclick="closeModal('modalCardDetails')" style="position: static;">×</button>
         </div>

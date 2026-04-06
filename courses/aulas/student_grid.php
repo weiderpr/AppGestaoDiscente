@@ -13,6 +13,9 @@ if (!$alunoId) {
     exit;
 }
 
+$canActivities = hasDbPermission('students.schedule.activities', false);
+$canConfig     = hasDbPermission('students.schedule.config', false);
+
 // 0. Buscar Foto e Nome do Aluno (para persistir no refresh)
 $stAluno = $db->prepare('SELECT nome, photo FROM alunos WHERE id = ?');
 $stAluno->execute([$alunoId]);
@@ -49,14 +52,35 @@ if (!$turmaInfo) {
 // 2. Buscar Aulas da Turma
 $aulas = [];
 if ($turmaId > 0) {
+    // Agora consideramos a filtragem por grupo (gestao_turma_aluno_grupo)
     $stAulas = $db->prepare('
-        SELECT a.*, d.descricao as disciplina_nome, "aula" as tipo
+        SELECT a.*, d.descricao as disciplina_nome, "aula" as tipo, gtag.grupo as grupo_atribuido
         FROM gestao_turma_aulas a
         JOIN disciplinas d ON d.codigo = a.disciplina_codigo
+        LEFT JOIN gestao_turma_aluno_grupo gtag ON gtag.aula_id = a.id AND gtag.aluno_id = ?
         WHERE a.turma_id = ?
+        AND (
+            a.ocupacao = "Turma inteira" OR 
+            (gtag.grupo IS NOT NULL AND a.ocupacao = gtag.grupo)
+        )
     ');
-    $stAulas->execute([$turmaId]);
+    $stAulas->execute([$alunoId, $turmaId]);
     $aulas = $stAulas->fetchAll();
+}
+
+// 2.1 Buscar Sessões que exigem configuração de grupo (para a aba de Configurações)
+$sessoesGrupo = [];
+if ($turmaId > 0) {
+    $stGrp = $db->prepare('
+        SELECT a.*, d.descricao as disciplina_nome, gtag.grupo as grupo_atribuido
+        FROM gestao_turma_aulas a
+        JOIN disciplinas d ON d.codigo = a.disciplina_codigo
+        LEFT JOIN gestao_turma_aluno_grupo gtag ON gtag.aula_id = a.id AND gtag.aluno_id = ?
+        WHERE a.turma_id = ? AND a.ocupacao != "Turma inteira"
+        ORDER BY d.descricao, a.dia_semana, a.horario_inicio
+    ');
+    $stGrp->execute([$alunoId, $turmaId]);
+    $sessoesGrupo = $stGrp->fetchAll();
 }
 
 // 3. Buscar Atividades Extra-curriculares
@@ -242,12 +266,22 @@ function timeToRowIndex($time, $startHour) {
         <button class="tab-btn active" data-tab="grade" onclick="switchStudentTab(this, 'grade')">
             <span>🗓️</span> Grade
         </button>
-        <button class="tab-btn" data-tab="atividades" onclick="switchStudentTab(this, 'atividades')">
-            <span>📝</span> Atividades
-        </button>
         <button class="tab-btn" data-tab="analise" onclick="switchStudentTab(this, 'analise')">
             <span>📊</span> Análise
         </button>
+        <button class="tab-btn" data-tab="info" onclick="switchStudentTab(this, 'info')">
+            <span>ℹ️</span> Informações
+        </button>
+        <?php if ($canActivities): ?>
+        <button class="tab-btn" data-tab="atividades" onclick="switchStudentTab(this, 'atividades')">
+            <span>📝</span> Atividades
+        </button>
+        <?php endif; ?>
+        <?php if ($canConfig): ?>
+        <button class="tab-btn" data-tab="confs" onclick="switchStudentTab(this, 'confs')">
+            <span>⚙️</span> Configurações
+        </button>
+        <?php endif; ?>
     </div>
 
     <!-- Tab Content: Grade -->
@@ -306,11 +340,11 @@ function timeToRowIndex($time, $startHour) {
         </div>
     </div>
 
+    <?php if ($canActivities): ?>
     <!-- Tab Content: Atividades -->
     <div id="tab-atividades" class="tab-content-pane" style="display:none;">
         <div class="activities-manager">
             <div class="activities-header">
-                <h4 style="margin:0; font-size:1rem; color:var(--text-primary);">📍 Minhas Atividades Extras</h4>
                 <button class="btn btn-primary btn-sm" onclick="toggleActivityForm()">+ Adicionar</button>
             </div>
 
@@ -411,6 +445,7 @@ function timeToRowIndex($time, $startHour) {
             </div>
         </div>
     </div>
+    <?php endif; ?>
 
     <!-- Tab Content: Análise -->
     <div id="tab-analise" class="tab-content-pane" style="display:none;">
@@ -503,6 +538,117 @@ function timeToRowIndex($time, $startHour) {
             </div>
         </div>
     </div>
+
+    <!-- Tab Content: Informações (Nota Técnica) -->
+    <div id="tab-info" class="tab-content-pane" style="display:none;">
+        <div class="technical-note">
+            <div class="note-header" style="text-align:center; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:1px solid var(--border-color);">
+                <span style="font-size:0.625rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.12em; display:block; margin-bottom:4px;">Documento de Referência</span>
+                <h3 style="margin:0; font-size:1.125rem; color:var(--text-primary);">Referencial de Saúde e Desempenho na Carga Horária Escolar</h3>
+            </div>
+
+            <div class="note-section">
+                <h6>1. Fundamentação Teórica</h6>
+                <p>A definição de uma carga horária "sadia" baseia-se no equilíbrio entre o tempo de instrução, a janela de sono e o tempo de recuperação cognitiva. Segundo a Organização Mundial da Saúde (OMS) e a Academia Americana de Pediatria, o desenvolvimento cerebral na adolescência exige, obrigatoriamente, entre <strong>8 e 10 horas de sono</strong> para a consolidação da memória de longo prazo.</p>
+                <p>Ademais, dados da OCDE (PISA) demonstram que o aumento linear das horas de estudo não resulta em ganho proporcional de aprendizagem após o ponto de saturação cognitiva, fenômeno conhecido na neuropsicologia como <em>fadiga de decisão</em> e <em>esgotamento atencional</em>.</p>
+            </div>
+
+            <div class="note-section" style="margin-top:1.5rem;">
+                <h6>2. Matriz de Classificação de Esforço Acadêmico</h6>
+                <p>Para fins de análise diagnóstica, estabelece-se a seguinte escala de dedicação integral (considerando horas-aula presenciais somadas ao tempo estimado de atividades extracurriculares e tarefas):</p>
+                
+                <div class="zone-grid">
+                    <div class="zone-item" style="border-left-color:#10b981;">
+                        <strong>Zona de Eficiência (Ideal): Até 30h semanais</strong>
+                        <span>Impacto: Máxima plasticidade neural e retenção de conteúdo. Permite o desenvolvimento socioemocional e a prática de atividades físicas essenciais.</span>
+                    </div>
+                    <div class="zone-item" style="border-left-color:#06b6d4;">
+                        <strong>Zona de Sustentabilidade (Razoável): 31h a 40h semanais</strong>
+                        <span>Impacto: Padrão compatível com regimes de tempo integral, desde que haja diversificação de estímulos (atividades práticas vs. teóricas). Exige monitoramento de estresse.</span>
+                    </div>
+                    <div class="zone-item" style="border-left-color:#f59e0b;">
+                        <strong>Zona de Risco (Excessiva): 41h a 50h semanais</strong>
+                        <span>Impacto: Início da curva de rendimentos decrescentes. Sinais frequentes de sonolência diurna, irritabilidade e redução da capacidade de resolução de problemas complexos.</span>
+                    </div>
+                    <div class="zone-item" style="border-left-color:#ef4444;">
+                        <strong>Zona de Exaustão: Acima de 50h semanais</strong>
+                        <span>Impacto: Risco elevado de Burnout estudantil, transtornos de ansiedade e privação crônica de sono. O aprendizado torna-se puramente mecânico.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="note-section" style="margin-top:1.5rem;">
+                <h6>3. Diretrizes para uma Rotina Saudável</h6>
+                <p>Para que qualquer carga horária seja considerada sadia, ela deve respeitar os seguintes critérios qualitativos:</p>
+                <ul class="note-list">
+                    <li><strong>Higiene do Sono:</strong> A jornada escolar não deve impedir o repouso mínimo de 8 horas.</li>
+                    <li><strong>Intervalos de Descompressão:</strong> Pausas ativas a cada 50-90 minutos de esforço concentrado.</li>
+                    <li><strong>Proporção de Esforço:</strong> Equilíbrio entre a recepção passiva de conteúdo (aulas) e a produção ativa (projetos e estudos autônomos).</li>
+                </ul>
+            </div>
+            
+            <div style="margin-top:2rem; font-size:0.625rem; color:var(--text-muted); font-style:italic; text-align:center;">
+                * Baseado em estudos de Neurociência Cognitiva e recomendações da OMS para o desenvolvimento infanto-juvenil.
+            </div>
+        </div>
+    </div>
+
+    <?php if ($canConfig): ?>
+    <!-- Tab Content: Configurações -->
+    <div id="tab-confs" class="tab-content-pane" style="display:none;">
+        <div class="config-manager">
+            <div class="config-header" style="margin-bottom: 1.5rem;">
+                <h4 style="margin:0; font-size:1rem; color:var(--text-primary);">⚙️ Configuração de Grupos</h4>
+                <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Selecione os grupos aos quais o aluno pertence nas disciplinas divididas.</p>
+            </div>
+            
+            <form id="groupConfigForm" onsubmit="saveGroupConfig(event)">
+                <?= csrf_field() ?>
+                <input type="hidden" name="aluno_id" value="<?= $alunoId ?>">
+                <input type="hidden" name="turma_id" value="<?= $turmaId ?>">
+                
+                <div class="config-list-container">
+                    <?php if (empty($sessoesGrupo)): ?>
+                        <div style="text-align:center; padding:3rem; color:var(--text-muted);">
+                            <div style="font-size:2.5rem; margin-bottom:0.5rem; opacity:0.3;">⚙️</div>
+                            <p>Esta turma não possui disciplinas divididas por grupo.</p>
+                        </div>
+                    <?php else: ?>
+                        <?php 
+                        $currentDisc = '';
+                        foreach ($sessoesGrupo as $sessao): 
+                            if ($currentDisc !== $sessao['disciplina_nome']):
+                                $currentDisc = $sessao['disciplina_nome'];
+                                echo '<h5 class="disc-group-title">' . htmlspecialchars($currentDisc) . '</h5>';
+                            endif;
+                        ?>
+                            <div class="config-row-item">
+                                <div class="config-row-info">
+                                    <div class="config-row-day"><?= $diasLabels[$sessao['dia_semana']] ?></div>
+                                    <div class="config-row-time">🕒 <?= substr($sessao['horario_inicio'], 0, 5) ?> - <?= substr($sessao['horario_fim'], 0, 5) ?></div>
+                                    <div class="config-row-ocup">📍 <?= $sessao['ocupacao'] ?></div>
+                                </div>
+                                <div class="config-row-action">
+                                    <label class="custom-chk-container">
+                                        <input type="checkbox" name="groups[<?= $sessao['id'] ?>]" value="<?= $sessao['ocupacao'] ?>" <?= ($sessao['grupo_atribuido'] === $sessao['ocupacao']) ? 'checked' : '' ?>>
+                                        <span class="custom-chk-mark"></span>
+                                        <span class="custom-chk-label">Vincular Aluno</span>
+                                    </label>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+
+                <?php if (!empty($sessoesGrupo)): ?>
+                    <div style="margin-top:2rem; display:flex; justify-content:flex-end; border-top:1px solid var(--border-color); padding-top:1rem;">
+                        <button type="submit" class="btn btn-primary">💾 Salvar Configurações</button>
+                    </div>
+                <?php endif; ?>
+            </form>
+        </div>
+    </div>
+    <?php endif; ?>
 
 </div>
 
@@ -626,6 +772,36 @@ async function deleteActivity(id) {
         Toast.show('Erro ao excluir atividade.', 'danger');
     }
 }
+
+async function saveGroupConfig(e) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    
+    try {
+        const resp = await fetch('aulas/student_groups_ajax.php?action=save', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const res = await resp.json();
+        
+        if (res.success) {
+            Toast.show(res.message, 'success');
+            // Recarregar para aplicar o filtro na grade
+            const container = document.querySelector('.schedule-grid-wrap');
+            const alunoId   = form.querySelector('[name="aluno_id"]').value;
+            const photo     = container?.dataset.studentPhoto || '';
+            const name      = document.querySelector('.modal-title strong, .modal-title div')?.innerText || 'Aluno';
+            
+            openScheduleModal(alunoId, name, photo, 'confs');
+        } else {
+            Toast.show(res.message, 'danger');
+        }
+    } catch (err) {
+        Toast.show('Erro ao salvar configurações de grupo.', 'danger');
+    }
+}
 </script>
 
 <style>
@@ -694,6 +870,75 @@ async function deleteActivity(id) {
     height: 100%;
     overflow-y: auto;
     padding: 0.25rem;
+}
+
+/* Technical Note Styles */
+.technical-note {
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    padding: 0.5rem;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.technical-note h6 {
+    color: var(--color-primary);
+    font-size: 0.875rem;
+    font-weight: 800;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.technical-note p {
+    font-size: 0.8125rem;
+    margin-bottom: 1rem;
+}
+
+.zone-grid {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.zone-item {
+    background: var(--bg-surface-2nd);
+    border-left: 4px solid var(--border-color);
+    padding: 0.75rem;
+    border-radius: var(--radius-md);
+}
+
+.zone-item strong {
+    display: block;
+    font-size: 0.8125rem;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.zone-item span {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.note-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    list-style: none;
+}
+
+.note-list li {
+    font-size: 0.8125rem;
+    position: relative;
+    margin-bottom: 0.5rem;
+}
+
+.note-list li::before {
+    content: '•';
+    color: var(--color-primary);
+    font-weight: bold;
+    position: absolute;
+    left: -1rem;
 }
 
 .diag-header-compact {
@@ -796,6 +1041,135 @@ async function deleteActivity(id) {
     align-items: flex-start;
     transition: all 0.2s;
     box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+/* Config Tab Styles */
+.config-manager {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+#groupConfigForm {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.config-list-container {
+    background: var(--bg-surface-2nd);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+.disc-group-title {
+    margin: 1.5rem 0 0.75rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--color-primary);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.disc-group-title:first-child {
+    margin-top: 0;
+}
+
+.config-row-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    margin-bottom: 0.75rem;
+    transition: all 0.2s;
+}
+
+.config-row-item:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.config-row-info {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.config-row-day {
+    font-weight: 700;
+    font-size: 0.8125rem;
+    width: 80px;
+    color: var(--text-primary);
+}
+
+.config-row-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background: var(--bg-surface-2nd);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.config-row-ocup {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--color-primary);
+}
+
+.custom-chk-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.custom-chk-container input {
+    display: none;
+}
+
+.custom-chk-mark {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    display: inline-block;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.custom-chk-container input:checked + .custom-chk-mark {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.custom-chk-container input:checked + .custom-chk-mark:after {
+    content: '✓';
+    position: absolute;
+    color: white;
+    font-size: 14px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.custom-chk-container:hover .custom-chk-mark {
+    border-color: var(--color-primary);
 }
 
 .activity-card:hover {

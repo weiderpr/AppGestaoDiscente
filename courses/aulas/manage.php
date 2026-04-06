@@ -54,12 +54,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'O horário de fim deve ser após o horário de início.';
             } else {
                 $local = trim($_POST['local'] ?? '');
+                $ocupacao = $_POST['ocupacao'] ?? 'Turma inteira';
                 try {
                     $st = $db->prepare('
-                        INSERT INTO gestao_turma_aulas (turma_id, disciplina_codigo, dia_semana, horario_inicio, horario_fim, local, created_by)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        INSERT INTO gestao_turma_aulas (turma_id, disciplina_codigo, dia_semana, horario_inicio, horario_fim, local, ocupacao, created_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ');
-                    $st->execute([$turmaId, $disciplinaCodigo, $dia, $inicio, $fim, $local, $user['id']]);
+                    $st->execute([$turmaId, $disciplinaCodigo, $dia, $inicio, $fim, $local, $ocupacao, $user['id']]);
                     $success = 'Aula cadastrada com sucesso!';
                 } catch (PDOException $e) {
                     $error = 'Erro ao salvar: ' . $e->getMessage();
@@ -126,6 +127,7 @@ $diasSemana = [
                                 <th>Dia da Semana</th>
                                 <th>Início</th>
                                 <th>Fim</th>
+                                <th>Grupo</th>
                                 <th>Local</th>
                                 <th style="text-align:center;">Ações</th>
                             </tr>
@@ -136,6 +138,11 @@ $diasSemana = [
                                     <td><span class="dia-badge"><?= $diasSemana[$a['dia_semana']] ?></span></td>
                                     <td><span class="time-badge"><?= substr($a['horario_inicio'], 0, 5) ?></span></td>
                                     <td><span class="time-badge"><?= substr($a['horario_fim'], 0, 5) ?></span></td>
+                                    <td>
+                                        <span class="badge-profile <?= $a['ocupacao'] === 'Turma inteira' ? 'badge-Administrador' : 'badge-Outro' ?>" style="font-size: 11px;">
+                                            <?= htmlspecialchars($a['ocupacao']) ?>
+                                        </span>
+                                    </td>
                                     <td><span class="location-badge"><?= htmlspecialchars($a['local'] ?: 'Não definido') ?></span></td>
                                     <td style="text-align:center;">
                                         <button class="action-btn danger" onclick="deleteAula(<?= $a['id'] ?>)" title="Excluir">🗑️</button>
@@ -162,14 +169,26 @@ $diasSemana = [
                         <input type="hidden" name="disciplina_codigo" value="<?= $disciplinaCodigo ?>">
                         <input type="hidden" name="disciplina_nome" value="<?= htmlspecialchars($disciplinaNome) ?>">
 
-                        <div class="form-group">
-                            <label class="form-label">Dia da Semana</label>
-                            <select name="dia_semana" class="form-control" required>
-                                <option value="">Selecione...</option>
-                                <?php foreach ($diasSemana as $val => $label): ?>
-                                    <option value="<?= $val ?>"><?= $label ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Dia da Semana</label>
+                                <select name="dia_semana" class="form-control" required>
+                                    <option value="">Selecione...</option>
+                                    <?php foreach ($diasSemana as $val => $label): ?>
+                                        <option value="<?= $val ?>"><?= $label ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Grupo</label>
+                                <select name="ocupacao" class="form-control" required>
+                                    <option value="Turma inteira">Turma inteira</option>
+                                    <option value="Grupo 1">Grupo 1</option>
+                                    <option value="Grupo 2">Grupo 2</option>
+                                    <option value="Grupo 3">Grupo 3</option>
+                                    <option value="Grupo 4">Grupo 4</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="form-row">
@@ -188,15 +207,11 @@ $diasSemana = [
                             <input type="text" name="local" class="form-control" placeholder="Ex: Sala 102, Lab A...">
                         </div>
 
-                        <button type="submit" class="btn btn-primary btn-full">
-                            🚀 Salvar Aula
+                        <button type="submit" class="btn btn-primary btn-full" style="margin-top: 0.5rem;">
+                            ➕ Incluir Aula
                         </button>
                     </form>
                 </div>
-            </div>
-
-            <div class="aulas-tip">
-                <strong>💡 Dica:</strong> Use este espaço para definir a grade horária da turma para esta disciplina. 
             </div>
         </div>
     </div>
@@ -210,7 +225,7 @@ $diasSemana = [
     flex-direction: column;
     min-height: 0;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow: auto;
 }
 
 .alert {
@@ -220,11 +235,11 @@ $diasSemana = [
 
 .aulas-layout {
     display: grid;
-    grid-template-columns: 1fr 320px;
-    gap: 1.5rem;
+    grid-template-columns: 1fr 280px;
+    gap: 1rem;
     flex: 1;
     min-height: 0;
-    padding: 0 1.5rem 1.5rem;
+    padding: 0 1rem 1rem;
 }
 
 .aulas-list-container {
@@ -339,7 +354,15 @@ $diasSemana = [
     display: flex;
     flex-direction: column;
     height: 100%;
+    overflow-y: auto;
+    padding-right: 8px;
+    padding-bottom: 2rem;
+    min-height: 0;
 }
+
+.aulas-form-container::-webkit-scrollbar { width: 6px; }
+.aulas-form-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+[data-theme="dark"] .aulas-form-container::-webkit-scrollbar-thumb { background: #475569; }
 
 .aulas-form-card {
     background: var(--bg-surface);
@@ -349,7 +372,7 @@ $diasSemana = [
 }
 
 .aulas-form-header {
-    padding: 1rem 1.25rem;
+    padding: 0.75rem 1rem;
     background: linear-gradient(135deg, var(--color-primary) 0%, #4f46e5 100%);
     border-bottom: none;
 }
@@ -361,11 +384,11 @@ $diasSemana = [
 }
 
 .aulas-form-body {
-    padding: 1.25rem;
+    padding: 1rem;
 }
 
 .aulas-form-body .form-group {
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .aulas-form-body .form-label {
@@ -401,10 +424,10 @@ $diasSemana = [
 
 .aulas-form-body .btn-full {
     width: 100%;
-    margin-top: 0.5rem;
-    padding: 0.75rem;
+    margin-top: 0.25rem;
+    padding: 0.625rem;
     font-weight: 700;
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
     background: linear-gradient(135deg, var(--color-primary) 0%, #4f46e5 100%);
     border: none;
     color: white;
@@ -418,29 +441,23 @@ $diasSemana = [
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
 }
 
-.aulas-tip {
-    margin-top: 1.25rem;
-    padding: 1rem;
-    background: rgba(59, 130, 246, 0.08);
-    border: 1px solid rgba(59, 130, 246, 0.15);
-    border-radius: var(--radius-md);
-    font-size: 0.8125rem;
-    line-height: 1.5;
-    color: var(--text-secondary);
-}
 
-.aulas-tip strong {
-    color: var(--color-primary);
-}
-
-@media (max-width: 768px) {
+@media (max-width: 900px) {
     .aulas-layout {
         grid-template-columns: 1fr;
-        grid-template-rows: 1fr auto;
+        grid-template-rows: auto auto;
+        overflow-y: auto;
+        height: auto;
     }
     
     .aulas-form-container {
         height: auto;
+        overflow: visible;
+    }
+
+    .aulas-list-container {
+        height: 350px; /* Altura fixa no mobile antes do form */
+        flex-shrink: 0;
     }
 }
 </style>
