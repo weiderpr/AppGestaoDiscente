@@ -44,8 +44,11 @@ foreach ($allResources as $res) {
     $groupedResources[$cat][] = $res;
 }
 
+$currentInstitutionId = getCurrentInstitution()['id'] ?? 0;
+
 // Buscar permissões atuais
-$stPerms = $db->query("SELECT profile, resource, can_access FROM profile_permissions");
+$stPerms = $db->prepare("SELECT profile, resource, can_access FROM profile_permissions WHERE instituicao_id = ?");
+$stPerms->execute([$currentInstitutionId]);
 $currentPerms = [];
 while ($row = $stPerms->fetch()) {
     $currentPerms[$row['profile']][$row['resource']] = (bool)$row['can_access'];

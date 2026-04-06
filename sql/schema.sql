@@ -440,15 +440,18 @@ CREATE TABLE `perguntas` (
 
 -- Table: profile_permissions
 CREATE TABLE `profile_permissions` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `profile` enum('Administrador','Coordenador','Diretor','Professor','Pedagogo','Assistente Social','Naapi','Psicólogo','Outro') COLLATE utf8mb4_unicode_ci NOT NULL,
-  `resource` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `profile` enum('Administrador','Coordenador','Diretor','Professor','Pedagogo','Assistente Social','Naapi','Psicólogo','Outro') NOT NULL,
+  `resource` varchar(100) NOT NULL,
   `can_access` tinyint(1) NOT NULL DEFAULT '1',
+  `instituicao_id` int(10) unsigned NOT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `unique_profile_resource` (`profile`,`resource`)
-) ENGINE=InnoDB AUTO_INCREMENT=2005 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  UNIQUE KEY `idx_profile_resource_inst` (`profile`,`resource`,`instituicao_id`),
+  KEY `fk_profile_perm_inst` (`instituicao_id`),
+  CONSTRAINT `fk_profile_perm_inst` FOREIGN KEY (`instituicao_id`) REFERENCES `institutions` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Table: respostas_avaliacao
 CREATE TABLE `respostas_avaliacao` (

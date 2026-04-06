@@ -254,19 +254,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
         $perms = $_POST['perms'] ?? []; // format: [profile][resource] = 1
 
         try {
+            $currentInstitutionId = getCurrentInstitution()['id'] ?? null;
+            if (!$currentInstitutionId) throw new Exception("Sessão da Instituição inválida.");
+
             $db->beginTransaction();
             foreach ($profiles as $p) {
                 foreach ($resources as $r) {
                     $val = isset($perms[$p][$r]) ? 1 : 0;
-                    $st = $db->prepare("INSERT INTO profile_permissions (profile, resource, can_access) 
-                                       VALUES (?, ?, ?) 
+                    $st = $db->prepare("INSERT INTO profile_permissions (profile, resource, can_access, instituicao_id) 
+                                       VALUES (?, ?, ?, ?) 
                                        ON DUPLICATE KEY UPDATE can_access = ?");
-                    $st->execute([$p, $r, $val, $val]);
+                    $st->execute([$p, $r, $val, $currentInstitutionId, $val]);
                 }
             }
             $db->commit();
             $success = 'Permissões atualizadas com sucesso!';
-        } catch (PDOException $e) {
+        } catch (Exception $e) {
             if ($db->inTransaction()) $db->rollBack();
             $error = 'Erro ao atualizar: ' . $e->getMessage();
         }

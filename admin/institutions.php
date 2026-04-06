@@ -55,6 +55,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !csrf_verify($_POST['csrf_token'] ?
 
             $st = $db->prepare('INSERT INTO institutions (name, cnpj, photo, responsible, address) VALUES (?,?,?,?,?)');
             $st->execute([$name, $cnpjFmt, $photoPath, $responsible, $address]);
+            $newInstId = $db->lastInsertId();
+
+            // Duplica as permissões da instituição atual (onde o usuário está logado) para a nova
+            $currentInstId = $_SESSION['current_institution_id'] ?? null;
+            if ($currentInstId && $newInstId) {
+                // Clona os registros trocando o instituicao_id
+                $stCopy = $db->prepare('
+                    INSERT INTO profile_permissions (profile, resource, can_access, instituicao_id)
+                    SELECT profile, resource, can_access, ? 
+                    FROM profile_permissions 
+                    WHERE instituicao_id = ?
+                ');
+                $stCopy->execute([$newInstId, $currentInstId]);
+            }
+
             $success = "Instituição «{$name}» cadastrada com sucesso!";
         }
     }
