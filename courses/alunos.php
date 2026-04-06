@@ -836,6 +836,36 @@ function openEditModal(aluno) {
 <script src="/assets/js/student_comments.js?v=2.3"></script>
 <?php require_once __DIR__ . '/../includes/student_comment_modal.php'; ?>
 <?php require_once __DIR__ . '/../includes/atendimento_modal.php'; ?>
+<?php require_once __DIR__ . '/../includes/student_schedule_modal.php'; ?>
+
+<script>
+async function openHistoryModal(alunoId) {
+    if (typeof Loading !== 'undefined') Loading.show('Carregando histórico...');
+    
+    try {
+        const resp = await fetch(`/aluno/historico/${alunoId}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const html = await resp.text();
+        
+        document.getElementById('historyModalContent').innerHTML = html;
+        document.getElementById('historyModal').classList.add('show');
+        document.body.style.overflow = 'hidden';
+    } catch (err) {
+        console.error('Erro ao carregar histórico:', err);
+        if (typeof Toast !== 'undefined') Toast.error('Erro ao carregar histórico multidisciplinar.');
+    } finally {
+        if (typeof Loading !== 'undefined') Loading.hide();
+    }
+}
+
+function closeHistoryModal() {
+    document.getElementById('historyModal').classList.remove('show');
+    document.body.style.overflow = '';
+}
+</script>
 
 
 <?php if ($openCommentModal && $commentAlunoId): ?>
