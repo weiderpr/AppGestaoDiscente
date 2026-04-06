@@ -7,10 +7,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user = getCurrentUser();
-if (!$user || $user['profile'] !== 'Administrador') {
-    header('Location: /dashboard.php');
-    exit;
-}
+hasDbPermission('users.index');
 
 $db      = getDB();
 $success = '';
