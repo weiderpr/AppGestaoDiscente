@@ -90,18 +90,83 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 
         <!-- Menu de Navegação -->
         <nav class="navbar-menu" aria-label="Menu principal">
-            <?php if (hasDbPermission('users.index', false)): ?>
-            <a href="/admin/users.php"
-               class="nav-link <?= $currentPage === 'users' ? 'active' : '' ?>">
-                👥 Usuários
-            </a>
+
+            <!-- Cadastro (Dropdown) -->
+            <?php
+            $hasCadastroAccess = hasDbPermission('users.index', false) 
+                || hasDbPermission('institutions.index', false) 
+                || hasDbPermission('subjects.index', false);
+            ?>
+            <?php if ($hasCadastroAccess): ?>
+            <div class="nav-dropdown nav-menu-item">
+                <button class="nav-link nav-dropdown-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="cadastro-dropdown">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-text">Cadastro</span>
+                    <span class="nav-arrow">▾</span>
+                </button>
+                <div class="nav-dropdown-menu" id="cadastro-dropdown" role="menu">
+                    <?php if (hasDbPermission('users.index', false)): ?>
+                    <a href="/admin/users.php" 
+                       class="nav-dropdown-item <?= $currentPage === 'users' ? 'active' : '' ?>" 
+                       role="menuitem">
+                        <span class="nav-icon">👥</span>
+                        <span>Usuários</span>
+                    </a>
+                    <?php endif; ?>
+
+                    <?php if (hasDbPermission('institutions.index', false)): ?>
+                    <a href="/admin/institutions.php" 
+                       class="nav-dropdown-item <?= $currentPage === 'institutions' ? 'active' : '' ?>" 
+                       role="menuitem">
+                        <span class="nav-icon">🏫</span>
+                        <span>Instituições</span>
+                    </a>
+                    <?php endif; ?>
+
+                    <?php if (hasDbPermission('subjects.index', false)): ?>
+                    <a href="/subjects/index.php" 
+                       class="nav-dropdown-item <?= $currentPage === 'subjects' ? 'active' : '' ?>" 
+                       role="menuitem">
+                        <span class="nav-icon">📖</span>
+                        <span>Disciplinas</span>
+                    </a>
+                    <?php endif; ?>
+                </div>
+            </div>
             <?php endif; ?>
 
-            <?php if (hasDbPermission('institutions.index', false)): ?>
-            <a href="/admin/institutions.php"
-               class="nav-link <?= $currentPage === 'institutions' ? 'active' : '' ?>">
-                🏫 Instituições
-            </a>
+            <!-- Acompanhamento (Dropdown) -->
+            <?php
+            $hasAcompanhamentoAccess = hasDbPermission('atendimentos.index', false) 
+                || hasDbPermission('sancoes.index', false);
+            ?>
+            <?php if ($hasAcompanhamentoAccess): ?>
+            <div class="nav-dropdown nav-menu-item">
+                <button class="nav-link nav-dropdown-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="acompanhamento-dropdown">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">Acompanhamento</span>
+                    <span class="nav-arrow">▾</span>
+                </button>
+                <div class="nav-dropdown-menu" id="acompanhamento-dropdown" role="menu">
+                    <?php if (hasDbPermission('atendimentos.index', false)): ?>
+                    <a href="/atendimentos/index.php" 
+                       class="nav-dropdown-item <?= strpos($_SERVER['PHP_SELF'], '/atendimentos/') !== false ? 'active' : '' ?>" 
+                       role="menuitem">
+                        <span class="nav-icon">📝</span>
+                        <span>Atendimentos</span>
+                    </a>
+                    <?php endif; ?>
+
+                    <?php if (hasDbPermission('sancoes.index', false)): ?>
+                    <a href="#" 
+                       class="nav-dropdown-item" 
+                       role="menuitem">
+                        <span class="nav-icon">⚖️</span>
+                        <span>Sanção Disciplinar</span>
+                    </a>
+                    <?php endif; ?>
+                </div>
+            </div>
             <?php endif; ?>
 
             <?php if (hasDbPermission('courses.index', false)): ?>
@@ -111,24 +176,10 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
             </a>
             <?php endif; ?>
 
-            <?php if (hasDbPermission('subjects.index', false)): ?>
-            <a href="/subjects/index.php"
-               class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/subjects/') !== false ? 'active' : '' ?>">
-                📖 Disciplinas
-            </a>
-            <?php endif; ?>
-
             <?php if (hasDbPermission('conselhos.index', false)): ?>
             <a href="/courses/conselhos.php"
                class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/courses/conselhos') !== false ? 'active' : '' ?>">
                 🏠 Conselhos
-            </a>
-            <?php endif; ?>
-
-            <?php if (hasDbPermission('atendimentos.index', false)): ?>
-            <a href="/atendimentos/index.php"
-               class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/atendimentos/') !== false ? 'active' : '' ?>">
-                📝 Atendimentos
             </a>
             <?php endif; ?>
         </nav>

@@ -80,6 +80,14 @@ function initDropdowns() {
         });
     });
 
+    // Fechar dropdown ao clicar em links internos
+    document.querySelectorAll('.nav-dropdown-item').forEach(link => {
+        link.addEventListener('click', () => {
+            const dropdown = link.closest('.nav-dropdown');
+            if (dropdown) dropdown.classList.remove('open');
+        });
+    });
+
     document.addEventListener('click', (e) => {
         containers.forEach(c => {
             if (!c.contains(e.target)) c.classList.remove('open');
