@@ -3,7 +3,7 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 // Validations
-hasDbPermission('sancoes.index');
+// Per-action validations are handled within the action blocks below
 
 $action = $_GET['action'] ?? '';
 $db = getDB();
@@ -14,6 +14,7 @@ $user = getCurrentUser();
 header('Content-Type: application/json');
 
 if ($action === 'search_aluno') {
+    hasDbPermission('sancoes.index');
     $q = trim($_GET['q'] ?? '');
     if (strlen($q) < 3) {
         echo json_encode([]);
@@ -40,6 +41,7 @@ if ($action === 'search_aluno') {
 }
 
 if ($action === 'get_dependencies') {
+    hasDbPermission('sancoes.index');
     $tipos = $db->prepare("SELECT id, titulo, descricao FROM sancao_tipo WHERE institution_id = ? AND is_active = 1 ORDER BY titulo");
     $tipos->execute([$instId]);
     
@@ -54,6 +56,7 @@ if ($action === 'get_dependencies') {
 }
 
 if ($action === 'list') {
+    hasDbPermission('sancoes.index');
     $alunoTerm = trim($_GET['aluno'] ?? '');
     $statusTerm = trim($_GET['status'] ?? '');
     
@@ -91,6 +94,7 @@ if ($action === 'list') {
 }
 
 if ($action === 'get') {
+    hasDbPermission('sancoes.index');
     $id = (int)($_GET['id'] ?? 0);
     $st = $db->prepare("
         SELECT s.*, 
@@ -124,6 +128,10 @@ if ($action === 'get') {
 }
 
 if ($action === 'get_history') {
+    // Permitir se tiver sancoes.index OU students.index (para o popover funcionar para professores)
+    if (!hasDbPermission('sancoes.index', false) && !hasDbPermission('students.index', false)) {
+        hasDbPermission('sancoes.index'); // Isso vai disparar o erro/redirecionamento oficial
+    }
     $alunoId = (int)($_GET['aluno_id'] ?? 0);
     $excludeId = (int)($_GET['exclude_id'] ?? 0);
     

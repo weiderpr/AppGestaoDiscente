@@ -318,7 +318,8 @@ if ($action === 'import_file' && !empty($_FILES['import_file']['tmp_name'])) {
 // ---- LISTAR ALUNOS DA TURMA ----
 $search = trim($_GET['search'] ?? '');
 $sql = "
-    SELECT a.* 
+    SELECT a.*, 
+           (SELECT COUNT(*) FROM sancao WHERE aluno_id = a.id AND status != 'Cancelado') as total_sancoes
     FROM alunos a
     INNER JOIN turma_alunos ta ON ta.aluno_id = a.id
     WHERE ta.turma_id = ?
@@ -355,10 +356,12 @@ $unlinkedCount = $db->query("
 
 $pageTitle = 'Alunos — ' . $turma['description'];
 $extraJS = [
-    '/assets/js/performance_system.js?v=1.6'
+    '/assets/js/performance_system.js?v=1.6',
+    '/assets/js/sancao_popover.js?v=1.0'
 ];
 require_once __DIR__ . '/../includes/header.php';
 ?>
+<link rel="stylesheet" href="/assets/css/sancao_popover.css?v=1.0">
 
 <style>
 .alunos-table-wrap { overflow-x:auto; border-radius:var(--radius-lg); }
@@ -473,7 +476,14 @@ require_once __DIR__ . '/../includes/header.php';
                     </td>
                     <td style="font-weight:600;color:var(--color-primary);"><?= htmlspecialchars($a['matricula']) ?></td>
                     <td style="font-weight:600;">
-                        <div><?= htmlspecialchars($a['nome']) ?></div>
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <span><?= htmlspecialchars($a['nome']) ?></span>
+                            <?php if (($a['total_sancoes'] ?? 0) > 0): ?>
+                                <span class="sancao-popover-trigger" data-aluno-id="<?= $a['id'] ?>" style="display:inline-flex; align-items:center; gap:0.25rem; font-size:0.7rem; font-weight:700; color:#ef4444; background:#fef2f2; border:1px solid #fca5a5; padding:1px 6px; border-radius:12px; cursor: help;" title="Passe o mouse para ver detalhes">
+                                    ⚠️ <?= $a['total_sancoes'] ?>
+                                </span>
+                            <?php endif; ?>
+                        </div>
                         <?php if ($isAdmin || $isCoord || $isPedagogo): ?>
                         <div style="font-size:.75rem;color:var(--text-muted);font-weight:400;"><?= htmlspecialchars($a['email']) ?></div>
                         <?php endif; ?>
