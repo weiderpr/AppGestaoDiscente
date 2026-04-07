@@ -176,7 +176,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
             </a>
             <?php endif; ?>
 
-            <?php if (hasDbPermission('conselhos.index', false)): ?>
+            <?php if (hasDbPermission('conselhos.index', false) || hasDbPermission('conselhos.view_finished', false)): ?>
             <a href="/courses/conselhos.php"
                class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/courses/conselhos') !== false ? 'active' : '' ?>">
                 🏠 Conselhos

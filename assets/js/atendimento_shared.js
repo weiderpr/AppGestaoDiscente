@@ -148,6 +148,20 @@ function populateAtendimentoModal(data, options = {}) {
 
         if (subtitleEl) subtitleEl.innerText = at.aluno_nome + (at.matricula ? ' (#' + at.matricula + ')' : '') + (at.curso_nome ? ' • ' + at.curso_nome : '') + (at.turma_nome ? ' — ' + at.turma_nome : '');
         
+        // Render Sancao Badge
+        const sancaoContainer = document.getElementById('cdSancaoBadgeContainer');
+        if (sancaoContainer) {
+            if (at.total_sancoes > 0) {
+                sancaoContainer.innerHTML = `
+                    <div class="sancao-popover-trigger" data-aluno-id="${at.aluno_id}" style="display:inline-flex; align-items:center; gap:0.25rem; font-size:0.75rem; font-weight:700; color:#ef4444; background:#fef2f2; border:1px solid #fca5a5; padding:2px 8px; border-radius:12px; cursor: help; margin-top: -2px;" title="Passe o mouse para ver os detalhes das ocorrências">
+                        ⚠️ ${at.total_sancoes} ${at.total_sancoes > 1 ? 'Sanções' : 'Sanção'}
+                    </div>
+                `;
+            } else {
+                sancaoContainer.innerHTML = '';
+            }
+        }
+
         if (photoEl && avatarEl) {
             if (at.aluno_photo) {
                 photoEl.src = '/' + at.aluno_photo;

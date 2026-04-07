@@ -15,6 +15,7 @@ $action = $_GET['action'] ?? '';
 try {
     switch ($action) {
         case 'save':
+            if (!hasDbPermission('conselhos.index', false)) throw new Exception('Acesso negado: Perfil insuficiente para salvar encaminhamentos.');
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') throw new Exception('Método inválido');
             
             $alunoId = (int)($_POST['aluno_id'] ?? 0);
@@ -126,6 +127,7 @@ try {
             break;
 
         case 'delete':
+            if (!hasDbPermission('conselhos.index', false)) throw new Exception('Acesso negado: Perfil insuficiente para excluir encaminhamentos.');
             $referralId = (int)($_GET['id'] ?? 0);
             if (!$referralId) throw new Exception('ID do encaminhamento ausente');
 

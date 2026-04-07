@@ -16,7 +16,8 @@ require_once __DIR__ . '/../includes/modal.php';
 
 $pageTitle = "Gestão de Atendimentos";
 $extraCSS = [
-    '/assets/css/kanban.css' // We will put Kanban specific styles here or embedded.
+    '/assets/css/kanban.css',
+    '/assets/css/sancao_popover.css'
 ];
 
 require_once __DIR__ . '/../includes/header.php';
@@ -428,6 +429,8 @@ input:checked + .slider:before {
     const currentUserId = <?= (int)$user['id'] ?>;
     const currentUserProfile = '<?= addslashes($user['profile']) ?>';
 </script>
+
+<script src="/assets/js/sancao_popover.js?v=1.0"></script>
 
 <?php 
 renderModalScripts();

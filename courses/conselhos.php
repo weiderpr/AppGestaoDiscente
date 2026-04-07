@@ -3,7 +3,14 @@
  * Vértice Acadêmico  — Conselhos de Classe
  */
 require_once __DIR__ . '/../includes/auth.php';
-hasDbPermission('conselhos.index');
+// Perfil Administrador sempre passa, os outros dependem da permissão explicativa
+$canFull = hasDbPermission('conselhos.index', false);
+$canViewFinished = hasDbPermission('conselhos.view_finished', false);
+
+if (!$canFull && !$canViewFinished) {
+    header('Location: /dashboard.php?error=access_denied');
+    exit;
+}
 
 $user = getCurrentUser();
 
@@ -23,6 +30,7 @@ $action  = $_POST['action'] ?? '';
 
 // ---- CRIAR / EDITAR ----
 if ($action === 'save') {
+    if (!$canFull) die('Acesso negado.');
     $id            = (int)($_POST['id'] ?? 0);
     $course_id     = (int)($_POST['course_id'] ?? 0);
     $turma_id      = (int)($_POST['turma_id'] ?? 0);
@@ -65,6 +73,7 @@ if ($action === 'save') {
 
 // ---- TOGGLE STATUS ----
 if ($action === 'toggle' && !empty($_POST['id'])) {
+    if (!$canFull) die('Acesso negado.');
     $id = (int)$_POST['id'];
     $db->prepare('UPDATE conselhos_classe SET is_active = !is_active WHERE id=? AND institution_id=?')
        ->execute([$id, $instId]);
@@ -73,6 +82,7 @@ if ($action === 'toggle' && !empty($_POST['id'])) {
 
 // ---- EXCLUIR ----
 if ($action === 'delete' && !empty($_POST['id'])) {
+    if (!$canFull) die('Acesso negado.');
     $id = (int)$_POST['id'];
     $db->prepare('DELETE FROM conselhos_classe WHERE id=? AND institution_id=?')
        ->execute([$id, $instId]);
@@ -134,6 +144,10 @@ $sql    = "SELECT cc.*, t.description as turma_name, c.name as course_name, c.id
            LEFT JOIN conselhos_etapas ce ON cc.id = ce.conselho_id
            LEFT JOIN etapas e ON ce.etapa_id = e.id
            WHERE cc.institution_id = ?";
+
+if (!$canFull) {
+    $sql .= " AND cc.is_active = 0 ";
+}
 
 $params = [$instId];
 
@@ -227,7 +241,9 @@ require_once __DIR__ . '/../includes/header.php';
             Gestão de reuniões e deliberações pedagógicas por turma.
         </p>
     </div>
-    <button class="btn btn-primary" onclick="openModal()">➕ Novo Conselho</button>
+    <?php if ($canFull): ?>
+        <button class="btn btn-primary" onclick="openModal()">➕ Novo Conselho</button>
+    <?php endif; ?>
 </div>
 
 <?php if ($success): ?>
@@ -333,24 +349,26 @@ require_once __DIR__ . '/../includes/header.php';
                     <td>
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
                             <a href="/courses/conselho_acao.php?id=<?= $c['id'] ?>" class="action-btn" title="Acessar Conselho">📋</a>
-                            <?php if ($c['is_active']): ?>
-                            <button type="button" class="action-btn" title="Editar"
-                                    onclick='openModal(<?= json_encode($c) ?>)'>✏️</button>
-                            
-                            <button type="button" class="action-btn" title="Desativar"
-                                    onclick="confirmToggleStatus(<?= $c['id'] ?>, true)">⏸</button>
+                            <?php if ($canFull): ?>
+                                <?php if ($c['is_active']): ?>
+                                <button type="button" class="action-btn" title="Editar"
+                                        onclick='openModal(<?= json_encode($c) ?>)'>✏️</button>
+                                
+                                <button type="button" class="action-btn" title="Desativar"
+                                        onclick="confirmToggleStatus(<?= $c['id'] ?>, true)">⏸</button>
 
-                            <button type="button" class="action-btn danger" title="Excluir"
-                                    onclick="confirmDeleteConselho(<?= $c['id'] ?>)">🗑</button>
-                            <?php else: ?>
-                            <button type="button" class="action-btn" title="Editar" disabled
-                                    style="opacity:0.4;cursor:not-allowed;">✏️</button>
-                            
-                            <button type="button" class="action-btn" title="Ativar"
-                                    onclick="confirmToggleStatus(<?= $c['id'] ?>, false)">▶</button>
+                                <button type="button" class="action-btn danger" title="Excluir"
+                                        onclick="confirmDeleteConselho(<?= $c['id'] ?>)">🗑</button>
+                                <?php else: ?>
+                                <button type="button" class="action-btn" title="Editar" disabled
+                                        style="opacity:0.4;cursor:not-allowed;">✏️</button>
+                                
+                                <button type="button" class="action-btn" title="Ativar"
+                                        onclick="confirmToggleStatus(<?= $c['id'] ?>, false)">▶</button>
 
-                            <button type="button" class="action-btn danger" title="Excluir" disabled
-                                    style="opacity:0.4;cursor:not-allowed;">🗑</button>
+                                <button type="button" class="action-btn danger" title="Excluir" disabled
+                                        style="opacity:0.4;cursor:not-allowed;">🗑</button>
+                                <?php endif; ?>
                             <?php endif; ?>
                         </div>
                     </td>

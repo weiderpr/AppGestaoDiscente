@@ -30,6 +30,7 @@ switch ($action) {
             $stDemandas = $db->prepare("
                 SELECT e.id as encaminhamento_id, e.setor_tipo, e.data_expectativa, e.status as enc_status,
                        a.id as aluno_id, a.nome as aluno_nome, a.photo as aluno_photo,
+                       (SELECT COUNT(*) FROM sancao WHERE aluno_id = a.id AND status != 'Cancelado') as total_sancoes,
                        c.id as conselho_id, t.id as turma_id, t.description as turma_nome
                 FROM conselho_encaminhamentos e
                 JOIN alunos a ON e.aluno_id = a.id
@@ -61,6 +62,7 @@ switch ($action) {
                     'turma_nome' => $d['turma_nome'],
                     'titulo' => 'Encaminhamento: ' . $d['setor_tipo'],
                     'status' => 'Demandas',
+                    'total_sancoes' => (int)$d['total_sancoes'],
                     'data' => $d['data_expectativa'],
                     'is_encaminhamento' => true,
                     'responsaveis' => []
@@ -71,6 +73,7 @@ switch ($action) {
             $stAtend = $db->prepare("
                 SELECT at.*, 
                        a.nome as aluno_nome, a.photo as aluno_photo,
+                       (SELECT COUNT(*) FROM sancao WHERE aluno_id = a.id AND status != 'Cancelado') as total_sancoes,
                        t.description as turma_nome,
                        u.name as author_name, u.photo as author_photo
                 FROM gestao_atendimentos at
@@ -114,6 +117,7 @@ switch ($action) {
                     'turma_nome' => $a['turma_nome'],
                     'titulo' => strip_tags(html_entity_decode((string)$a['titulo'])),
                     'status' => $a['status'],
+                    'total_sancoes' => (int)$a['total_sancoes'],
                     'is_archived' => (bool)$a['is_archived'],
                     'data' => $a['created_at'],
                     'is_encaminhamento' => false,
@@ -273,6 +277,7 @@ switch ($action) {
                 $st = $db->prepare("
                     SELECT e.*, 
                            a.nome as aluno_nome, a.matricula, a.photo as aluno_photo,
+                           (SELECT COUNT(*) FROM sancao WHERE aluno_id = a.id AND status != 'Cancelado') as total_sancoes,
                            t.description as turma_nome,
                            co.name as curso_nome,
                            c.descricao as conselho_nome, c.data_hora as conselho_data
@@ -307,6 +312,7 @@ switch ($action) {
             $st = $db->prepare("
                 SELECT at.*, 
                        a.nome as aluno_nome, a.matricula, a.photo as aluno_photo,
+                       (SELECT COUNT(*) FROM sancao WHERE aluno_id = a.id AND status != 'Cancelado') as total_sancoes,
                        t.description as turma_nome,
                        co.name as curso_nome,
                        e.texto as encaminhamento_texto, e.data_expectativa,

@@ -6,9 +6,11 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $user = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador', 'Pedagogo', 'Assistente Social', 'Psicólogo'];
-if (!$user || !in_array($user['profile'], $allowed)) {
-    header('Location: /dashboard.php');
+$canFull = hasDbPermission('conselhos.index', false);
+$canViewFinished = hasDbPermission('conselhos.view_finished', false);
+
+if (!$canFull && !$canViewFinished) {
+    header('Location: /dashboard.php?error=access_denied');
     exit;
 }
 
@@ -42,6 +44,12 @@ if (!$conselho) {
     exit;
 }
 
+// Se o usuário só tem permissão de ver FINALIZADOS, mas o conselho está ATIVO, barra.
+if (!$canFull && $conselho['is_active']) {
+    header('Location: /courses/conselhos.php?error=' . urlencode('Acesso negado: Você só pode visualizar conselhos finalizados.'));
+    exit;
+}
+
 $conselhoConcluido = !$conselho['is_active'];
 
 $turmaId = $conselho['turma_id'];
@@ -51,12 +59,14 @@ $error = '';
 $action = $_POST['action'] ?? '';
 
 if ($action === 'finalizar_conselho') {
+    if (!$canFull) die('Acesso negado.');
     $db->prepare('UPDATE conselhos_classe SET is_active = 0 WHERE id = ?')->execute([$conselhoId]);
     header("Location: conselho_acao.php?id=$conselhoId&tab=avaliacao&success=" . urlencode('Conselho de Classe finalizado com sucesso!'));
     exit;
 }
 
 if ($action === 'salvar_presenca') {
+    if (!$canFull) die('Acesso negado.');
     $presentes = $_POST['presentes'] ?? [];
     $db->prepare('DELETE FROM conselhos_presentes WHERE conselho_id = ?')->execute([$conselhoId]);
     foreach ($presentes as $userId) {
@@ -361,14 +371,16 @@ require_once __DIR__ . '/../includes/header.php';
             <span style="color:var(--text-muted);"> | <?= date('d/m/Y H:i', strtotime($conselho['data_hora'])) ?></span>
         </p>
     </div>
-    <div style="display:flex; gap:0.75rem;">
-        <button type="button" class="btn btn-primary" onclick="<?= $conselhoConcluido ? '' : "openReferralModal(0, 'Encaminhamento para a Turma', conselhoId)" ?>" <?= $conselhoConcluido ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '' ?> style="display:inline-flex; align-items:center; gap:0.5rem;">
-            <span>📌 Encaminhamento Turma</span>
-        </button>
-        <button type="button" class="btn btn-secondary" onclick="<?= $conselhoConcluido ? '' : "openCouncilRecordModal(conselhoId, null)" ?>" <?= $conselhoConcluido ? 'disabled style="opacity:0.5; cursor:not-allowed; background:var(--bg-surface); border:1px solid var(--border-color); color:var(--text-primary);"' : 'style="display:inline-flex; align-items:center; gap:0.5rem; background:var(--bg-surface); border:1px solid var(--border-color); color:var(--text-primary);"' ?>>
-            <span>📝 Registros Gerais</span>
-        </button>
-    </div>
+    <?php if ($canFull): ?>
+        <div style="display:flex; gap:0.75rem;">
+            <button type="button" class="btn btn-primary" onclick="<?= $conselhoConcluido ? '' : "openReferralModal(0, 'Encaminhamento para a Turma', conselhoId)" ?>" <?= $conselhoConcluido ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '' ?> style="display:inline-flex; align-items:center; gap:0.5rem;">
+                <span>📌 Encaminhamento Turma</span>
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="<?= $conselhoConcluido ? '' : "openCouncilRecordModal(conselhoId, null)" ?>" <?= $conselhoConcluido ? 'disabled style="opacity:0.5; cursor:not-allowed; background:var(--bg-surface); border:1px solid var(--border-color); color:var(--text-primary);"' : 'style="display:inline-flex; align-items:center; gap:0.5rem; background:var(--bg-surface); border:1px solid var(--border-color); color:var(--text-primary);"' ?>>
+                <span>📝 Registros Gerais</span>
+            </button>
+        </div>
+    <?php endif; ?>
 </div>
 
 <!-- Notifications handled via Toast.js -->
@@ -452,9 +464,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             </div>
-            <div class="card-footer" style="display:flex;justify-content:flex-end;padding:1rem 1.5rem;background:var(--bg-surface-2nd);border-top:1px solid var(--border-color);margin-top:auto;">
-                <button type="submit" class="btn btn-primary">💾 Salvar Presença</button>
-            </div>
+            <?php if ($canFull): ?>
+                <div class="card-footer" style="display:flex;justify-content:flex-end;padding:1rem 1.5rem;background:var(--bg-surface-2nd);border-top:1px solid var(--border-color);margin-top:auto;">
+                    <button type="submit" class="btn btn-primary">💾 Salvar Presença</button>
+                </div>
+            <?php endif; ?>
         </form>
     </div>
 </div>
@@ -665,18 +679,28 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="card">
         <div class="card-body" style="text-align:center;padding:3rem;">
             <?php if ($conselho['is_active']): ?>
-                <div style="max-width:400px; margin:0 auto;">
-                    <p style="font-size:3rem;margin-bottom:1rem;">🏁</p>
-                    <h3 style="margin-bottom:1rem;color:var(--text-primary);">Finalizar Sessão</h3>
-                    <p style="color:var(--text-muted);margin-bottom:2rem;font-size:.875rem;">
-                        Ao finalizar, este conselho será marcado como concluído e não poderá mais receber novos encaminhamentos ou registros.
-                    </p>
-                    <form method="POST" id="formFinalizar">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="action" value="finalizar_conselho">
-                        <button type="button" class="btn btn-primary btn-lg" style="width:100%;" onclick="confirmFinalizar()">✨ Finalizar Conselho de Classe</button>
-                    </form>
-                </div>
+                <?php if ($canFull): ?>
+                    <div style="max-width:400px; margin:0 auto;">
+                        <p style="font-size:3rem;margin-bottom:1rem;">🏁</p>
+                        <h3 style="margin-bottom:1rem;color:var(--text-primary);">Finalizar Sessão</h3>
+                        <p style="color:var(--text-muted);margin-bottom:2rem;font-size:.875rem;">
+                            Ao finalizar, este conselho será marcado como concluído e não poderá mais receber novos encaminhamentos ou registros.
+                        </p>
+                        <form method="POST" id="formFinalizar">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="action" value="finalizar_conselho">
+                            <button type="button" class="btn btn-primary btn-lg" style="width:100%;" onclick="confirmFinalizar()">✨ Finalizar Conselho de Classe</button>
+                        </form>
+                    </div>
+                <?php else: ?>
+                    <div style="max-width:400px; margin:0 auto;">
+                        <p style="font-size:3rem;margin-bottom:1rem;">⏳</p>
+                        <h3 style="margin-bottom:1rem;color:var(--text-primary);">Sessão em Andamento</h3>
+                        <p style="color:var(--text-muted);font-size:.875rem;">
+                            Este conselho ainda não foi finalizado. Você terá acesso aos detalhes assim que a sessão for encerrada.
+                        </p>
+                    </div>
+                <?php endif; ?>
             <?php else: ?>
                 <div style="display:flex; flex-direction:column; align-items:center; gap:2rem;">
                     <div>

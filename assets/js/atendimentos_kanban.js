@@ -97,7 +97,12 @@ function renderColumn(status, cards) {
 
         cardEl.innerHTML = `
             <div class="k-card-header">
-                <span class="k-badge ${badgeClass}">${badgeText}</span>
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <span class="k-badge ${badgeClass}">${badgeText}</span>
+                    ${card.total_sancoes > 0 ? `
+                        <div class="sancao-popover-trigger" data-aluno-id="${card.aluno_id}" style="font-size:0.65rem; font-weight:800; color:#ef4444; background:#fef2f2; border:1px solid #fca5a5; padding:0 6px; border-radius:10px; cursor:help; line-height:1.4;" onclick="event.stopPropagation();" title="Passe o mouse para detalhes">⚠️ ${card.total_sancoes}</div>
+                    ` : ''}
+                </div>
                 ${card.aluno_id ? (card.aluno_photo ? `<img src="/${card.aluno_photo}" class="k-card-student">` : `<div class="k-card-student">${card.aluno_nome.charAt(0)}</div>`) : ''}
             </div>
             <div class="k-card-title">${card.titulo}</div>

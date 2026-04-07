@@ -14,6 +14,7 @@ $action = $_GET['action'] ?? $_POST['action'] ?? '';
 try {
     switch ($action) {
         case 'save':
+            if (!hasDbPermission('conselhos.index', false)) throw new Exception('Acesso negado: Perfil insuficiente para salvar registros.');
             $conselhoId = (int)($_POST['conselho_id'] ?? 0);
             $alunoId = $_POST['aluno_id'] ? (int)$_POST['aluno_id'] : null;
             $texto = $_POST['texto'] ?? '';
@@ -60,6 +61,7 @@ try {
             break;
 
         case 'delete':
+            if (!hasDbPermission('conselhos.index', false)) throw new Exception('Acesso negado: Perfil insuficiente para excluir registros.');
             $id = (int)($_POST['id'] ?? 0);
             if (!$id) throw new Exception('ID ausente');
 
