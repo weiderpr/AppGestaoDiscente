@@ -22,7 +22,8 @@ if ($action === 'search_aluno') {
 
     $st = $db->prepare("
         SELECT a.id, a.nome, a.matricula, a.photo as foto,
-               t.id as turma_id, t.description as turma_desc
+               t.id as turma_id, t.description as turma_desc,
+               c.name as curso_nome
         FROM alunos a
         JOIN turma_alunos ta ON ta.aluno_id = a.id
         JOIN turmas t ON ta.turma_id = t.id
@@ -95,11 +96,15 @@ if ($action === 'get') {
         SELECT s.*, 
                a.nome as aluno_nome, a.matricula, a.photo as aluno_foto,
                t.description as turma_desc,
-               st.titulo as tipo_titulo
+               c.name as curso_nome,
+               st.titulo as tipo_titulo,
+               u.name as author_name
         FROM sancao s
         JOIN alunos a ON s.aluno_id = a.id
         JOIN turmas t ON s.turma_id = t.id
+        JOIN courses c ON t.course_id = c.id
         JOIN sancao_tipo st ON s.sancao_tipo_id = st.id
+        JOIN users u ON s.author_id = u.id
         WHERE s.id = ? AND s.institution_id = ?
     ");
     $st->execute([$id, $instId]);
@@ -115,6 +120,68 @@ if ($action === 'get') {
     $sancao['acoes_rel'] = $stAcoes->fetchAll(PDO::FETCH_COLUMN);
     
     echo json_encode(['status' => 'success', 'data' => $sancao]);
+    exit;
+}
+
+if ($action === 'get_history') {
+    $alunoId = (int)($_GET['aluno_id'] ?? 0);
+    $excludeId = (int)($_GET['exclude_id'] ?? 0);
+    
+    if (!$alunoId) {
+        echo json_encode(['status' => 'error', 'message' => 'Aluno não especificado']);
+        exit;
+    }
+    
+    $sql = "
+        SELECT s.id, s.data_sancao, s.status, s.observacoes, st.titulo as tipo_titulo
+        FROM sancao s
+        JOIN sancao_tipo st ON s.sancao_tipo_id = st.id
+        WHERE s.aluno_id = ? AND s.institution_id = ?
+    ";
+    $params = [$alunoId, $instId];
+    
+    if ($excludeId > 0) {
+        $sql .= " AND s.id != ?";
+        $params[] = $excludeId;
+    }
+    
+    $sql .= " ORDER BY s.data_sancao DESC, s.id DESC";
+    
+    try {
+        $st = $db->prepare($sql);
+        $st->execute($params);
+        echo json_encode(['status' => 'success', 'data' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    } catch(Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => 'Erro ao buscar histórico']);
+    }
+    exit;
+}
+
+if ($action === 'delete') {
+    hasDbPermission('sancoes.manage');
+    $id = (int)($_POST['id'] ?? 0);
+    
+    if (!$id) {
+        echo json_encode(['status' => 'error', 'message' => 'ID não fornecido.']);
+        exit;
+    }
+    
+    try {
+        $db->beginTransaction();
+        
+        // Remove related actions
+        $db->prepare("DELETE FROM sancao_acoes_rel WHERE sancao_id = ?")->execute([$id]);
+        
+        // Remove sanction
+        $st = $db->prepare("DELETE FROM sancao WHERE id = ? AND institution_id = ?");
+        $st->execute([$id, $instId]);
+        
+        $db->commit();
+        echo json_encode(['status' => 'success', 'message' => 'Sanção excluída com sucesso!']);
+    } catch(Exception $e) {
+        $db->rollBack();
+        echo json_encode(['status' => 'error', 'message' => 'Erro ao excluir sanção.']);
+    }
     exit;
 }
 
@@ -230,7 +297,11 @@ if ($action === 'save') {
         }
         
         $db->commit();
-        echo json_encode(['status' => 'success', 'message' => 'Sanção registrada com sucesso!']);
+        echo json_encode([
+            'status' => 'success', 
+            'message' => 'Sanção registrada com sucesso!',
+            'id' => $id
+        ]);
         
     } catch(Exception $e) {
         $db->rollBack();

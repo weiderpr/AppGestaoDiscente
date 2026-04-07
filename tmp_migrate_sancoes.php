@@ -91,10 +91,14 @@ try {
         $profiles = ['Administrador', 'Coordenador', 'Diretor', 'Pedagogo'];
         $st = $db->prepare("INSERT IGNORE INTO profile_permissions (profile, resource, can_access, instituicao_id) VALUES (?, 'sancoes.index', 1, ?)");
         $st2 = $db->prepare("INSERT IGNORE INTO profile_permissions (profile, resource, can_access, instituicao_id) VALUES (?, 'sancoes.manage', 1, ?)");
+        $st3 = $db->prepare("INSERT IGNORE INTO profile_permissions (profile, resource, can_access, instituicao_id) VALUES (?, 'sancoes.config', 1, ?)");
         
         foreach ($profiles as $p) {
             $st->execute([$p, $instId]);
             $st2->execute([$p, $instId]);
+            if (in_array($p, ['Administrador', 'Coordenador'])) {
+                $st3->execute([$p, $instId]);
+            }
         }
     }
 

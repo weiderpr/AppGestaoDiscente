@@ -10,6 +10,14 @@ hasDbPermission('sancoes.index');
 $user = getCurrentUser();
 $inst = getCurrentInstitution();
 
+$db = getDB();
+$instStmt = $db->prepare("SELECT cnpj, address FROM institutions WHERE id = ?");
+$instStmt->execute([$inst['id']]);
+if ($instRow = $instStmt->fetch(PDO::FETCH_ASSOC)) {
+    $inst['cnpj'] = $instRow['cnpj'];
+    $inst['address'] = $instRow['address'];
+}
+
 require_once __DIR__ . '/../includes/toast.php';
 require_once __DIR__ . '/../includes/modal.php';
 
@@ -55,6 +63,70 @@ renderToastStyles();
     display: block;
 }
 
+/* Ata Document Style (Reference: conselho_acao.php) */
+.ata-document {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 4rem;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    color: #333;
+    font-family: 'Times New Roman', serif;
+    line-height: 1.8;
+    text-align: justify;
+}
+
+@media print {
+    /* Esconde elementos de interface que ocupam espaço */
+    .sidebar, .navbar, .header, .page-header, .tabs-nav, .no-print, 
+    .modal-header, .modal-tabs, .modal-footer, .btn, .modal-backdrop { 
+        display: none !important; 
+    }
+
+    /* Reset completo de todas as camadas de modal para fluxo de página natural */
+    .modal, .modal-content, .modal-dialog, .modal-container, .sancao-modal-body, .modal-body {
+        position: static !important;
+        transform: none !important;
+        inset: auto !important;
+        top: 0 !important;
+        left: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
+        max-height: none !important;
+    }
+
+    body { 
+        background: white !important; 
+        margin: 0 !important; 
+        padding: 0 !important; 
+        overflow: visible !important;
+    }
+
+    /* Faz o container de impressão ocupar a tela toda em fluxo natural */
+    #tab-impressao { 
+        display: block !important; 
+        width: 100% !important; 
+        margin: 0 !important; 
+        padding: 0 !important;
+        position: static !important;
+    }
+
+    .ata-document { 
+        margin: 0 !important; 
+        padding: 1cm !important; 
+        box-shadow: none !important; 
+        border: none !important; 
+        width: 100% !important;
+        height: auto !important;
+        page-break-inside: avoid;
+    }
+
+    @page { 
+        margin: 1cm; 
+    }
+}
+
 .sancao-modal-body {
     padding: 0;
 }
@@ -62,6 +134,7 @@ renderToastStyles();
 /* Tabela Padrão Sistema */
 .sancao-table-wrap { overflow-x:auto; border-radius:var(--radius-lg); }
 .sancao-table { width:100%; border-collapse:collapse; font-size:.875rem; }
+.history-table { table-layout: fixed; width: 100%; margin-top: 0.5rem; }
 .sancao-table th {
     padding:.75rem 1.25rem; text-align:left; font-size:.75rem; font-weight:600;
     text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);
@@ -99,6 +172,8 @@ renderToastStyles();
     padding:0; line-height:1;
 }
 .action-btn:hover { background:var(--bg-hover); color:var(--text-primary); border-color: var(--color-primary); }
+.action-btn-danger:hover { background: #fef2f2; color: #ef4444; border-color: #fca5a5; }
+[data-theme="dark"] .action-btn-danger:hover { background: #450a0a; color: #f87171; border-color: #991b1b; }
 
 /* Thumbnails de Aluno */
 .aluno-thumb {
@@ -178,6 +253,11 @@ renderToastStyles();
             </select>
         </div>
         <button class="btn btn-secondary" onclick="loadSancoes()">Filtrar</button>
+        <?php if(hasDbPermission('sancoes.config', false)): ?>
+        <a href="/sancao/config.php" class="btn btn-secondary" title="Configurações">
+            ⚙️
+        </a>
+        <?php endif; ?>
         <?php if(hasDbPermission('sancoes.manage', false)): ?>
         <button class="btn btn-primary" onclick="openSancaoModal()">
             <span class="btn-icon">+</span> Nova Sanção
@@ -231,7 +311,7 @@ renderToastStyles();
                         <label class="form-label">Buscar Aluno (Nome ou Matrícula)</label>
                         <input type="text" id="typeaheadAluno" class="form-control" placeholder="Digite para buscar..." autocomplete="off">
                         <input type="hidden" id="aluno_id" name="aluno_id" required>
-                        <div id="typeaheadResults" style="position:absolute; background:var(--bg-card); width:100%; max-height:280px; overflow-y:auto; border:1px solid var(--border-color); border-radius:0 0 8px 8px; box-shadow:0 4px 6px rgba(0,0,0,0.1); display:none; z-index:100;"></div>
+                        <div id="typeaheadResults" style="position:absolute; top: 100%; left: 0; background:var(--bg-card); width:100%; max-height:280px; overflow-y:auto; border:1px solid var(--border-color); border-radius:0 0 8px 8px; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1); display:none; z-index:100;"></div>
                     </div>
                     
                     <div id="alunoCard" style="display:none; margin-top: 1.5rem; padding: 1.25rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-surface-2nd); display: flex; gap: 1.5rem; align-items: center;">
@@ -240,7 +320,30 @@ renderToastStyles();
                         
                         <div>
                             <h4 id="alunoNome" style="margin-bottom: 0.25rem;"></h4>
+                            <div id="alunoCurso" style="font-weight: 600; font-size: 0.8125rem; color: var(--color-primary); margin-bottom: 0.15rem;"></div>
                             <p id="alunoMatriculaTurma" style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0;"></p>
+                        </div>
+                    </div>
+
+                    <!-- Histórico Disciplinar -->
+                    <div id="alunoHistoricoContainer" style="display:none; margin-top: 2rem; border-top: 1px dashed var(--border-color); padding-top: 1.5rem;">
+                        <h4 style="font-size: 0.875rem; font-weight: 600; color: var(--text-muted); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                            📋 Histórico de Ocorrências Anteriores
+                        </h4>
+                        <div class="sancao-table-wrap" style="box-shadow: none; border: 1px solid var(--border-color); border-radius: 8px;">
+                            <table class="sancao-table history-table">
+                                <thead>
+                                    <tr>
+                                        <th style="padding: 0.6rem 1rem; width: 15%;">Data</th>
+                                        <th style="padding: 0.6rem 1rem; width: 25%;">Tipo</th>
+                                        <th style="padding: 0.6rem 1rem; width: 45%;">Relato / Observações</th>
+                                        <th style="padding: 0.6rem 1rem; text-align: center; width: 15%;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="alunoHistoricoBody">
+                                    <tr><td colspan="4" style="text-align: center; padding: 1.5rem; color: var(--text-muted);">Carregando histórico...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -260,7 +363,7 @@ renderToastStyles();
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label" style="display: block; margin-bottom: 0.75rem;">Ações Adicionais Exigidas</label>
+                        <label class="form-label" style="display: block; margin-bottom: 0.75rem;">Fatos Geradores da Sanção</label>
                         <div class="checklist-grid" id="acoesContainer">
                             Carregando...
                         </div>
@@ -282,45 +385,74 @@ renderToastStyles();
                 </div>
 
                 <!-- ABA 3: Impressão -->
-                <div id="tab-impressao" class="modal-tab-content">
-                    <div style="background: white; color: black; border: 1px solid #ccc; padding: 2cm; min-height: 400px;" id="printArea">
-                        <div style="text-align: center; margin-bottom: 2rem;">
-                            <h2 style="margin: 0; text-transform: uppercase;">Termo de Sanção Disciplinar</h2>
-                            <p style="margin: 0.5rem 0 0; color: #555;"><?= htmlspecialchars($inst['name']) ?></p>
+                <div id="tab-impressao" class="modal-tab-content" style="background: var(--bg-surface-2nd); padding: 2rem;">
+                    <div class="ata-document" id="printArea">
+                        
+                        <!-- Cabeçalho Institucional Padronizado (Ref: conselho_ata_ajax.php) -->
+                        <div style="display:flex; align-items:flex-start; gap:1.5rem; border-bottom:2px solid #333; padding-bottom:1rem; margin-bottom:2.5rem; text-align:left;">
+                            <?php if (!empty($inst['photo'])): ?>
+                                <div style="width:80px; height:80px; flex-shrink:0;">
+                                    <img src="/<?= htmlspecialchars($inst['photo']) ?>" style="width:100%; height:100%; object-fit:contain;">
+                                </div>
+                            <?php endif; ?>
+                            <div style="flex:1;">
+                                <h1 style="margin:0; font-size:1.25rem; text-transform:uppercase; font-family:sans-serif; font-weight:800; line-height:1.2; color:#000;"><?= htmlspecialchars($inst['name']) ?></h1>
+                                <div style="font-size:0.8125rem; font-weight:700; color:#000; margin-top:4px;">CNPJ: <?= htmlspecialchars($inst['cnpj'] ?? '—') ?></div>
+                                <div style="font-size:0.75rem; color:#444; margin-top:2px; line-height:1.4;"><?= htmlspecialchars($inst['address'] ?? '—') ?></div>
+                            </div>
+                        </div>
+
+                        <div style="text-align: center; margin-bottom: 3rem;">
+                            <h2 style="margin: 0; text-transform: uppercase; letter-spacing: 2px; font-size: 1.3rem; font-family: sans-serif; font-weight: 800; color: #000;">REGISTRO DE OCORRENCIA DISCIPLINAR E/OU PEDAGOGICA</h2>
                         </div>
                         
                         <div style="margin-bottom: 1.5rem;">
-                            <p><strong>Discente:</strong> <span id="printAlunoNome"></span></p>
+                            <p><strong>Discente:</strong> <span id="printAlunoNomeHeader"></span></p>
                             <p><strong>Matrícula:</strong> <span id="printAlunoMatricula"></span></p>
+                            <p><strong>Curso:</strong> <span id="printCursoInfo"></span></p>
                             <p><strong>Turma:</strong> <span id="printTurmaInfo"></span></p>
                             <p><strong>Data da Aplicação:</strong> <span id="printDataSancao"></span></p>
                         </div>
                         
-                        <div style="margin-bottom: 1.5rem;">
+                        <div style="margin-bottom: 2.5rem;">
                             <p><strong>Sanção Aplicada:</strong> <span id="printSancaoTipo"></span></p>
-                            <p><strong>Relato:</strong></p>
-                            <div style="border: 1px solid #ddd; padding: 1rem; min-height: 100px; white-space: pre-wrap;" id="printObservacoes"></div>
+                            <p style="margin-top: 1.5rem;"><strong>Relato da Ocorrência:</strong></p>
+                            <div style="border: 1px solid #ddd; padding: 1rem; min-height: 120px; white-space: pre-wrap; background: #fafafa; border-radius: 4px;" id="printObservacoes"></div>
                         </div>
                         
-                        <div style="margin-bottom: 2rem;">
-                            <p><strong>Ações Requeridas:</strong></p>
-                            <ul id="printAcoesList"></ul>
+                        <div style="margin-bottom: 2.5rem;">
+                            <p><strong>Fatos Geradores Identificados:</strong></p>
+                            <ul id="printAcoesList" style="margin-top: 0.5rem;"></ul>
                         </div>
                         
-                        <div style="display: flex; justify-content: space-between; margin-top: 4rem;">
-                            <div style="text-align: center; width: 45%;">
-                                <div style="border-top: 1px solid black; margin-bottom: 0.5rem;"></div>
-                                Assinatura Instituição
+                        <div style="display: flex; flex-direction: column; gap: 4rem; margin-top: 5rem;">
+                            <!-- Primeira Linha de Assinaturas -->
+                            <div style="display: flex; justify-content: space-between; gap: 2rem;">
+                                <div style="text-align: center; border-top: 1px solid black; padding-top: 0.5rem; width: 100%;">
+                                    <div id="printAuthorName" style="font-size: 0.875rem; font-weight: bold; text-transform: uppercase;">PROFISSIONAL</div>
+                                    <div style="font-size: 0.75rem; color: #666;">Assinatura do Profissional</div>
+                                </div>
+                                <div style="text-align: center; border-top: 1px solid black; padding-top: 0.5rem; width: 100%;">
+                                    <div id="printAlunoNomeFooter" style="font-size: 0.875rem; font-weight: bold; text-transform: uppercase;">ALUNO</div>
+                                    <div style="font-size: 0.75rem; color: #666;">Assinatura do Discente</div>
+                                </div>
                             </div>
-                            <div style="text-align: center; width: 45%;">
-                                <div style="border-top: 1px solid black; margin-bottom: 0.5rem;"></div>
-                                Assinatura Discente / Responsável
+
+                            <!-- Segunda Linha de Assinatura (Responsável) -->
+                            <div style="display: flex; justify-content: center;">
+                                <div style="text-align: left; border-top: 1px solid black; padding-top: 0.5rem; width: 60%;">
+                                    <div style="font-size: 0.875rem; font-weight: bold; margin-bottom: 0.25rem;">Responsável nome:</div>
+                                </div>
                             </div>
+                        </div>
+                        
+                        <div style="margin-top:4rem; text-align:center; font-size:0.75rem; color:#999;">
+                            Documento gerado eletronicamente via Sistema Vértice Acadêmico em <?= date('d/m/Y H:i') ?>
                         </div>
                     </div>
                     
-                    <div style="margin-top: 1.5rem; text-align: right;">
-                        <button type="button" class="btn btn-secondary" onclick="window.print()">🖨️ Imprimir Documento</button>
+                    <div style="margin-top: 1.5rem; text-align: right;" class="no-print">
+                        <button type="button" class="btn btn-secondary" onclick="window.print()">🖨️ Imprimir Termo</button>
                     </div>
                 </div>
 
@@ -451,8 +583,11 @@ async function loadSancoes() {
                         </td>
                         <td style="font-weight: 500;">${s.tipo_titulo}</td>
                         <td style="text-align: center;"><span class="badge badge-${badgeClass}">${s.status}</span></td>
-                        <td style="text-align: center;">
+                        <td style="text-align: center; white-space: nowrap;">
                             <button class="action-btn" onclick="editSancao(${s.id})" title="Detalhes/Editar">✏️</button>
+                            <?php if(hasDbPermission('sancoes.manage', false)): ?>
+                            <button class="action-btn action-btn-danger" onclick="deleteSancao(${s.id})" title="Excluir">🗑️</button>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 `;
@@ -472,11 +607,12 @@ function openSancaoModal() {
     document.getElementById('aluno_id').value = '';
     
     document.getElementById('alunoCard').style.display = 'none';
+    document.getElementById('alunoHistoricoContainer').style.display = 'none';
     document.getElementById('tabImpressaoBtn').style.display = 'none';
     document.getElementById('tabAnexoBtn').style.display = 'none';
     document.getElementById('anexoPreview').style.display = 'none';
     
-    switchTab('tab-identificacao'); // direct call instead of .click()
+    switchTab('tab-identificacao'); 
     
     document.getElementById('sancaoModalTitle').innerText = 'Nova Sanção Disciplinar';
     
@@ -505,6 +641,7 @@ async function editSancao(id) {
                 matricula: data.matricula,
                 turma_id: data.turma_id,
                 turma_desc: data.turma_desc,
+                curso_nome: data.curso_nome,
                 foto: data.aluno_foto
             });
             
@@ -521,18 +658,21 @@ async function editSancao(id) {
             
             // Populate Print Area
             const instTitle = document.querySelector('#sancao_tipo_id option:checked')?.text;
-            document.getElementById('printAlunoNome').innerText = data.aluno_nome;
+            document.getElementById('printAlunoNomeHeader').innerText = data.aluno_nome;
             document.getElementById('printAlunoMatricula').innerText = data.matricula;
+            document.getElementById('printCursoInfo').innerText = data.curso_nome || '—';
             document.getElementById('printTurmaInfo').innerText = data.turma_desc;
             document.getElementById('printDataSancao').innerText = new Date(data.data_sancao + 'T00:00:00').toLocaleDateString('pt-BR');
             document.getElementById('printSancaoTipo').innerText = instTitle;
             document.getElementById('printObservacoes').innerText = data.observacoes || 'Sem relato específico.';
+            document.getElementById('printAlunoNomeFooter').innerText = data.aluno_nome;
+            document.getElementById('printAuthorName').innerText = data.author_name || 'Profissional';
             
             let printAcoes = '';
             document.querySelectorAll('input[name="acoes[]"]:checked').forEach(cb => {
                 printAcoes += `<li>${cb.nextElementSibling.innerText}</li>`;
             });
-            if (!printAcoes) printAcoes = '<li>Nenhuma ação adicional vinculada.</li>';
+            if (!printAcoes) printAcoes = '<li>Nenhum fato gerador específico selecionado.</li>';
             document.getElementById('printAcoesList').innerHTML = printAcoes;
             
             // Populate Anexos
@@ -578,6 +718,7 @@ searchAlunoInput.addEventListener('input', (e) => {
                             ${photoHtml}
                             <div>
                                 <div style="font-weight:600; font-size:0.875rem;">${a.nome}</div>
+                                <div style="font-size:0.75rem; color:var(--text-muted);">${a.curso_nome}</div>
                                 <div style="font-size:0.75rem; color:var(--text-muted);">${a.matricula} • ${a.turma_desc}</div>
                             </div>
                         </div>
@@ -607,6 +748,7 @@ function selectAluno(aluno) {
     const card = document.getElementById('alunoCard');
     card.style.display = 'flex';
     document.getElementById('alunoNome').innerText = aluno.nome;
+    document.getElementById('alunoCurso').innerText = aluno.curso_nome || '—';
     document.getElementById('alunoMatriculaTurma').innerText = `${aluno.matricula} —  ${aluno.turma_desc}`;
     
     const img = document.getElementById('alunoFoto');
@@ -623,10 +765,53 @@ function selectAluno(aluno) {
     
     // Switch to step 2 visually or keep user there
     setTimeout(() => {
-        if (!document.getElementById('sancao_id').value) {
+        const sancaoId = document.getElementById('sancao_id').value;
+        if (!sancaoId) {
             switchTab('tab-configuracao');
         }
+        // Load history independant of the current ID
+        loadAlunoHistory(aluno.id, sancaoId);
     }, 500);
+}
+
+async function loadAlunoHistory(alunoId, excludeId = null) {
+    const container = document.getElementById('alunoHistoricoContainer');
+    const body = document.getElementById('alunoHistoricoBody');
+    
+    if (!alunoId) return;
+    
+    container.style.display = 'block';
+    body.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 1.5rem; color: var(--text-muted);">Carregando histórico...</td></tr>';
+    
+    try {
+        const resp = await fetch(`/sancao/ajax.php?action=get_history&aluno_id=${alunoId}&exclude_id=${excludeId || ''}`);
+        const result = await resp.json();
+        
+        if (result.status === 'success' && result.data.length > 0) {
+            let html = '';
+            result.data.forEach(s => {
+                const badgeClass = s.status === 'Concluído' ? 'badge-success' : (s.status === 'Cancelado' ? 'badge-danger' : 'badge-warning');
+                const relatoResumo = s.observacoes || '—';
+                html += `
+                    <tr>
+                        <td style="padding: 0.6rem 1rem; white-space: nowrap; font-size: 0.75rem;">${new Date(s.data_sancao + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                        <td style="padding: 0.6rem 1rem; font-weight: 600; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${s.tipo_titulo}</td>
+                        <td style="padding: 0.6rem 1rem; font-size: 0.75rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${relatoResumo.replace(/"/g, '&quot;')}">
+                            ${relatoResumo}
+                        </td>
+                        <td style="padding: 0.6rem 1rem; text-align: center;">
+                            <span class="badge ${badgeClass}" style="transform: scale(0.9);">${s.status}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+            body.innerHTML = html;
+        } else {
+            body.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">O aluno não possui ocorrências anteriores.</td></tr>';
+        }
+    } catch (e) {
+        body.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #b91c1c;">Erro ao carregar histórico.</td></tr>';
+    }
 }
 
 async function salvarSancao() {
@@ -661,8 +846,24 @@ async function salvarSancao() {
         
         if (result.status === 'success') {
             Toast.show(result.message, 'success');
-            closeModal('modalSancao');
             loadSancoes();
+            
+            // Transform to Edit Mode
+            const newId = result.id;
+            document.getElementById('sancao_id').value = newId;
+            document.getElementById('sancaoModalTitle').innerText = 'Editar Sanção Disciplinar';
+            
+            // Show additional tabs
+            document.getElementById('tabImpressaoBtn').style.display = 'block';
+            document.getElementById('tabAnexoBtn').style.display = 'block';
+            
+            // Popula dados da impressão e outros detalhes
+            await editSancao(newId);
+            
+            // Vai para a aba de impressão
+            setTimeout(() => {
+                switchTab('tab-impressao');
+            }, 500);
         } else {
             Toast.show(result.message, 'error');
         }
@@ -673,6 +874,72 @@ async function salvarSancao() {
         btn.disabled = false;
     }
 }
+
+async function deleteSancao(id) {
+    if (!confirm('Deseja realmente excluir este registro de sanção? Esta ação não pode ser desfeita.')) return;
+    
+    const formData = new FormData();
+    formData.append('id', id);
+    
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (csrfToken) formData.append('csrf_token', csrfToken);
+    
+    try {
+        const resp = await fetch('/sancao/ajax.php?action=delete', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await resp.json();
+        
+        if (result.status === 'success') {
+            Toast.show(result.message, 'success');
+            loadSancoes();
+        } else {
+            Toast.show(result.message, 'error');
+        }
+    } catch (e) {
+        Toast.show('Erro na comunicação com o servidor.', 'error');
+    }
+}
+
+// Initial Loads
+async function loadDependencies() {
+    try {
+        const resp = await fetch('/sancao/ajax.php?action=get_dependencies');
+        const data = await resp.json();
+        
+        // Load Tipos
+        const tipoSelect = document.getElementById('sancao_tipo_id');
+        tipoSelect.innerHTML = '<option value="">Selecione...</option>';
+        data.tipos.forEach(t => {
+            tipoSelect.innerHTML += `<option value="${t.id}">${t.titulo}</option>`;
+        });
+        
+        // Load Acoes
+        const acoesDiv = document.getElementById('acoesContainer');
+        if (data.acoes.length === 0) {
+            acoesDiv.innerHTML = '<p style="color:var(--text-muted); grid-column: 1/-1;">Nenhuma ação cadastrada.</p>';
+        } else {
+            let html = '';
+            data.acoes.forEach(a => {
+                html += `
+                    <label class="checklist-item">
+                        <input type="checkbox" name="acoes[]" value="${a.id}">
+                        <span>${a.descricao}</span>
+                    </label>
+                `;
+            });
+            acoesDiv.innerHTML = html;
+        }
+    } catch (e) {
+        console.error('Erro ao carregar dependências:', e);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadSancoes();
+    loadDependencies();
+});
 </script>
 
 <?php 
