@@ -7,11 +7,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user    = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador', 'Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'];
-if (!$user || !in_array($user['profile'], $allowed)) {
-    header('Location: /dashboard.php');
-    exit;
-}
+hasDbPermission('courses.index'); // Nova verificação baseada em RBAC (Centralizada)
 
 $db     = getDB();
 $inst   = getCurrentInstitution();
@@ -217,7 +213,7 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
     <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
         <a href="/courses/index.php" class="btn btn-secondary">← Voltar</a>
-        <?php if ($user['profile'] !== 'Professor'): ?>
+        <?php if (hasDbPermission('courses.manage', false)): ?>
         <button class="btn btn-primary" onclick="openModal()">➕ Nova Turma</button>
         <?php endif; ?>
     </div>
@@ -332,7 +328,7 @@ require_once __DIR__ . '/../includes/header.php';
                     </td>
                     <td>
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
-                            <?php if (!in_array($user['profile'], ['Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'])): ?>
+                            <?php if (hasDbPermission('courses.manage', false)): ?>
                             <a href="/courses/disciplinas_turma.php?turma_id=<?= $t['id'] ?>"
                                class="action-btn" title="Gerenciar Disciplinas">📖</a>
                             <a href="/courses/representantes.php?turma_id=<?= $t['id'] ?>"
@@ -340,7 +336,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <?php endif; ?>
                             <a href="/courses/alunos.php?turma_id=<?= $t['id'] ?>"
                                class="action-btn" title="Visualizar Alunos">👤</a>
-                            <?php if (!in_array($user['profile'], ['Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'])): ?>
+                            <?php if (hasDbPermission('courses.manage', false)): ?>
                             <a href="/courses/etapas.php?turma_id=<?= $t['id'] ?>"
                                class="action-btn" title="Lançar Notas/Faltas">📋</a>
                             <a href="/courses/edit_turma.php?id=<?= $t['id'] ?>&course_id=<?= $courseId ?>"

@@ -101,8 +101,17 @@ const VASentiment = {
         target.innerHTML = loadingHtml;
 
         try {
-            const apiPath = window.location.pathname.includes('/courses/') ? '../api/comments.php' : 'api/comments.php';
-            const resp = await fetch(`${apiPath}?aluno_id=${alunoId}&turma_id=${turmaId}`);
+            const resp = await fetch(`/api/comments.php?aluno_id=${alunoId}&turma_id=${turmaId}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            
+            if (!resp.ok) {
+                const errText = await resp.text().catch(() => "Response error");
+                console.warn(`Sentiment API Error (${resp.status}):`, errText);
+                target.innerHTML = '<div style="font-size:0.75rem;color:var(--text-muted);">—</div>';
+                return;
+            }
+
             const data = await resp.json();
             
             if (!data.todos_comentarios || data.todos_comentarios.length < 2) {
@@ -153,3 +162,5 @@ const VASentiment = {
         }
     }
 };
+
+window.VASentiment = VASentiment;

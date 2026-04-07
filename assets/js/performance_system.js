@@ -364,7 +364,8 @@ const VAPerformance = {
         target.innerHTML = loadingHtml;
 
         try {
-            const resp = await fetch(`conselho_aluno_detalhes_ajax.php?aluno_id=${alunoId}&turma_id=${turmaId}`);
+            // Usa a nova API genérica de desempenho por turma (independente de conselho)
+            const resp = await fetch(`/api/student_performance.php?aluno_id=${alunoId}&turma_id=${turmaId}`);
             const data = await resp.json();
             
             if (data.error || !data.etapas || data.etapas.length === 0) {

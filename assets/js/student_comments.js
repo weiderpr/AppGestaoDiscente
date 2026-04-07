@@ -93,14 +93,28 @@ function openCommentModal(aluno, turmaId) {
  * Fetch and render comments from API
  */
 async function loadComments(alunoId, turmaId) {
+    console.log('[loadComments] Requesting comments for aluno:', alunoId, 'turma:', turmaId);
     try {
         const resp = await fetch(`/api/comments.php?aluno_id=${alunoId}&turma_id=${turmaId}`);
-        const data = await resp.json();
+        console.log('[loadComments] Response status:', resp.status);
         
-        if (data.error) {
-            console.error(data.error);
+        const text = await resp.text();
+        console.log('[loadComments] Raw response:', text.substring(0, 500));
+        
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            console.error('[loadComments] JSON parse error:', e);
             return;
         }
+        
+        if (data.error) {
+            console.error('[loadComments] API error:', data.error);
+            return;
+        }
+        
+        console.log('[loadComments] Data:', data);
         
         renderMyComments(data.meus_comentarios);
         renderOtherComments(data.outros_comentarios);
@@ -111,10 +125,10 @@ async function loadComments(alunoId, turmaId) {
             switchCommentTab(activeTab.dataset.tab);
         }
 
-        // Refresh trend container on the main page if it exists
+        // Refresh trend container on the main page if it exists (mini mode)
         const trendContainer = document.getElementById(`trend-${alunoId}`);
         if (trendContainer && typeof VASentiment !== 'undefined') {
-            VASentiment.renderTrend(trendContainer, alunoId, turmaId);
+            VASentiment.renderTrend(trendContainer, alunoId, turmaId, true);
         }
         
     } catch (e) {
@@ -334,8 +348,32 @@ function switchCommentTab(tabName) {
 // ---- Analysis Generators (simplified call to API) ----
 
 async function fetchAllComments(alunoId, turmaId) {
-    const resp = await fetch(`/api/comments.php?aluno_id=${alunoId}&turma_id=${turmaId}`);
-    return await resp.json();
+    const url = `/api/comments.php?aluno_id=${alunoId}&turma_id=${turmaId}`;
+    console.log('[fetchAllComments] Requesting:', url);
+    
+    const resp = await fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    
+    if (!resp.ok) {
+        const errText = await resp.text().catch(() => '');
+        console.error('[fetchAllComments] HTTP Error:', resp.status, errText);
+        throw new Error(data.error || `Erro HTTP ${resp.status}`);
+    }
+    
+    const text = await resp.text();
+    console.log('[fetchAllComments] Raw response:', text.substring(0, 500));
+    
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (e) {
+        console.error('[fetchAllComments] JSON parse error:', e);
+        throw new Error('Resposta inválida do servidor');
+    }
+    
+    console.log('[fetchAllComments] Parsed data:', data);
+    return data;
 }
 
 /** Rich Text Helpers */

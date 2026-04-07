@@ -106,6 +106,9 @@ $avaliacoes = $st->fetchAll();
                         <td style="color:var(--text-muted);"><?= date('d/m/Y H:i', strtotime($av['created_at'])) ?></td>
                         <td>
                             <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
+                                <?php if ($av['total_respostas'] > 0): ?>
+                                <a href="?section=avaliacoes&sub=respostas&id=<?= $av['id'] ?>" class="action-btn" title="Ver Respostas">📊</a>
+                                <?php endif; ?>
                                 <a href="?section=avaliacoes&sub=create&id=<?= $av['id'] ?>" class="action-btn" title="Editar">✏️</a>
                                 <button class="action-btn danger" onclick="deleteAvaliacao(<?= $av['id'] ?>, '<?= htmlspecialchars(addslashes($av['nome'])) ?>')" title="Excluir">🗑️</button>
                             </div>

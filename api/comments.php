@@ -3,9 +3,10 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $user = getCurrentUser();
+header('Content-Type: application/json');
+
 if (!$user || !hasDbPermission('students.comments', false)) {
     http_response_code(403);
-    header('Content-Type: application/json');
     echo json_encode(['error' => 'Acesso negado: Seu perfil não tem permissão para realizar comentários.']);
     exit;
 }
@@ -19,8 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $turmaId = (int)($_GET['turma_id'] ?? 0);
     
     if (!$alunoId || !$turmaId) {
-        header('Content-Type: application/json');
-        echo json_encode(['error' => 'Parâmetros inválidos']);
+        echo json_encode(['error' => 'Parâmetros inválidos (Aluno ou Turma não informados)']);
         exit;
     }
     
@@ -153,10 +153,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stIns->execute([$professorId, $alunoId, $turmaId, $conteudo]);
             $commentId = $db->lastInsertId();
             
-            header('Content-Type: application/json');
             echo json_encode(['success' => true, 'id' => $commentId]);
         } catch (Exception $e) {
-            header('Content-Type: application/json');
             echo json_encode(['error' => 'Erro ao salvar: ' . $e->getMessage()]);
         }
         exit;

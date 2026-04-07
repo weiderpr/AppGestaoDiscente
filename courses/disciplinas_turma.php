@@ -7,11 +7,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user    = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador', 'Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'];
-if (!$user || !in_array($user['profile'], $allowed)) {
-    header('Location: /dashboard.php');
-    exit;
-}
+hasDbPermission('courses.index');
 
 $db     = getDB();
 $inst   = getCurrentInstitution();
@@ -254,7 +250,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <div style="display:flex;gap:.75rem;">
             <a href="/courses/turmas.php?course_id=<?= $turma['course_id'] ?>" class="btn btn-secondary">← Voltar</a>
-            <?php if ($user['profile'] !== 'Professor'): ?>
+            <?php if (hasDbPermission('courses.manage', false)): ?>
             <button class="btn btn-primary" onclick="openAddDisciplinaModal()">➕ Adicionar Disciplina</button>
             <?php endif; ?>
         </div>

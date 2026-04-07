@@ -7,11 +7,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 requireLogin();
 
 $user    = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador'];
-if (!$user || !in_array($user['profile'], $allowed)) {
-    header('Location: /dashboard.php');
-    exit;
-}
+hasDbPermission('courses.update');
 
 $db     = getDB();
 $inst   = getCurrentInstitution();

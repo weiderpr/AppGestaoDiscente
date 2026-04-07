@@ -244,6 +244,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     }
 }
 
+// --- AÇÕES: AVALIAÇÕES (RESPOSTAS) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_resposta') {
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança expirado.';
+    } else {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id) {
+            try {
+                $db->prepare("DELETE FROM respostas_avaliacao WHERE id = ?")->execute([$id]);
+                $success = 'Resposta removida com sucesso!';
+            } catch (PDOException $e) {
+                $error = 'Erro ao remover: ' . $e->getMessage();
+            }
+        }
+    }
+}
+
 // --- AÇÕES: PERMISSÕES ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_permissions') {
     if (!csrf_verify($_POST['csrf_token'] ?? '')) {
@@ -282,7 +299,7 @@ $activeSection = $requestedSection;
 $activeSub = $_GET['sub'] ?? 'backup';
 $allowedSubs = [
     'backup'     => ['backup', 'restore', 'logs'],
-    'avaliacoes' => ['dashboard', 'tipos', 'lista', 'create'],
+    'avaliacoes' => ['dashboard', 'tipos', 'lista', 'create', 'respostas'],
     'permissoes' => ['manage']
 ];
 if (!in_array($activeSub, $allowedSubs[$activeSection] ?? [])) {
@@ -601,6 +618,9 @@ document.addEventListener('DOMContentLoaded', function() {
             break;
         case 'create':
             include __DIR__ . '/includes/settings/av_form.php';
+            break;
+        case 'respostas':
+            include __DIR__ . '/includes/settings/av_respostas.php';
             break;
         default:
             include __DIR__ . '/includes/settings/av_dashboard.php';

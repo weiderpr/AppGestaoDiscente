@@ -6,16 +6,15 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
 $user    = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador', 'Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'];
+hasDbPermission('students.index'); // Nova verificação RBAC
+
 $isProfessor = $user && $user['profile'] === 'Professor';
 $isCoord     = $user && $user['profile'] === 'Coordenador';
 $isAdmin     = $user && $user['profile'] === 'Administrador';
 $isPedagogo  = $user && in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo']);
-$canComment  = $isProfessor || $isCoord || $isAdmin || $isPedagogo;
-if (!$user || !in_array($user['profile'], $allowed)) {
-    header('Location: /dashboard.php');
-    exit;
-}
+
+// canComment agora checa se tem a permissão específica ou é um dos perfis clássicos (para compatibilidade)
+$canComment  = hasDbPermission('students.comments', false) || $isProfessor || $isCoord || $isAdmin || $isPedagogo;
 
 $db     = getDB();
 $inst   = getCurrentInstitution();
@@ -356,7 +355,6 @@ $unlinkedCount = $db->query("
 
 $pageTitle = 'Alunos — ' . $turma['description'];
 $extraJS = [
-    '/assets/js/sentiment_system.js?v=1.2',
     '/assets/js/performance_system.js?v=1.6'
 ];
 require_once __DIR__ . '/../includes/header.php';
@@ -454,16 +452,15 @@ require_once __DIR__ . '/../includes/header.php';
                     <th style="width:70px;">Foto</th>
                     <th>Matrícula</th>
                     <th>Nome Completo</th>
-                    <?php if ($isAdmin || $isCoord || $isPedagogo): ?>
-                    <th style="width:200px;">Tendência (Análise Quantitativa)</th>
+                    <?php if ($isAdmin || $isCoord || $isPedagogo || $isProfessor): ?>
+                    <th style="width:110px;text-align:center;">Tendências</th>
                     <?php endif; ?>
-                    <th style="width:200px;">Tendência (Análise Qualitativa)</th>
                     <th style="text-align:center; width:<?= ($isAdmin || $isCoord || $isPedagogo) ? '160px' : '80px' ?>;">Ações</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($alunos)): ?>
-                <tr><td colspan="<?= ($isAdmin || $isCoord || $isPedagogo) ? '5' : '4' ?>" style="text-align:center;padding:3rem;color:var(--text-muted);">Nenhum aluno vinculado a esta turma.</td></tr>
+                <tr><td colspan="<?= ($isAdmin || $isCoord || $isPedagogo || $isProfessor) ? '5' : '4' ?>" style="text-align:center;padding:3rem;color:var(--text-muted);">Nenhum aluno vinculado a esta turma.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($alunos as $a): ?>
                 <tr>
@@ -481,14 +478,27 @@ require_once __DIR__ . '/../includes/header.php';
                         <div style="font-size:.75rem;color:var(--text-muted);font-weight:400;"><?= htmlspecialchars($a['email']) ?></div>
                         <?php endif; ?>
                     </td>
-                    <?php if ($isAdmin || $isCoord || $isPedagogo): ?>
-                    <td>
-                        <div id="perf-trend-<?= $a['id'] ?>" class="performance-trend-container" data-aluno-id="<?= $a['id'] ?>" data-turma-id="<?= $turmaId ?>"></div>
+                    <?php if ($isAdmin || $isCoord || $isPedagogo || $isProfessor): ?>
+                    <td style="text-align:center;">
+                        <div style="display:flex;align-items:center;justify-content:center;gap:0.5rem;">
+                            <?php if ($isAdmin || $isCoord || $isPedagogo): ?>
+                            <div id="perf-trend-<?= $a['id'] ?>" 
+                                 class="performance-trend-container" 
+                                 data-aluno-id="<?= $a['id'] ?>" 
+                                 data-turma-id="<?= $turmaId ?>"
+                                 title="Tendência de Notas"
+                                 style="display:inline-flex;align-items:center;"></div>
+                            <span style="color:var(--border-color);font-size:0.7rem;">|</span>
+                            <?php endif; ?>
+                            <div id="trend-<?= $a['id'] ?>" 
+                                 class="sentiment-trend-container" 
+                                 data-aluno-id="<?= $a['id'] ?>" 
+                                 data-turma-id="<?= $turmaId ?>"
+                                 title="Tendência de Comentários"
+                                 style="display:inline-flex;align-items:center;"></div>
+                        </div>
                     </td>
                     <?php endif; ?>
-                    <td>
-                        <div id="trend-<?= $a['id'] ?>" class="sentiment-trend-container" data-aluno-id="<?= $a['id'] ?>" data-turma-id="<?= $turmaId ?>"></div>
-                    </td>
                     <td style="text-align:center;">
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
                             <button type="button" class="action-btn" title="Atendimento Profissional" onclick="openAtendimentoModal({aluno_id: <?= $a['id'] ?>, target_name: '<?= addslashes($a['nome']) ?>', aluno_photo: '<?= $a['photo'] ?>', turma_id: <?= $turmaId ?>})">📝</button>
@@ -833,8 +843,8 @@ function openEditModal(aluno) {
 
 
 </script>
-<script src="/assets/js/student_comments.js?v=2.3"></script>
 <?php require_once __DIR__ . '/../includes/student_comment_modal.php'; ?>
+<script src="/assets/js/student_comments.js?v=2.3"></script>
 <?php require_once __DIR__ . '/../includes/atendimento_modal.php'; ?>
 <?php require_once __DIR__ . '/../includes/student_schedule_modal.php'; ?>
 
@@ -882,6 +892,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 <?php endif; ?>
 
+<script src="/assets/js/sentiment_system.js"></script>
 <script>
 function confirmUnlink(alunoId) {
     Modal.confirm({
@@ -896,12 +907,24 @@ function confirmUnlink(alunoId) {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Inicializa tendências qualitativas
-    document.querySelectorAll('.sentiment-trend-container').forEach(container => {
-        VASentiment.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId);
-    });
+function initTrends() {
+    const checkAndRender = () => {
+        if (typeof VASentiment !== 'undefined') {
+            document.querySelectorAll('.sentiment-trend-container').forEach(container => {
+                if (!container.innerHTML.trim()) {
+                    VASentiment.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId, true);
+                }
+            });
+            document.querySelectorAll('.performance-trend-container').forEach(container => {
+                if (!container.innerHTML.trim()) {
+                    VAPerformance.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId, true);
+                }
+            });
+        } else {
+            setTimeout(checkAndRender, 100);
+        }
+    };
+    checkAndRender();
+}
 
-    // Inicializa tendências quantitativas (notas)
-    document.querySelectorAll('.performance-trend-container').forEach(container => {
-        VAPerformance.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId);
+document.addEventListener('DOMContentLoaded', initTrends);

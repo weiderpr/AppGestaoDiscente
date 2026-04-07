@@ -87,7 +87,8 @@ function getFriendlyName($res) {
         'schedule' => 'Grade Horária',
         'activities' => 'Atividades Extras',
         'config' => 'Configurações de Grupo',
-        'view_all' => 'Ver Tudo (Instituição)'
+        'view_all' => 'Ver Tudo (Instituição)',
+        'comments' => 'Comentários'
     ];
     
     $base = $names[$obj] ?? ucfirst($obj);
