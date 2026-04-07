@@ -158,8 +158,8 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                     <?php endif; ?>
 
                     <?php if (hasDbPermission('sancoes.index', false)): ?>
-                    <a href="#" 
-                       class="nav-dropdown-item" 
+                    <a href="/sancao/index.php" 
+                       class="nav-dropdown-item <?= strpos($_SERVER['PHP_SELF'], '/sancao/') !== false ? 'active' : '' ?>" 
                        role="menuitem">
                         <span class="nav-icon">⚖️</span>
                         <span>Sanção Disciplinar</span>
