@@ -38,8 +38,12 @@ if (!$targetTurmaId) {
     $targetTurmaId = (int)$stTurma->fetchColumn();
 }
 
-$stAluno = $db->prepare("SELECT id, nome, email, telefone, photo FROM alunos WHERE id = ?");
-$stAluno->execute([$alunoId]);
+$stAluno = $db->prepare("
+    SELECT id, nome, email, telefone, photo,
+           (SELECT COUNT(*) FROM sancao WHERE aluno_id = ? AND status != 'Cancelado') as total_sancoes
+    FROM alunos WHERE id = ?
+");
+$stAluno->execute([$alunoId, $alunoId]);
 $aluno = $stAluno->fetch();
 
 if (!$aluno) {

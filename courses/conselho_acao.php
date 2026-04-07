@@ -132,7 +132,8 @@ if (!empty($etapasIds)) {
         SELECT a.id, a.nome, a.photo,
                COALESCE(SUM(en.faltas), 0) as total_faltas,
                SUM(en.nota) as soma_notas,
-               SUM(e.media_nota) as soma_media_etapas
+               SUM(e.media_nota) as soma_media_etapas,
+               (SELECT COUNT(*) FROM sancao WHERE aluno_id = a.id AND status != 'Cancelado') as total_sancoes
         FROM alunos a
         JOIN turma_alunos ta ON a.id = ta.aluno_id
         LEFT JOIN etapa_notas en ON a.id = en.aluno_id AND en.etapa_id IN ($placeholders)
@@ -191,10 +192,12 @@ $pageTitle = 'Conselho de Classe - ' . htmlspecialchars($conselho['descricao']);
 $extraJS = [
     '/assets/js/sentiment_system.js?v=1.2',
     '/assets/js/performance_system.js?v=2.2',
+    '/assets/js/sancao_popover.js?v=1.0',
     'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
 ];
 require_once __DIR__ . '/../includes/header.php';
 ?>
+<link rel="stylesheet" href="/assets/css/sancao_popover.css?v=1.0">
 
 <style>
 .tabs-nav { display:flex; gap:.25rem; border-bottom:1px solid var(--border-color); margin-bottom:1.5rem; }
@@ -503,7 +506,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </div>
                             </td>
                             <td style="padding:.75rem 1rem;vertical-align:middle;">
-                                <span style="font-weight:600;color:var(--text-primary);"><?= htmlspecialchars($aluno['nome']) ?></span>
+                                <div style="display:flex; flex-direction:column; gap:0.25rem;">
+                                    <span style="font-weight:600;color:var(--text-primary);"><?= htmlspecialchars($aluno['nome']) ?></span>
+                                    <?php if (($aluno['total_sancoes'] ?? 0) > 0): ?>
+                                        <div class="sancao-popover-trigger" data-aluno-id="<?= $aluno['id'] ?>" style="display:inline-flex; align-items:center; gap:0.25rem; font-size:0.7rem; font-weight:700; color:#ef4444; background:#fef2f2; border:1px solid #fee2e2; padding:1px 6px; border-radius:12px; width:fit-content; border: 1px solid #fca5a5; cursor: help;" title="Passe o mouse para ver detalhes">
+                                            ⚠️ <?= $aluno['total_sancoes'] ?> <?= $aluno['total_sancoes'] > 1 ? 'Sanções' : 'Sanção' ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
                             </td>
                             <td style="padding:.75rem 1rem;vertical-align:middle;text-align:center;">
                                 <?php if ($aluno['medias_perdidas'] > 0): ?>
@@ -825,7 +835,14 @@ function showDetailTab(tabId) {
             }
             html += '</div>';
             html += '<div style="flex:1;">';
+            html += '<div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.125rem;">';
             html += '<div style="font-weight:700;font-size:1.125rem;color:var(--text-primary);">' + a.nome + '</div>';
+            if (a.total_sancoes > 0) {
+                html += '<div class="sancao-popover-trigger" data-aluno-id="' + a.id + '" style="display:inline-flex; align-items:center; gap:0.25rem; font-size:0.75rem; font-weight:700; color:#ef4444; background:#fef2f2; border:1px solid #fca5a5; padding:2px 8px; border-radius:12px; cursor: help; margin-bottom: 2px;" title="Passe o mouse para ver os detalhes das ocorrências">';
+                html += '⚠️ ' + a.total_sancoes + ' ' + (a.total_sancoes > 1 ? 'Sanções' : 'Sanção');
+                html += '</div>';
+            }
+            html += '</div>';
             html += '<div style="font-size:.8125rem;color:var(--text-muted);">' + (a.email || 'Sem email') + '</div>';
             html += '<div style="font-size:.8125rem;color:var(--text-muted);">' + (a.telefone || 'Sem telefone') + '</div>';
             html += '</div>';
