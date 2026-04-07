@@ -915,11 +915,13 @@ function initTrends() {
                     VASentiment.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId, true);
                 }
             });
-            document.querySelectorAll('.performance-trend-container').forEach(container => {
-                if (!container.innerHTML.trim()) {
-                    VAPerformance.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId, true);
-                }
-            });
+            if (typeof VAPerformance !== 'undefined') {
+                document.querySelectorAll('.performance-trend-container').forEach(container => {
+                    if (!container.innerHTML.trim()) {
+                        VAPerformance.renderTrend(container, container.dataset.alunoId, container.dataset.turmaId, true);
+                    }
+                });
+            }
         } else {
             setTimeout(checkAndRender, 100);
         }
@@ -927,4 +929,11 @@ function initTrends() {
     checkAndRender();
 }
 
-document.addEventListener('DOMContentLoaded', initTrends);
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTrends);
+} else {
+    initTrends();
+}
+</script>
+
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>
