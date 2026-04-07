@@ -152,7 +152,95 @@ if ($action === 'get_history') {
         $st->execute($params);
         echo json_encode(['status' => 'success', 'data' => $st->fetchAll(PDO::FETCH_ASSOC)]);
     } catch(Exception $e) {
-        echo json_encode(['status' => 'error', 'message' => 'Erro ao buscar histórico']);
+        echo json_encode(['status' => 'error', 'message' => 'Erro ao carregar histórico']);
+    }
+    exit;
+}
+
+if ($action === 'finish') {
+    hasDbPermission('sancoes.manage');
+    $id = (int)($_POST['id'] ?? 0);
+    
+    if (!$id) {
+        echo json_encode(['status' => 'error', 'message' => 'ID não fornecido.']);
+        exit;
+    }
+    
+    try {
+        $st = $db->prepare("UPDATE sancao SET status = 'Concluído', data_conclusao = CURRENT_DATE WHERE id = ? AND institution_id = ?");
+        $st->execute([$id, $instId]);
+        echo json_encode(['status' => 'success', 'message' => 'Sanção finalizada com sucesso!']);
+    } catch(Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => 'Erro ao finalizar sanção.']);
+    }
+    exit;
+}
+
+if ($action === 'fetch_anexos') {
+    $sancao_id = (int)($_GET['sancao_id'] ?? 0);
+    $st = $db->prepare("
+        SELECT sa.*, u.name as author_name 
+        FROM sancao_anexos sa
+        JOIN users u ON sa.usuario_id = u.id
+        WHERE sa.sancao_id = ?
+        ORDER BY sa.created_at DESC
+    ");
+    $st->execute([$sancao_id]);
+    echo json_encode(['success' => true, 'anexos' => $st->fetchAll(PDO::FETCH_ASSOC)]);
+    exit;
+}
+
+if ($action === 'upload_anexo') {
+    hasDbPermission('sancoes.manage');
+    $sancao_id = (int)($_POST['sancao_id'] ?? 0);
+    $descricao = $_POST['descricao'] ?? '';
+    
+    if (!$sancao_id || !isset($_FILES['arquivo'])) {
+        echo json_encode(['success' => false, 'error' => 'Dados incompletos.']);
+        exit;
+    }
+
+    $file = $_FILES['arquivo'];
+    $allowedExt = ['pdf', 'jpg', 'jpeg', 'png'];
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+
+    if (!in_array($ext, $allowedExt)) {
+        echo json_encode(['success' => false, 'error' => 'Extensão não permitida.']);
+        exit;
+    }
+
+    $dir = __DIR__ . '/../assets/uploads/sancoes';
+    if (!is_dir($dir)) mkdir($dir, 0777, true);
+    
+    $filename = uniqid('sancao_file_' . $sancao_id . '_') . '.' . $ext;
+    if (move_uploaded_file($file['tmp_name'], $dir . '/' . $filename)) {
+        $path = 'assets/uploads/sancoes/' . $filename;
+        $st = $db->prepare("INSERT INTO sancao_anexos (sancao_id, usuario_id, arquivo, descricao, extensao, tamanho) VALUES (?, ?, ?, ?, ?, ?)");
+        $st->execute([$sancao_id, $user['id'], $path, $descricao, $ext, $file['size']]);
+        
+        echo json_encode(['success' => true]);
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Falha ao mover arquivo.']);
+    }
+    exit;
+}
+
+if ($action === 'delete_anexo') {
+    hasDbPermission('sancoes.manage');
+    $anexo_id = (int)($_POST['anexo_id'] ?? 0);
+    
+    $st = $db->prepare("SELECT arquivo FROM sancao_anexos WHERE id = ?");
+    $st->execute([$anexo_id]);
+    $arquivo = $st->fetchColumn();
+    
+    if ($arquivo) {
+        $fullPath = __DIR__ . '/../' . $arquivo;
+        if (file_exists($fullPath)) unlink($fullPath);
+        
+        $db->prepare("DELETE FROM sancao_anexos WHERE id = ?")->execute([$anexo_id]);
+        echo json_encode(['success' => true]);
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Anexo não encontrado.']);
     }
     exit;
 }
@@ -217,25 +305,7 @@ if ($action === 'save') {
         exit;
     }
     
-    // File Upload handling (Anexo)
-    $anexoPath = null;
-    if (isset($_FILES['anexo']) && $_FILES['anexo']['error'] === UPLOAD_ERR_OK) {
-        $allowedExt = ['pdf', 'jpg', 'jpeg', 'png'];
-        $ext = strtolower(pathinfo($_FILES['anexo']['name'], PATHINFO_EXTENSION));
-        if (in_array($ext, $allowedExt)) {
-            $dir = __DIR__ . '/../assets/uploads/sancoes';
-            if (!is_dir($dir)) mkdir($dir, 0777, true);
-            $filename = uniqid('sancao_' . $aluno_id . '_') . '.' . $ext;
-            if (move_uploaded_file($_FILES['anexo']['tmp_name'], $dir . '/' . $filename)) {
-                $anexoPath = 'assets/uploads/sancoes/' . $filename;
-                
-                // Triggers status to Concluído if it was Open
-                if ($status === 'Em aberto') {
-                    $status = 'Concluído';
-                }
-            }
-        }
-    }
+    // Old single-file logic removed. Attachments are now handled separately.
 
     try {
         $db->beginTransaction();
@@ -247,10 +317,6 @@ if ($action === 'save') {
             
             if ($status === 'Concluído') {
                 $sql .= ", data_conclusao=CURRENT_DATE";
-            }
-            if ($anexoPath) {
-                $sql .= ", anexo_path=?";
-                $params[] = $anexoPath;
             }
             $sql .= " WHERE id=? AND institution_id=?";
             $params[] = $id;
@@ -269,17 +335,10 @@ if ($action === 'save') {
             if ($status === 'Concluído') {
                 $sql .= ", data_conclusao";
             }
-            if ($anexoPath) {
-                $sql .= ", anexo_path";
-            }
             $sql .= ") VALUES (?, ?, ?, ?, ?, ?, ?, ?";
             
             if ($status === 'Concluído') {
                 $sql .= ", CURRENT_DATE";
-            }
-            if ($anexoPath) {
-                $sql .= ", ?";
-                $params[] = $anexoPath;
             }
             $sql .= ")";
             

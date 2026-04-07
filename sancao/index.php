@@ -176,11 +176,46 @@ renderToastStyles();
 [data-theme="dark"] .action-btn-danger:hover { background: #450a0a; color: #f87171; border-color: #991b1b; }
 
 /* Thumbnails de Aluno */
+/* Thumbnails de Aluno */
 .aluno-thumb {
     display: flex;
     align-items: center;
     gap: 0.875rem;
 }
+
+/* Anexos Estilo Kanban */
+.anexo-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-surface-2nd);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease;
+}
+.anexo-item:hover {
+    border-color: var(--color-primary);
+    background: var(--bg-hover);
+}
+.anexo-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-surface);
+    border-radius: var(--radius-sm);
+    font-size: 1.25rem;
+}
+.anexo-info { flex: 1; min-width: 0; }
+.anexo-name {
+    font-weight: 600; font-size: 0.875rem; display: block;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.anexo-meta { font-size: 0.75rem; color: var(--text-muted); }
+.anexo-actions { display: flex; gap: 0.25rem; }
 .aluno-photo-sm { width:36px; height:36px; border-radius:50%; object-fit:cover; background:var(--bg-surface-2nd); border: 1px solid var(--border-color); }
 .aluno-initials-sm { width:36px; height:36px; border-radius:50%; background:var(--gradient-brand); color:white; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.75rem; border: 1px solid rgba(255,255,255,0.2); }
 
@@ -458,16 +493,18 @@ renderToastStyles();
 
                 <!-- ABA 4: Anexo / Conclusão -->
                 <div id="tab-anexo" class="modal-tab-content">
-                    <div class="form-group">
-                        <label class="form-label">Comprovante / Documento Assinado (PDF ou Imagem)</label>
-                        <input type="file" id="anexoFile" name="anexo" class="form-control" accept=".pdf,image/*">
-                        <p style="font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.5rem;">
-                            O envio do documento assinado marca automaticamente a sanção como "Concluída" se ainda estiver em aberto.
-                        </p>
+                    <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                        <h3 style="margin:0; font-size:1rem; font-weight:700;">📂 Documentos e Comprovantes</h3>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="openAddAnexoModal()">
+                            📎 Adicionar Arquivo
+                        </button>
                     </div>
-                    
-                    <div id="anexoPreview" style="margin-top: 1rem; display: none;">
-                        <a href="#" id="anexoDownloadLink" target="_blank" class="btn btn-secondary">⬇️ Baixar Arquivo Anexado</a>
+
+                    <div id="sancaoAnexosList">
+                        <!-- Anexos renderizados via JS -->
+                        <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                            Nenhum anexo ainda.
+                        </div>
                     </div>
                 </div>
 
@@ -476,6 +513,58 @@ renderToastStyles();
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeModal('modalSancao')">Cancelar</button>
             <button class="btn btn-primary" id="btnSalvarSancao" onclick="salvarSancao()">Salvar Registro</button>
+            <button type="button" class="btn btn-success" id="btnFinalizarSancao" style="display:none;" onclick="finalizarSancao()">✅ Finalizar Sanção</button>
+            <button type="button" class="btn btn-secondary" id="btnImprimirRodape" style="display:none;" onclick="window.print()">🖨️ Imprimir Termo</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Adicionar Anexo -->
+<div id="modalAddAnexo" class="modal-backdrop" style="z-index: 3100;">
+    <div class="modal" style="max-width: 450px;">
+        <div class="modal-header">
+            <h3>📎 Adicionar Novo Anexo</h3>
+            <button class="modal-close" onclick="closeModal('modalAddAnexo')">×</button>
+        </div>
+        <div class="modal-body">
+            <form id="formAddAnexo" onsubmit="event.preventDefault(); submitAnexo();">
+                <div class="form-group">
+                    <label>Selecione o Arquivo (PDF ou Imagem)</label>
+                    <input type="file" id="anexoUploadFile" class="form-control" accept=".pdf,image/*" required>
+                </div>
+                <div class="form-group">
+                    <label>Descrição (Opcional)</label>
+                    <input type="text" id="anexoUploadDesc" class="form-control" placeholder="Ex: Termo assinado, Foto do ocorrido...">
+                </div>
+                <div id="uploadProgressContainer" style="display:none; margin-top:1rem;">
+                    <div style="height:4px; background:var(--bg-surface-2nd); border-radius:2px; overflow:hidden;">
+                        <div id="uploadProgressBar" style="width:0; height:100%; background:var(--color-primary); transition:width 0.2s;"></div>
+                    </div>
+                    <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem; text-align:center;">Enviando arquivo...</p>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('modalAddAnexo')">Cancelar</button>
+            <button class="btn btn-primary" onclick="submitAnexo()">Fazer Upload</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Visualizar Anexo -->
+<div id="modalViewAnexo" class="modal-backdrop" style="z-index: 3200;">
+    <div class="modal" style="max-width: 90vw; height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+        <div class="modal-header">
+            <h3 id="viewAnexoTitle">Visualizar Anexo</h3>
+            <div style="display:flex; gap:0.75rem; align-items:center;">
+                <a id="downloadAnexoBtn" href="#" download class="btn btn-secondary btn-sm">⬇️ Download</a>
+                <button class="modal-close" onclick="closeModal('modalViewAnexo')">×</button>
+            </div>
+        </div>
+        <div class="modal-body" style="flex: 1; padding: 0; overflow: hidden; background: #eee; display: flex; align-items: center; justify-content: center;">
+            <div id="anexoPreviewContainer" style="width: 100%; height: 100%; overflow: auto; display: flex; align-items: center; justify-content: center;">
+                <!-- Preview renderizado aqui -->
+            </div>
         </div>
     </div>
 </div>
@@ -505,10 +594,22 @@ function switchTab(tabId) {
     
     document.getElementById(tabId).classList.add('active');
     
-    if (tabId === 'tab-impressao' || tabId === 'tab-anexo') {
-        document.getElementById('btnSalvarSancao').style.display = 'none';
+    const btnSave = document.getElementById('btnSalvarSancao');
+    const btnFinish = document.getElementById('btnFinalizarSancao');
+    const btnPrint = document.getElementById('btnImprimirRodape');
+
+    if (tabId === 'tab-anexo') {
+        btnSave.style.display = 'none';
+        btnFinish.style.display = 'inline-block';
+        btnPrint.style.display = 'none';
+    } else if (tabId === 'tab-impressao') {
+        btnSave.style.display = 'none';
+        btnFinish.style.display = 'none';
+        btnPrint.style.display = 'inline-block';
     } else {
-        document.getElementById('btnSalvarSancao').style.display = 'inline-block';
+        btnSave.style.display = 'inline-block';
+        btnFinish.style.display = 'none';
+        btnPrint.style.display = 'none';
     }
 }
 
@@ -610,7 +711,8 @@ function openSancaoModal() {
     document.getElementById('alunoHistoricoContainer').style.display = 'none';
     document.getElementById('tabImpressaoBtn').style.display = 'none';
     document.getElementById('tabAnexoBtn').style.display = 'none';
-    document.getElementById('anexoPreview').style.display = 'none';
+    document.getElementById('btnFinalizarSancao').style.display = 'none';
+    document.getElementById('btnImprimirRodape').style.display = 'none';
     
     switchTab('tab-identificacao'); 
     
@@ -675,11 +777,8 @@ async function editSancao(id) {
             if (!printAcoes) printAcoes = '<li>Nenhum fato gerador específico selecionado.</li>';
             document.getElementById('printAcoesList').innerHTML = printAcoes;
             
-            // Populate Anexos
-            if (data.anexo_path) {
-                document.getElementById('anexoPreview').style.display = 'block';
-                document.getElementById('anexoDownloadLink').href = '/' + data.anexo_path;
-            }
+            // Load Anexos
+            loadAnexos(data.id);
             
         }
     } catch (e) {
@@ -869,6 +968,245 @@ async function salvarSancao() {
         }
     } catch (e) {
         Toast.show('Erro na requisição. Tente novamente.', 'error');
+    } finally {
+        btn.innerHTML = oldText;
+        btn.disabled = false;
+    }
+}
+
+/**
+ * Funções de Gestão de Anexos (Múltiplos)
+ */
+
+async function loadAnexos(sancaoId) {
+    const container = document.getElementById('sancaoAnexosList');
+    if (!container) return;
+
+    container.innerHTML = '<div style="padding:1rem;color:var(--text-muted);font-size:0.875rem;text-align:center;">Carregando anexos...</div>';
+
+    try {
+        const res = await fetch(`/sancao/ajax.php?action=fetch_anexos&sancao_id=${sancaoId}`);
+        const data = await res.json();
+
+        if (data.success) {
+            renderAnexos(data.anexos, sancaoId);
+        } else {
+            container.innerHTML = `<div style="padding:1rem;color:#ef4444;font-size:0.875rem;text-align:center;">Erro ao carregar: ${data.error}</div>`;
+        }
+    } catch (e) {
+        container.innerHTML = '<div style="padding:1rem;color:#ef4444;font-size:0.875rem;text-align:center;">Erro de conexão ao carregar anexos.</div>';
+    }
+}
+
+function renderAnexos(anexos, sancaoId) {
+    const container = document.getElementById('sancaoAnexosList');
+    if (!container) return;
+
+    if (!anexos || anexos.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); background: var(--bg-surface); border-radius: var(--radius-md); border: 1px dashed var(--border-color);">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.5;">📁</div>
+                <p style="font-size: 0.8125rem;">Nenhum anexo encontrado para esta sanção.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let h = '';
+    anexos.forEach(a => {
+        const dateStr = new Date(a.created_at).toLocaleDateString('pt-BR');
+        const icon = a.extensao === 'pdf' ? '📄' : '🖼️';
+        const sizeStr = a.tamanho ? (a.tamanho / 1024 / 1024).toFixed(2) + ' MB' : '';
+
+        h += `
+            <div class="anexo-item">
+                <div class="anexo-icon">${icon}</div>
+                <div class="anexo-info">
+                    <span class="anexo-name" title="${a.descricao || 'Sem descrição'}">${a.descricao || 'Arquivo .' + a.extensao}</span>
+                    <div class="anexo-meta">${dateStr} • ${a.extensao.toUpperCase()} ${sizeStr ? ' • ' + sizeStr : ''} • Por ${a.author_name}</div>
+                </div>
+                <div class="anexo-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" style="padding:0.25rem 0.5rem;" onclick="viewAnexo('/${a.arquivo}', '${a.descricao || ''}', '${a.extensao}')" title="Visualizar">👁️</button>
+                    <button type="button" class="btn btn-secondary btn-sm" style="padding:0.25rem 0.5rem; color:#ef4444;" onclick="deleteAnexo(${a.id}, ${sancaoId})" title="Excluir">🗑️</button>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = h;
+}
+
+function openAddAnexoModal() {
+    const sancaoId = document.getElementById('sancao_id').value;
+    if (!sancaoId) {
+        Toast.show('Salve o registro antes de adicionar anexos.', 'warning');
+        return;
+    }
+    openModal('modalAddAnexo');
+    document.getElementById('formAddAnexo').reset();
+    document.getElementById('uploadProgressContainer').style.display = 'none';
+    document.getElementById('uploadProgressBar').style.width = '0%';
+}
+
+async function submitAnexo() {
+    const fileInput = document.getElementById('anexoUploadFile');
+    const descInput = document.getElementById('anexoUploadDesc');
+    const sancaoId = document.getElementById('sancao_id').value;
+    
+    if (!fileInput.files || fileInput.files.length === 0) {
+        Toast.show('Por favor, selecione um arquivo.', 'warning');
+        return;
+    }
+
+    const file = fileInput.files[0];
+    const formData = new FormData();
+    formData.append('sancao_id', sancaoId);
+    formData.append('descricao', descInput.value);
+    formData.append('arquivo', file);
+    
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+    const progressContainer = document.getElementById('uploadProgressContainer');
+    const progressBar = document.getElementById('uploadProgressBar');
+    
+    progressContainer.style.display = 'block';
+
+    try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/sancao/ajax.php?action=upload_anexo', true);
+        if (csrfToken) xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                progressBar.style.width = percentComplete + '%';
+            }
+        };
+
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                const res = JSON.parse(xhr.responseText);
+                if (res.success) {
+                    Toast.show('Anexo enviado com sucesso!', 'success');
+                    closeModal('modalAddAnexo');
+                    loadAnexos(sancaoId);
+                    
+                    // Se a sanção estive em aberto, atualizar a lista principal para refletir a mudança automática de status no backend (se houver)
+                    loadSancoes();
+                } else {
+                    Toast.show('Erro: ' + (res.error || res.message), 'error');
+                }
+            } else {
+                Toast.show('Erro no servidor ao enviar arquivo.', 'error');
+            }
+            progressContainer.style.display = 'none';
+        };
+
+        xhr.onerror = function() {
+            Toast.show('Erro de rede ao enviar arquivo.', 'error');
+            progressContainer.style.display = 'none';
+        };
+
+        xhr.send(formData);
+    } catch (e) {
+        Toast.show('Erro inesperado: ' + e.message, 'error');
+        progressContainer.style.display = 'none';
+    }
+}
+
+function viewAnexo(url, descricao, extensao) {
+    const modal = document.getElementById('modalViewAnexo');
+    const container = document.getElementById('anexoPreviewContainer');
+    const title = document.getElementById('viewAnexoTitle');
+    const downloadBtn = document.getElementById('downloadAnexoBtn');
+
+    if (!modal || !container) return;
+
+    title.innerText = descricao || 'Visualizar Anexo';
+    downloadBtn.href = url;
+    
+    container.innerHTML = '<div style="padding:2rem;color:var(--text-muted);">Carregando visualização...</div>';
+    
+    setTimeout(() => {
+        if (extensao === 'pdf') {
+            container.innerHTML = `<iframe src="${url}#toolbar=0" style="width:100%; height:100%; border:none;"></iframe>`;
+        } else {
+            container.innerHTML = `<img src="${url}" style="max-width:100%; max-height:100%; object-fit:contain; box-shadow:0 4px 12px rgba(0,0,0,0.1);">`;
+        }
+    }, 100);
+
+    openModal('modalViewAnexo');
+}
+
+async function deleteAnexo(anexoId, sancaoId) {
+    if (!confirm('Deseja realmente excluir este anexo?')) return;
+
+    try {
+        const formData = new FormData();
+        formData.append('anexo_id', anexoId);
+        
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        if (csrfToken) formData.append('csrf_token', csrfToken);
+
+        const res = await fetch('/sancao/ajax.php?action=delete_anexo', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            Toast.show('Anexo removido.', 'success');
+            loadAnexos(sancaoId);
+        } else {
+            Toast.show('Erro: ' + data.error, 'error');
+        }
+    } catch (e) {
+        Toast.show('Erro de conexão ao excluir.', 'error');
+    }
+}
+
+async function finalizarSancao() {
+    const id = document.getElementById('sancao_id').value;
+    if (!id) return;
+
+    const statusAtual = document.getElementById('status').value;
+    if (statusAtual === 'Concluído') {
+        Toast.show('Esta sanção já está concluída.', 'info');
+        return;
+    }
+
+    if (!confirm('Deseja realmente finalizar esta sanção? O status será alterado para "Concluído".')) return;
+
+    const btn = document.getElementById('btnFinalizarSancao');
+    const oldText = btn.innerHTML;
+    btn.innerHTML = 'Finalizando...';
+    btn.disabled = true;
+
+    try {
+        const formData = new FormData();
+        formData.append('id', id);
+        
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        if (csrfToken) formData.append('csrf_token', csrfToken);
+
+        const resp = await fetch('/sancao/ajax.php?action=finish', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await resp.json();
+
+        if (result.status === 'success') {
+            Toast.show(result.message, 'success');
+            
+            // Atualiza o select de status no formulário para refletir a mudança
+            document.getElementById('status').value = 'Concluído';
+            
+            loadSancoes();
+            closeModal('modalSancao');
+        } else {
+            Toast.show(result.message, 'error');
+        }
+    } catch (e) {
+        Toast.show('Erro ao finalizar sanção.', 'error');
     } finally {
         btn.innerHTML = oldText;
         btn.disabled = false;
