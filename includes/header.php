@@ -33,8 +33,32 @@ foreach (explode(' ', trim($userName)) as $part) {
     if (strlen($initials) >= 2) break;
 }
 
-// Página ativa
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
+
+// Permissões para uso no Header e JS
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/PermissionService.php';
+$permissionService = new \App\Services\PermissionService();
+$permsRaw = $permissionService->getPermissionsByProfile($user['profile'] ?? '');
+$userPermissions = [];
+foreach ($permsRaw as $p) {
+    $userPermissions[$p['resource']] = (int)$p['can_access'];
+}
+if (($user['profile'] ?? '') === 'Administrador') {
+    $userPermissions['IS_ADMIN'] = 1;
+}
+
+// Check para Foto de Perfil Ausente
+if (empty($user['photo'])) {
+    require_once __DIR__ . '/../src/App/Services/NotificationService.php';
+    $notifService = new \App\Services\NotificationService();
+    $notifService->pushUniqueForUser((int)$user['id'], [
+        'titulo' => 'Adicione uma Foto',
+        'mensagem' => 'Seu perfil ainda não possui uma foto. Adicione uma para facilitar sua identificação!',
+        'tipo' => 'Info',
+        'link_acao' => '/profile.php'
+    ]);
+}
 ?>
 <!DOCTYPE html>
 <html lang="<?= substr($currentLocale, 0, 2) ?>" data-theme="<?= $theme ?>" data-server-theme="<?= $theme ?>" data-user-id="<?= $userId ?>">
@@ -62,11 +86,22 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
     <link rel="stylesheet" href="/assets/css/components/loading.css">
     <link rel="stylesheet" href="/assets/css/components/modal.css?v=1.5">
     <link rel="stylesheet" href="/assets/css/components/image_preview.css">
+    <link rel="stylesheet" href="/assets/css/notifications_system.css">
     <script src="/assets/js/components/Toast.js"></script>
     <script src="/assets/js/components/Loading.js"></script>
     <script src="/assets/js/components/Modal.js?v=3"></script>
     <script src="/assets/js/components/LanguageSwitcher.js"></script>
     <script src="/assets/js/components/ImagePreview.js"></script>
+    <script src="/assets/js/notifications_system.js"></script>
+    
+    <script>
+        // Exportando permissões e CSRF para o JS (Segurança de UI e Request)
+        window.AppPermissions = <?= json_encode($userPermissions ?? []) ?>;
+        window.csrfToken = "<?= csrf_token() ?>";
+        window.AppConfig = {
+            exibirNotificacoes: <?= (int)($user['exibir_notificacoes'] ?? 1) ?>
+        };
+    </script>
     
     <?php if (isset($extraCSS)): foreach ($extraCSS as $css): ?>
     <link rel="stylesheet" href="<?= $css ?>">
@@ -231,6 +266,15 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                     <a href="/profile.php" class="dropdown-item" role="menuitem">
                         👤 Meu Perfil
                     </a>
+
+                    <!-- Notificações Toggle -->
+                    <div class="dropdown-item" style="display:flex; justify-content: space-between; align-items: center; cursor: default;">
+                        <span style="display: flex; align-items: center; gap: 0.625rem;">🔔 Notificações</span>
+                        <label class="notif-toggle-switch">
+                            <input type="checkbox" id="notif-visibility-toggle" <?= ($user['exibir_notificacoes'] ?? 1) == 1 ? 'checked' : '' ?>>
+                            <span class="notif-toggle-slider"></span>
+                        </label>
+                    </div>
 
                     <!-- Instituição Atual -->
                     <?php if ($instCount > 0): ?>

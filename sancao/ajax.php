@@ -1,5 +1,9 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/NotificationService.php';
+
+use App\Services\NotificationService;
 requireLogin();
 
 // Validations
@@ -364,6 +368,33 @@ if ($action === 'save') {
         }
         
         $db->commit();
+
+        // Disparar Notificação do Sistema
+        try {
+            $notifService = new NotificationService();
+            
+            // Buscar nome do aluno e título da sanção para a mensagem
+            $stInfo = $db->prepare("
+                SELECT a.nome as aluno_nome, st.titulo as tipo_titulo 
+                FROM alunos a, sancao_tipo st 
+                WHERE a.id = ? AND st.id = ?
+            ");
+            $stInfo->execute([$aluno_id, $sancao_tipo_id]);
+            $info = $stInfo->fetch();
+
+            $notifService->push([
+                'titulo' => 'Nova Sanção Cadastrada',
+                'mensagem' => "O aluno <strong>" . ($info['aluno_nome'] ?? 'Desconhecido') . "</strong> recebeu a sanção: " . ($info['tipo_titulo'] ?? 'N/A'),
+                'tipo' => 'Alerta',
+                'aluno_id' => $aluno_id,
+                'turma_id' => $turmaRef,
+                'link_acao' => "/sancao/index.php",
+                'required_permission' => 'sancoes.index'
+            ]);
+        } catch (Exception $e) {
+            // Silently fail notification if DB error, but keep the sanction saved
+        }
+
         echo json_encode([
             'status' => 'success', 
             'message' => 'Sanção registrada com sucesso!',
