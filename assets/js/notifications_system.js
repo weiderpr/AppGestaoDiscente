@@ -54,6 +54,11 @@ const NotificationSystem = {
                         const stack = document.getElementById(this.stackId);
                         if (stack) stack.remove();
                     }
+
+                    // Se estiver no dashboard, recarrega para reorganizar o layout (80/20)
+                    if (window.location.pathname.includes('/dashboard.php')) {
+                        window.location.reload();
+                    }
                 }
             } catch (error) {
                 console.error('Erro ao alternar visibilidade:', error);

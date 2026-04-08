@@ -1,0 +1,184 @@
+/* Dashboard Notification Sidebar (Fixa à direita) */
+
+/* O Container do dashboard empurra o conteúdo principal para não sobrepor a sidebar */
+.dashboard-work-wrapper {
+    display: block;
+    padding-right: 340px; /* 320px (sidebar) + 20px (gap) */
+    width: 100%;
+}
+
+.dashboard-main-content-area {
+    width: 100%;
+}
+
+/* Painel Fixo */
+.dashboard-notif-sidebar {
+    position: fixed;
+    top: var(--navbar-height, 68px);
+    right: 0;
+    bottom: 0;
+    width: 320px;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border-color);
+    padding: 1.25rem;
+    overflow-y: auto;
+    z-index: 900; /* Abaixo da navbar que é 1000 */
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.015);
+}
+
+/* Evitar sobreposição com o rodapé */
+body .app-footer {
+    padding-right: 340px !important;
+}
+
+.dash-notif-header {
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dash-notif-title {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.dash-notif-count {
+    background: var(--color-primary);
+    color: white;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+}
+
+.dash-notif-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+}
+
+/* Cards de Notificação - Sobrios e Compactos */
+.dash-notif-card {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem;
+    position: relative;
+    transition: var(--transition-short, 0.2s);
+}
+
+.dash-notif-card:hover { border-color: var(--color-primary); }
+
+.dash-notif-card::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    bottom: -1px;
+    width: 3px;
+    border-top-left-radius: var(--radius-sm);
+    border-bottom-left-radius: var(--radius-sm);
+}
+
+.dash-notif-card.type-Alerta::before { background: var(--color-danger); }
+.dash-notif-card.type-Sucesso::before { background: var(--color-success); }
+.dash-notif-card.type-Info::before { background: var(--color-primary); }
+
+.dash-notif-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.25rem;
+}
+
+.dash-notif-card-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+
+.dash-notif-btn-read {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.875rem;
+    line-height: 1;
+    padding: 2px;
+    opacity: 0.6;
+}
+.dash-notif-btn-read:hover {
+    color: var(--color-primary);
+    opacity: 1;
+}
+
+.dash-notif-card-body {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
+}
+
+.dash-notif-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.625rem;
+    color: var(--text-muted);
+}
+
+.dash-notif-link {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+.dash-notif-link:hover { text-decoration: underline; }
+
+.dash-notif-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+}
+
+/* Responsividade Full */
+@media (max-width: 1200px) {
+    .dashboard-notif-sidebar {
+        width: 280px;
+    }
+    .dashboard-work-wrapper {
+        padding-right: 300px;
+    }
+    .app-footer {
+        padding-right: 300px;
+    }
+}
+
+@media (max-width: 992px) {
+    .dashboard-work-wrapper {
+        padding-right: 0;
+    }
+    .app-footer {
+        padding-right: 0;
+    }
+    .dashboard-notif-sidebar {
+        width: 100%;
+        position: static;
+        max-height: none;
+        border-left: none;
+        border-top: 1px solid var(--border-color);
+        box-shadow: none;
+    }
+}
