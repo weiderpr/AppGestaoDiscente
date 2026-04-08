@@ -17,6 +17,66 @@ class NotificationService extends Service {
     }
 
     /**
+     * Conta conselhos em aberto para o usuário
+     */
+    public function countOpenCouncils(array $user): int {
+        if (!$this->institutionId) return 0;
+        
+        $userId = (int)$user['id'];
+        $profile = $user['profile'];
+        
+        if (in_array($profile, ['Administrador', 'Diretor'])) {
+            $sql = "SELECT COUNT(*) as total FROM conselhos_classe cc
+                    JOIN turmas t ON cc.turma_id = t.id
+                    JOIN courses c ON t.course_id = c.id
+                    WHERE cc.is_active = 1 AND c.institution_id = ?";
+            $res = $this->fetchOne($sql, [$this->institutionId]);
+            return (int)($res['total'] ?? 0);
+        } elseif ($profile === 'Coordenador') {
+            $sql = "SELECT COUNT(*) as total FROM conselhos_classe cc
+                    JOIN turmas t ON cc.turma_id = t.id
+                    JOIN course_coordinators cu ON t.course_id = cu.course_id
+                    WHERE cc.is_active = 1 AND cu.user_id = ?";
+            $res = $this->fetchOne($sql, [$userId]);
+            return (int)($res['total'] ?? 0);
+        }
+        
+        return 0;
+    }
+
+    /**
+     * Gera uma notificação virtual sobre conselhos em aberto
+     */
+    private function getCouncilAlert(array $user): ?array {
+        $allowed = ['Administrador', 'Diretor', 'Coordenador'];
+        if (!in_array($user['profile'], $allowed)) return null;
+
+        $count = $this->countOpenCouncils($user);
+        if ($count === 0) return null;
+
+        // ID virtual: -100 + (contagem * 10). Se a contagem mudar, o ID muda e a notificação reaparece.
+        $notifId = -100 - ($count * 10);
+
+        // Verificar se o usuário já marcou esta versão específica do alerta como lida
+        $userId = (int)$user['id'];
+        $isRead = $this->fetchOne("SELECT 1 FROM sys_notifications_read WHERE usuario_id = ? AND notificacao_id = ?", [$userId, $notifId]);
+        if ($isRead) return null;
+
+        return [
+            'id' => $notifId,
+            'institution_id' => $this->institutionId,
+            'titulo' => 'Conselhos de Classe em Aberto',
+            'mensagem' => "Existem {$count} conselhos de classe pendentes de finalização. Clique para gerenciar.",
+            'tipo' => 'Warning',
+            'link_acao' => '/courses/conselhos.php',
+            'created_at' => date('Y-m-d H:i:s'),
+            'required_permission' => null,
+            'aluno_id' => null,
+            'turma_id' => null
+        ];
+    }
+
+    /**
      * Envia uma nova notificação
      */
     public function push(array $data): int {
@@ -110,7 +170,7 @@ class NotificationService extends Service {
             ORDER BY n.created_at DESC
         ";
 
-        return $this->fetchAll($sql, [
+        $notifications = $this->fetchAll($sql, [
             $userId, 
             $this->institutionId, 
             $userId, // target_user_id
@@ -118,6 +178,14 @@ class NotificationService extends Service {
             $userId, $userId,
             $userId, $userId
         ]);
+
+        // Injetar alerta de conselhos se aplicável
+        $councilAlert = $this->getCouncilAlert($user);
+        if ($councilAlert) {
+            array_unshift($notifications, $councilAlert);
+        }
+
+        return $notifications;
     }
 
     /**

@@ -389,7 +389,7 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Modal: Novo/Editar Conselho -->
 <div id="conselhoModal" class="modal-wrapper" role="dialog" aria-modal="true">
     <div class="modal-overlay" onclick="closeModal()">
-        <div class="modal-dialog modal-md">
+        <div class="modal-dialog modal-md" onclick="event.stopPropagation()">
             <div class="modal-content">
                 <div class="modal-header">
                     <span class="modal-title" id="modalTitle">🏠 Novo Conselho de Classe</span>
