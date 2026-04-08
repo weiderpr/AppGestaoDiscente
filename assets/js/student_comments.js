@@ -159,7 +159,7 @@ function renderMyComments(comments) {
                         <div style="background:var(--bg-surface);padding:.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-color);">
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.375rem;">
                                 <span style="font-size:.6875rem;color:var(--text-muted);">${formatCommentDate(c.created_at)}</span>
-                                <button type="button" class="action-btn danger" style="width:24px;height:24px;font-size:.75rem;" onclick="deleteComment(${c.id})" title="Excluir">🗑</button>
+                                <button type="button" class="action-btn danger" style="width:24px;height:24px;font-size:.75rem;" onclick="deleteStudentComment(${c.id})" title="Excluir">🗑</button>
                             </div>
                             <div style="font-size:.875rem;line-height:1.5;color:var(--text-primary);">${c.conteudo}</div>
                         </div>
@@ -279,7 +279,7 @@ async function saveComment(event) {
     }
 }
 
-async function deleteComment(id) {
+async function deleteStudentComment(id) {
     const performDelete = async () => {
         if (typeof showLoading === 'function') showLoading('Excluindo...');
         try {

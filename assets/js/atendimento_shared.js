@@ -44,7 +44,7 @@ function renderTimeline(comentarios, isRestricted = false) {
         const isOwner = typeof currentUserId !== 'undefined' && c.author_id == currentUserId;
         const isAdmin = typeof currentUserProfile !== 'undefined' && ['Administrador', 'Coordenador'].includes(currentUserProfile);
         const canDelete = isOwner || isAdmin;
-        const deleteBtn = canDelete ? `<button onclick="deleteComment(${c.id})" title="Excluir comentário" style="background:transparent;border:none;color:#ef4444;cursor:pointer;padding:2px 4px;font-size:0.85rem;line-height:1;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">🗑️</button>` : '';
+        const deleteBtn = canDelete ? `<button onclick="deleteAtendimentoComment(${c.id})" title="Excluir comentário" style="background:transparent;border:none;color:#ef4444;cursor:pointer;padding:2px 4px;font-size:0.85rem;line-height:1;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">🗑️</button>` : '';
 
         h += `
             <div class="comment-item" id="comment-${c.id}">
@@ -565,12 +565,12 @@ async function deleteAnexo(anexoId) {
 }
 
 
-async function deleteComment(comentarioId) {
+async function deleteAtendimentoComment(comentarioId) {
     if (!confirm('Deseja realmente excluir este comentário?')) return;
 
     const formData = new FormData();
     formData.append('action', 'delete_comment');
-    formData.append('comentario_id', comentarioId);
+    formData.append('comment_id', comentarioId);
 
     try {
         const res = await fetch('/api/atendimentos.php', {

@@ -27,21 +27,17 @@ try {
 
             $db->beginTransaction();
 
-            // Prepare statements
-            $stDelete = $db->prepare('DELETE FROM gestao_turma_aluno_grupo WHERE aluno_id = ? AND aula_id = ?');
+            // Clear ALL existing assignments for this student in this turma
+            $stClear = $db->prepare('DELETE FROM gestao_turma_aluno_grupo WHERE aluno_id = ? AND turma_id = ?');
+            $stClear->execute([$alunoId, $turmaId]);
+
+            // Insert only the currently selected (checked) groups
             $stInsert = $db->prepare('INSERT INTO gestao_turma_aluno_grupo (aluno_id, turma_id, aula_id, grupo) VALUES (?, ?, ?, ?)');
 
             foreach ($groups as $aulaId => $grupo) {
-                $aulaId = (int)$aulaId;
-                if (empty($grupo)) {
-                    // If group is empty, we just remove the assignment
-                    $stDelete->execute([$alunoId, $aulaId]);
-                    continue;
+                if (!empty($grupo)) {
+                    $stInsert->execute([$alunoId, $turmaId, (int)$aulaId, $grupo]);
                 }
-
-                // Upsert logic: Delete first then Insert (since we have UNIQUE KEY)
-                $stDelete->execute([$alunoId, $aulaId]);
-                $stInsert->execute([$alunoId, $turmaId, $aulaId, $grupo]);
             }
 
             $db->commit();

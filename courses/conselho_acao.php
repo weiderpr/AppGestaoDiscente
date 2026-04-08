@@ -1149,14 +1149,14 @@ function openAlunoModal(aluno) {
 }
 </script>
 
-<script src="/assets/js/student_comments.js?v=2.3"></script>
+<script src="/assets/js/student_comments.js?v=2.4"></script>
 <?php require_once __DIR__ . '/../includes/student_comment_modal.php'; ?>
 
 <!-- Componente de Encaminhamentos -->
 <?php require_once __DIR__ . '/../includes/encaminhamento_modal.php'; ?>
 
 <!-- Componente de Detalhes de Atendimento (Compartilhado) -->
-<script src="/assets/js/atendimento_shared.js"></script>
+<script src="/assets/js/atendimento_shared.js?v=2.0"></script>
 <?php require_once __DIR__ . '/../includes/atendimento_detalhes_modal.php'; ?>
 
 <!-- Componente de Registros do Conselho -->

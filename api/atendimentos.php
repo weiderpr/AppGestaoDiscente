@@ -667,7 +667,7 @@ switch ($action) {
         break;
 
     case 'delete_comment':
-        $comentarioId = (int)($_POST['comentario_id'] ?? 0);
+        $comentarioId = (int)($_POST['comentario_id'] ?? $_POST['comment_id'] ?? 0);
         if (!$comentarioId) {
             echo json_encode(['success' => false, 'error' => 'ID inválido.']);
             exit;

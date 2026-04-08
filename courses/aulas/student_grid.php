@@ -61,10 +61,19 @@ if ($turmaId > 0) {
         WHERE a.turma_id = ?
         AND (
             a.ocupacao = "Turma inteira" OR 
-            (gtag.grupo IS NOT NULL AND a.ocupacao = gtag.grupo)
+            (gtag.grupo IS NOT NULL AND a.ocupacao = gtag.grupo) OR
+            (
+                gtag.grupo IS NULL AND 
+                a.ocupacao = "Grupo 1" AND 
+                NOT EXISTS (
+                    SELECT 1 FROM gestao_turma_aluno_grupo g2
+                    JOIN gestao_turma_aulas a2 ON a2.id = g2.aula_id
+                    WHERE g2.aluno_id = ? AND a2.disciplina_codigo = a.disciplina_codigo AND a2.turma_id = a.turma_id
+                )
+            )
         )
     ');
-    $stAulas->execute([$alunoId, $turmaId]);
+    $stAulas->execute([$alunoId, $turmaId, $alunoId]);
     $aulas = $stAulas->fetchAll();
 }
 
