@@ -17,11 +17,22 @@ if (!$instId) {
     echo json_encode(['status' => 'error', 'message' => 'Nenhuma instituição selecionada.']);
     exit;
 }
-
 try {
     // Pagination params
     $limit  = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
     $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
+    
+    // Aluno Filter
+    $alunoIdsRaw = isset($_GET['aluno_ids']) && !empty($_GET['aluno_ids']) ? explode(',', $_GET['aluno_ids']) : [];
+    $validAlunoIds = [];
+    foreach ($alunoIdsRaw as $id) {
+        if ((int)$id > 0) $validAlunoIds[] = (int)$id;
+    }
+    
+    $alunoFilter = "";
+    if (!empty($validAlunoIds)) {
+        $alunoFilter = " AND a.id IN (" . implode(',', $validAlunoIds) . ") ";
+    }
 
     // Aggregator Query using UNION to bring all social activities
     // Fields: event_type, event_id, aluno_id, aluno_nome, aluno_foto, content, responsible_name, responsible_photo, timestamp, badge_text, badge_type
@@ -48,6 +59,7 @@ try {
         JOIN courses c ON t.course_id = c.id
         WHERE c.institution_id = :inst_id_1
           AND a.deleted_at IS NULL
+          $alunoFilter
 
         UNION ALL
 
@@ -70,6 +82,7 @@ try {
         JOIN conselhos_classe cc ON ce.conselho_id = cc.id
         WHERE cc.institution_id = :inst_id_2
           AND a.deleted_at IS NULL
+          $alunoFilter
 
         UNION ALL
 
@@ -92,6 +105,7 @@ try {
         WHERE ga.institution_id = :inst_id_3
           AND ga.deleted_at IS NULL
           AND a.deleted_at IS NULL
+          $alunoFilter
 
         UNION ALL
 
@@ -116,6 +130,7 @@ try {
           AND gac.is_private = 0
           AND ga.deleted_at IS NULL
           AND a.deleted_at IS NULL
+          $alunoFilter
 
         UNION ALL
 
@@ -138,6 +153,7 @@ try {
         JOIN users u ON s.author_id = u.id
         WHERE s.institution_id = :inst_id_5
           AND a.deleted_at IS NULL
+          $alunoFilter
     ) AS feed
     ORDER BY timestamp DESC
     LIMIT :limit OFFSET :offset

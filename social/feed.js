@@ -18,17 +18,138 @@ class SocialFeed {
         this.hasMore = true;
         this.isLoading = false;
         
+        // Filter state
+        this.selectedAlunos = [];
+        this.searchTimeout = null;
+        
         this.init();
     }
     
     init() {
         this.setupResizer();
+        this.setupAutocomplete();
         this.loadSidebarWidth();
         this.loadFeed(); // Initial load
         this.setupInfiniteScroll();
         
         // Listen for window resize to handle layout shifts
         window.addEventListener('resize', () => this.handleResponsiveLayout());
+    }
+
+    // --- Student Filters ---
+
+    setupAutocomplete() {
+        const input = document.getElementById('aluno-search-input');
+        const results = document.getElementById('aluno-search-results');
+        
+        if (!input || !results) return;
+
+        input.addEventListener('input', (e) => {
+            const query = e.target.value.trim();
+            
+            clearTimeout(this.searchTimeout);
+            if (query.length < 3) {
+                results.style.display = 'none';
+                return;
+            }
+
+            this.searchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/api/students.php?action=search&q=${encodeURIComponent(query)}`);
+                    const data = await response.json();
+                    this.renderSearchResults(data);
+                } catch (error) {
+                    console.error('Search error:', error);
+                }
+            }, 300);
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!input.contains(e.target) && !results.contains(e.target)) {
+                results.style.display = 'none';
+            }
+        });
+    }
+
+    renderSearchResults(students) {
+        const results = document.getElementById('aluno-search-results');
+        if (students.length === 0) {
+            results.innerHTML = '<div style="padding: 1rem; font-size: 0.75rem; color: var(--text-muted); text-align: center;">Nenhum aluno encontrado.</div>';
+        } else {
+            results.innerHTML = students.map(s => `
+                <div class="search-result-item" data-id="${s.id}" data-nome="${s.nome}">
+                    <img src="/${s.foto || 'assets/img/avatar-placeholder.png'}" onerror="this.src='/assets/img/avatar-placeholder.png'">
+                    <div class="search-result-info">
+                        <span class="search-result-name">${s.nome}</span>
+                        <span class="search-result-desc">${s.turma_desc || 'S/ Turma'} • ${s.matricula}</span>
+                    </div>
+                </div>
+            `).join('');
+
+            results.querySelectorAll('.search-result-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    this.addAlunoFilter({
+                        id: item.dataset.id,
+                        nome: item.dataset.nome
+                    });
+                    results.style.display = 'none';
+                    document.getElementById('aluno-search-input').value = '';
+                });
+            });
+        }
+        results.style.display = 'block';
+    }
+
+    addAlunoFilter(aluno) {
+        if (this.selectedAlunos.find(a => a.id === aluno.id)) return;
+        
+        this.selectedAlunos.push(aluno);
+        this.renderFilterTags();
+        this.loadFeed(false); // Reset and reload
+    }
+
+    removeAlunoFilter(alunoId) {
+        this.selectedAlunos = this.selectedAlunos.filter(a => a.id !== alunoId);
+        this.renderFilterTags();
+        this.loadFeed(false); // Reset and reload
+    }
+
+    clearFilters() {
+        this.selectedAlunos = [];
+        this.renderFilterTags();
+        document.getElementById('aluno-search-input').value = '';
+        this.loadFeed(false);
+    }
+
+    renderFilterTags() {
+        const container = document.getElementById('active-filters');
+        const btnGeral = document.getElementById('btn-feed-geral');
+        
+        if (!container) return;
+
+        if (this.selectedAlunos.length === 0) {
+            container.innerHTML = '';
+            if (btnGeral) {
+                btnGeral.style.background = 'var(--gradient-brand)';
+                btnGeral.style.color = 'white';
+                btnGeral.style.borderColor = 'transparent';
+            }
+            return;
+        }
+
+        if (btnGeral) {
+            btnGeral.style.background = 'var(--bg-surface-2nd)';
+            btnGeral.style.color = 'var(--text-primary)';
+            btnGeral.style.borderColor = 'var(--border-color)';
+        }
+
+        container.innerHTML = this.selectedAlunos.map(a => `
+            <div class="filter-tag">
+                <span>${a.nome.split(' ')[0]}</span>
+                <span class="filter-tag-remove" onclick="window.socialFeed.removeAlunoFilter('${a.id}')">&times;</span>
+            </div>
+        `).join('');
     }
 
     // --- Infinite Scroll ---
@@ -124,8 +245,12 @@ class SocialFeed {
 
         this.isLoading = true;
 
+        const alunoIds = this.selectedAlunos.map(a => a.id).join(',');
+        let url = `/social/feed_ajax.php?offset=${this.offset}&limit=${this.limit}`;
+        if (alunoIds) url += `&aluno_ids=${alunoIds}`;
+
         try {
-            const response = await fetch(`/social/feed_ajax.php?offset=${this.offset}&limit=${this.limit}`);
+            const response = await fetch(url);
             const result = await response.json();
 
             if (result.status === 'success') {
