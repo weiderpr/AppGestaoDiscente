@@ -33,18 +33,25 @@ try {
 
     // 1. Presentes
     $stmt = $db->prepare("
-        SELECT u.name, u.profile, u.photo
+        SELECT u.name, u.profile, u.photo, u.is_teacher
         FROM conselhos_presentes cp
         JOIN users u ON cp.user_id = u.id
         WHERE cp.conselho_id = ?
         ORDER BY u.name
     ");
     $stmt->execute([$conselhoId]);
-    $presentes = $stmt->fetchAll();
+    $presentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($presentes as &$p) {
+        if (!in_array($p['profile'], ['Coordenador', 'Professor', 'Diretor']) && !empty($p['is_teacher'])) {
+            $p['profile'] = 'Professor';
+        }
+    }
+    unset($p);
 
     // 1.1 Ausentes (Professores da turma que não estão presentes)
     $stmt = $db->prepare("
-        SELECT DISTINCT u.name, u.profile
+        SELECT DISTINCT u.name, u.profile, u.is_teacher
         FROM users u
         JOIN turma_disciplina_professores tdp ON tdp.professor_id = u.id
         JOIN turma_disciplinas td ON tdp.turma_disciplina_id = td.id
@@ -56,7 +63,14 @@ try {
         ORDER BY u.name
     ");
     $stmt->execute([$conselhoId, $conselhoId]);
-    $ausentes = $stmt->fetchAll();
+    $ausentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($ausentes as &$p) {
+        if (!in_array($p['profile'], ['Coordenador', 'Professor', 'Diretor']) && !empty($p['is_teacher'])) {
+            $p['profile'] = 'Professor';
+        }
+    }
+    unset($p);
 
     // 2. Registros (Comentários do Conselho)
     $stmt = $db->prepare("
