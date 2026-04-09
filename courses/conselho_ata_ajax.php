@@ -42,6 +42,22 @@ try {
     $stmt->execute([$conselhoId]);
     $presentes = $stmt->fetchAll();
 
+    // 1.1 Ausentes (Professores da turma que não estão presentes)
+    $stmt = $db->prepare("
+        SELECT DISTINCT u.name, u.profile
+        FROM users u
+        JOIN turma_disciplina_professores tdp ON tdp.professor_id = u.id
+        JOIN turma_disciplinas td ON tdp.turma_disciplina_id = td.id
+        JOIN conselhos_classe cc ON cc.turma_id = td.turma_id
+        WHERE cc.id = ? 
+        AND u.id NOT IN (
+            SELECT user_id FROM conselhos_presentes WHERE conselho_id = ?
+        )
+        ORDER BY u.name
+    ");
+    $stmt->execute([$conselhoId, $conselhoId]);
+    $ausentes = $stmt->fetchAll();
+
     // 2. Registros (Comentários do Conselho)
     $stmt = $db->prepare("
         SELECT cr.*, u.name as author_name, a.nome as aluno_nome
@@ -75,6 +91,7 @@ try {
         'data' => [
             'info' => $conselhoInfo,
             'presentes' => $presentes,
+            'ausentes' => $ausentes,
             'registros' => $registros,
             'encaminhamentos' => $encaminhamentos
         ]

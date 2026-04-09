@@ -84,42 +84,27 @@ $st = $db->prepare('SELECT user_id FROM conselhos_presentes WHERE conselho_id = 
 $st->execute([$conselhoId]);
 $presentesAtuais = array_column($st->fetchAll(), 'user_id');
 
-$sql = "SELECT DISTINCT u.id, u.name, u.photo, u.profile
-        FROM users u
-        JOIN turma_disciplina_professores tdp ON tdp.professor_id = u.id
-        JOIN turma_disciplinas td ON tdp.turma_disciplina_id = td.id
-        WHERE td.turma_id = ?
-        ORDER BY u.name";
-$st = $db->prepare($sql);
+// IDs dos professores da turma
+$st = $db->prepare("
+    SELECT DISTINCT tdp.professor_id 
+    FROM turma_disciplina_professores tdp
+    JOIN turma_disciplinas td ON tdp.turma_disciplina_id = td.id
+    WHERE td.turma_id = ?
+");
 $st->execute([$conselho['turma_id']]);
-$professores = $st->fetchAll();
+$professoresIds = array_column($st->fetchAll(), 'professor_id');
 
-$stFb = $db->prepare('
-    SELECT ra.comentario, ra.created_at, ra.id as resposta_id
-    FROM respostas_avaliacao ra
-    WHERE ra.conselho_id = ? AND ra.comentario IS NOT NULL AND ra.comentario != ""
-    ORDER BY ra.created_at DESC
-');
-$stFb->execute([$conselhoId]);
-$feedbacks = $stFb->fetchAll();
+// Pessoas que devem aparecer inicialmente na lista:
+// Se ninguém foi salvo ainda (vazio), o padrão é carregar todos os professores da turma.
+// Caso contrário, carrega estritamente os que foram salvos (evitando que quem foi removido volte).
+$initialUsersIds = empty($presentesAtuais) ? $professoresIds : $presentesAtuais;
 
-$profiles = PROFILES;
-$selectedProfile = $_GET['profile'] ?? '';
-
-$usuariosPorPerfil = [];
-if ($selectedProfile) {
-    $stUsers = $db->prepare("
-        SELECT id, name, profile FROM users 
-        WHERE is_active = 1 AND profile = ?
-        AND id NOT IN (
-            SELECT professor_id FROM turma_disciplina_professores tdp 
-            JOIN turma_disciplinas td ON tdp.turma_disciplina_id = td.id 
-            WHERE td.turma_id = ?
-        )
-        ORDER BY name
-    ");
-    $stUsers->execute([$selectedProfile, $conselho['turma_id']]);
-    $usuariosPorPerfil = $stUsers->fetchAll();
+$participantesIniciais = [];
+if (!empty($initialUsersIds)) {
+    $placeholders = implode(',', array_fill(0, count($initialUsersIds), '?'));
+    $st = $db->prepare("SELECT id, name, photo, profile FROM users WHERE id IN ($placeholders) ORDER BY name");
+    $st->execute(array_values($initialUsersIds));
+    $participantesIniciais = $st->fetchAll();
 }
 
 $stEtapas = $db->prepare('
@@ -406,65 +391,61 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="card">
         <div class="card-header">
             <span class="card-title">Lista de Presença</span>
-            <span style="font-size:.875rem;color:var(--text-muted);"><?= count($professores) ?> professor(es) vinculado(s)</span>
         </div>
         <form method="POST">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="salvar_presenca">
             <div class="card-body" style="padding-bottom:.5rem;">
                 <p style="margin-bottom:1rem;color:var(--text-muted);font-size:.875rem;">
-                    Marque os presentes na reunião deste conselho de classe.
+                    Marque e gerencie os presentes na reunião deste conselho de classe.
                 </p>
                 
-                <?php if (empty($professores)): ?>
-                <p style="text-align:center;padding:2rem;color:var(--text-muted);">
-                    Nenhum professor vinculado a esta turma.
-                </p>
-                <?php else: ?>
-                <div class="presence-list">
-                    <?php foreach ($professores as $p): ?>
-                    <label class="presence-item">
-                        <input type="checkbox" name="presentes[]" value="<?= $p['id'] ?>" <?= in_array($p['id'], $presentesAtuais) ? 'checked' : '' ?>>
-                        <div class="avatar">
-                            <?php if ($p['photo'] && file_exists(__DIR__ . '/../' . $p['photo'])): ?>
-                                <img src="/<?= htmlspecialchars($p['photo']) ?>" alt="<?= htmlspecialchars($p['name']) ?>">
-                            <?php else: ?>
-                                <?= mb_strtoupper(mb_substr($p['name'], 0, 1)) ?>
-                            <?php endif; ?>
-                        </div>
-                        <div class="info">
-                            <div class="name"><?= htmlspecialchars($p['name']) ?></div>
-                            <div class="profile"><?= htmlspecialchars($p['profile']) ?></div>
-                        </div>
-                    </label>
-                    <?php endforeach; ?>
+                <?php if (!$conselhoConcluido): ?>
+                <!-- Busca de Usuário (Typeahead) -->
+                <div class="form-group" style="position:relative; margin-bottom:1.5rem;">
+                    <label class="form-label" style="font-weight:600;">Adicionar Participante (Busca por Nome ou Email)</label>
+                    <input type="text" id="typeaheadParticipante" class="form-control" placeholder="Digite no mínimo 2 letras para buscar..." autocomplete="off">
+                    <div id="typeaheadParticipantResults" style="position:absolute; top:100%; left:0; background:var(--bg-surface); width:100%; max-height:280px; overflow-y:auto; border:1px solid var(--border-color); border-radius:0 0 8px 8px; box-shadow:0 10px 25px rgba(0,0,0,0.15); display:none; z-index:1050;"></div>
                 </div>
                 <?php endif; ?>
-                
-                <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border-color);">
-                    <p style="margin-bottom:1rem;font-weight:600;">Adicionar outros participantes:</p>
-                    
-                    <div class="form-group" style="margin-bottom:1rem;">
-                        <select id="filter_profile" class="form-control" onchange="window.location.href = '?id=<?= $conselhoId ?>&profile=' + this.value">
-                            <option value="">Selecione o tipo de participante...</option>
-                            <?php foreach ($profiles as $p): ?>
-                            <option value="<?= $p ?>" <?= $selectedProfile === $p ? 'selected' : '' ?>><?= $p ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    
-                    <div id="outros_participantes" class="presence-list">
-                        <?php if ($selectedProfile): ?>
-                            <p style="text-align:center;color:var(--text-muted);font-size:.875rem;">Carregando...</p>
-                        <?php else: ?>
-                        <p style="text-align:center;color:var(--text-muted);font-size:.875rem;">
-                            Selecione um tipo de participante acima para adicionar.
-                        </p>
-                        <?php endif; ?>
-                    </div>
+
+                <div style="font-weight:600; margin-bottom:0.75rem; border-bottom:1px solid var(--border-color); padding-bottom:0.5rem;">
+                    Participantes Selecionados:
                 </div>
+
+                <div class="presence-list" id="listaParticipantesSelecionados">
+                    <?php if (empty($participantesIniciais)): ?>
+                        <p id="emptyPresenceState" style="text-align:center;padding:2rem;color:var(--text-muted);">
+                            Nenhum participante adicionado à lista.
+                        </p>
+                    <?php else: ?>
+                        <p id="emptyPresenceState" style="display:none; text-align:center;padding:2rem;color:var(--text-muted);">
+                            Nenhum participante adicionado à lista.
+                        </p>
+                        <?php foreach ($participantesIniciais as $u): ?>
+                        <div class="presence-item pt-item-<?= $u['id'] ?>">
+                            <input type="hidden" name="presentes[]" value="<?= $u['id'] ?>">
+                            <div class="avatar">
+                                <?php if ($u['photo'] && file_exists(__DIR__ . '/../' . $u['photo'])): ?>
+                                    <img src="/<?= htmlspecialchars($u['photo']) ?>" alt="<?= htmlspecialchars($u['name']) ?>">
+                                <?php else: ?>
+                                    <?= mb_strtoupper(mb_substr($u['name'], 0, 1)) ?>
+                                <?php endif; ?>
+                            </div>
+                            <div class="info">
+                                <div class="name"><?= htmlspecialchars($u['name']) ?></div>
+                                <div class="profile"><?= htmlspecialchars($u['profile']) ?></div>
+                            </div>
+                            <?php if (!$conselhoConcluido): ?>
+                            <button type="button" class="btn btn-sm" style="background:none; border:none; color:var(--color-danger); cursor:pointer;" onclick="removerParticipante(<?= $u['id'] ?>)" title="Remover da Presença">✕</button>
+                            <?php endif; ?>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+
             </div>
-            <?php if ($canFull): ?>
+            <?php if ($canFull && !$conselhoConcluido): ?>
                 <div class="card-footer" style="display:flex;justify-content:flex-end;padding:1rem 1.5rem;background:var(--bg-surface-2nd);border-top:1px solid var(--border-color);margin-top:auto;">
                     <button type="submit" class="btn btn-primary">💾 Salvar Presença</button>
                 </div>
@@ -472,6 +453,125 @@ document.addEventListener('DOMContentLoaded', () => {
         </form>
     </div>
 </div>
+
+<script>
+let debounceParticipantObj;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const inputSearch = document.getElementById('typeaheadParticipante');
+    const resultsDiv = document.getElementById('typeaheadParticipantResults');
+
+    if (inputSearch && resultsDiv) {
+        inputSearch.addEventListener('input', (e) => {
+            clearTimeout(debounceParticipantObj);
+            const q = e.target.value.trim();
+            if (q.length < 2) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+            debounceParticipantObj = setTimeout(async () => {
+                resultsDiv.innerHTML = '<div style="padding:1rem;color:var(--text-muted);text-align:center;">Buscando...</div>';
+                resultsDiv.style.display = 'block';
+
+                try {
+                    const resp = await fetch('/courses/conselho_participantes_ajax.php?search=' + encodeURIComponent(q));
+                    const res = await resp.json();
+
+                    if (res.status === 'success' && res.data.length > 0) {
+                        let html = '';
+                        res.data.forEach(u => {
+                            // Pega as iniciais para o fallback do avatar
+                            const initial = u.name.charAt(0).toUpperCase();
+                            const photoSrc = u.photo ? '/' + u.photo : '';
+
+                            html += `
+                                <div style="display:flex; align-items:center; gap:0.75rem; padding:0.75rem 1rem; border-bottom:1px solid var(--border-color); cursor:pointer;" 
+                                    onmouseover="this.style.background='var(--bg-hover)'" 
+                                    onmouseout="this.style.background=''"
+                                    onclick="adicionarParticipante(${u.id}, '${u.name.replace(/'/g, "\\'")}', '${u.profile.replace(/'/g, "\\'")}', '${photoSrc.replace(/'/g, "\\'")}')">
+                                    <div style="width:32px; height:32px; border-radius:50%; background:var(--bg-surface-2nd); display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                                        ${photoSrc ? `<img src="${photoSrc}" style="width:100%; height:100%; object-fit:cover;">` : `<b style="font-size:.75rem;color:var(--text-muted)">${initial}</b>`}
+                                    </div>
+                                    <div>
+                                        <div style="font-weight:600; font-size:.875rem; color:var(--text-primary);">${u.name}</div>
+                                        <div style="font-size:.75rem; color:var(--text-muted);">${u.profile}</div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        resultsDiv.innerHTML = html;
+                    } else {
+                        resultsDiv.innerHTML = '<div style="padding:1rem;color:var(--text-muted);text-align:center;">Nenhum usuário encontrado na instituição atual.</div>';
+                    }
+                } catch (err) {
+                    resultsDiv.innerHTML = '<div style="padding:1rem;color:var(--color-danger);text-align:center;">Erro na busca.</div>';
+                }
+            }, 300);
+        });
+
+        // Fechar ao clicar fora
+        document.addEventListener('click', (e) => {
+            if (!inputSearch.contains(e.target) && !resultsDiv.contains(e.target)) {
+                resultsDiv.style.display = 'none';
+            }
+        });
+    }
+});
+
+function adicionarParticipante(id, name, profile, photo) {
+    const list = document.getElementById('listaParticipantesSelecionados');
+    
+    // Verifica se já existe na lista
+    if (document.querySelector('.pt-item-' + id)) {
+        Toast.show('Usuário já está na lista.', 'info');
+        document.getElementById('typeaheadParticipantResults').style.display = 'none';
+        document.getElementById('typeaheadParticipante').value = '';
+        return;
+    }
+
+    // Esconde a mensagem de vazio
+    document.getElementById('emptyPresenceState').style.display = 'none';
+
+    // Iniciais pro Fallback
+    const initial = name.charAt(0).toUpperCase();
+    
+    // Monta o item
+    const div = document.createElement('div');
+    div.className = 'presence-item pt-item-' + id;
+    div.style.borderStyle = 'dashed';
+    div.style.borderColor = 'var(--color-primary-light)';
+    
+    div.innerHTML = `
+        <input type="hidden" name="presentes[]" value="${id}">
+        <div class="avatar" style="background:var(--color-primary); color:white;">
+            ${photo ? `<img src="${photo}" style="width:100%; height:100%; object-fit:cover;">` : initial}
+        </div>
+        <div class="info">
+            <div class="name">${name}</div>
+            <div class="profile">${profile} <span style="font-size:0.7rem; color:var(--color-primary);">(Será adicionado)</span></div>
+        </div>
+        <button type="button" class="btn btn-sm" style="background:none; border:none; color:var(--color-danger); cursor:pointer;" onclick="removerParticipante(${id})" title="Remover">✕</button>
+    `;
+
+    list.appendChild(div);
+    
+    document.getElementById('typeaheadParticipantResults').style.display = 'none';
+    document.getElementById('typeaheadParticipante').value = '';
+}
+
+function removerParticipante(id) {
+    const item = document.querySelector('.pt-item-' + id);
+    if (item) {
+        item.remove();
+    }
+    
+    // Verifica se ficou vazio
+    const list = document.getElementById('listaParticipantesSelecionados');
+    if (!list.querySelector('.presence-item')) {
+        document.getElementById('emptyPresenceState').style.display = 'block';
+    }
+}
+</script>
 
 <div id="alunos" class="tab-content fade-in">
     <div class="card">
@@ -1089,37 +1189,7 @@ function renderDetailTabs() {
     });
 }
 
-function renderOutrosParticipantes() {
-    const container = document.getElementById('outros_participantes');
-    
-    if (usuariosPorPerfil.length === 0) {
-        container.innerHTML = '<p style="text-align:center;color:var(--text-muted);font-size:.875rem;">Nenhum usuário encontrado para este perfil.</p>';
-        return;
-    }
-    
-    let html = '';
-    usuariosPorPerfil.forEach(u => {
-        const checked = presentesAtuais.includes(u.id) ? ' checked' : '';
-        const initial = u.name.charAt(0).toUpperCase();
-        html += `
-            <label class="presence-item">
-                <input type="checkbox" name="presentes[]" value="${u.id}"${checked}>
-                <div class="avatar">${initial}</div>
-                <div class="info">
-                    <div class="name">${u.name}</div>
-                    <div class="profile">${u.profile}</div>
-                </div>
-            </label>
-        `;
-    });
-    container.innerHTML = html;
-}
 
-document.addEventListener('DOMContentLoaded', function() {
-    <?php if ($selectedProfile): ?>
-    renderOutrosParticipantes();
-    <?php endif; ?>
-});
 
 /**
  * Integração com o Modal de Comentários Compartilhado
@@ -1165,7 +1235,7 @@ function openAlunoModal(aluno) {
 <?php require_once __DIR__ . '/../includes/student_schedule_modal.php'; ?>
 
 <!-- Componente de Ata do Conselho -->
-<script src="/assets/js/conselho_ata_system.js?v=2.0"></script>
+<script src="/assets/js/conselho_ata_system.js?v=2.2"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {

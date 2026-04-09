@@ -13,13 +13,14 @@ async function loadCouncilAta(conselhoId) {
         const result = await resp.json();
 
         if (result.success) {
-            const { info, presentes, registros, encaminhamentos } = result.data;
+            const { info, presentes, ausentes, registros, encaminhamentos } = result.data;
             
             const dataObj = new Date(info.data_hora);
             const dataStr = dataObj.toLocaleDateString('pt-BR');
             const horaStr = dataObj.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
             
             const listaPresentes = presentes.map(p => `<b>${p.name}</b> (${p.profile})`).join(', ');
+            const listaAusentes = (ausentes && ausentes.length > 0) ? ausentes.map(p => `<b>${p.name}</b> (${p.profile})`).join(', ') : null;
 
             let html = `
                 <div class="ata-document" style="background:#fff; border:1px solid #ddd; padding:4rem; box-shadow:0 5px 15px rgba(0,0,0,0.05); color:#333; font-family:'Times New Roman', serif; line-height:1.8; text-align:justify;">
@@ -50,6 +51,11 @@ async function loadCouncilAta(conselhoId) {
                         <p style="text-indent:2rem; margin:0;">
                             Estiveram presentes no conselho de classe <b>${info.descricao}</b> do dia <b>${dataStr}</b>, referente à turma <b>${info.turma_name}</b>, com início às <b>${horaStr}</b> horas, os(as) seguintes servidores(as): ${listaPresentes}.
                         </p>
+                        ${listaAusentes ? `
+                        <p style="text-indent:2rem; margin:1rem 0 0 0;">
+                            Constatada a ausência dos(as) servidores(as): ${listaAusentes}.
+                        </p>
+                        ` : ''}
                     </section>
 
                     <!-- Seção 2: Registros e Discussões -->
