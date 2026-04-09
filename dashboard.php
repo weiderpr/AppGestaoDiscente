@@ -43,92 +43,99 @@ require_once __DIR__ . '/includes/header.php';
 <div class="dashboard-work-wrapper">
     <div class="dashboard-main-content-area">
 
-        <?php if (in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo']) && !empty($curInst['id'])): 
-            $db = getDB();
-    $stCourses = $db->prepare("
-        SELECT c.id, c.name, c.location
-        FROM courses c
-        WHERE c.institution_id = ?
-        ORDER BY c.name
-    ");
-    $stCourses->execute([$curInst['id']]);
-    $teacherCourses = $stCourses->fetchAll();
-?>
-    <?php if (!empty($teacherCourses)): ?>
-    <div class="fade-in" style="margin-bottom:2.5rem;">
-        <h2 style="font-size:1.125rem;font-weight:700;color:var(--text-primary);margin-bottom:1.25rem;display:flex;align-items:center;gap:0.5rem;">
-            📚 Cursos Ativos
-        </h2>
-        <div class="stats-grid" style="grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));">
-            <?php foreach ($teacherCourses as $tc): ?>
-            <a href="/courses/turmas.php?course_id=<?= $tc['id'] ?>" class="stat-card" style="text-decoration:none;transition:transform 0.2s;cursor:pointer;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
-                <div class="stat-icon" style="background:var(--color-primary-light);color:var(--color-primary);font-size:1.5rem;">
-                    📚
-                </div>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:1rem;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?= htmlspecialchars($tc['name']) ?>">
-                        <?= htmlspecialchars($tc['name']) ?>
-                    </div>
-                    <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;display:flex;align-items:center;gap:0.25rem;">
-                        📍 <?= $tc['location'] ? htmlspecialchars($tc['location']) : 'Local não informado' ?>
-                    </div>
-                </div>
-                <div style="color:var(--color-primary);font-size:1.25rem;margin-left:0.5rem;">
-                    ➜
-                </div>
-            </a>
-            <?php endforeach; ?>
-        </div>
-    </div>
-    <?php endif; ?>
-<?php elseif ($user['profile'] === 'Professor' && !empty($curInst['id'])): 
-    $db = getDB();
-    $stCourses = $db->prepare("
-        SELECT DISTINCT c.id, c.name, c.location
-        FROM courses c
-        JOIN turmas t ON c.id = t.course_id
-        JOIN turma_disciplinas td ON t.id = td.turma_id
-        JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
-        WHERE tdp.professor_id = ? AND c.institution_id = ?
-        ORDER BY c.name
-    ");
-    $stCourses->execute([$user['id'], $curInst['id']]);
-    $teacherCourses = $stCourses->fetchAll();
-?>
-    <?php if (!empty($teacherCourses)): ?>
-    <div class="fade-in" style="margin-bottom:2.5rem;">
-        <h2 style="font-size:1.125rem;font-weight:700;color:var(--text-primary);margin-bottom:1.25rem;display:flex;align-items:center;gap:0.5rem;">
-            📚 Meus Cursos
-        </h2>
-        <div class="stats-grid" style="grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));">
-            <?php foreach ($teacherCourses as $tc): ?>
-            <a href="/courses/turmas.php?course_id=<?= $tc['id'] ?>" class="stat-card" style="text-decoration:none;transition:transform 0.2s;cursor:pointer;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
-                <div class="stat-icon" style="background:var(--color-primary-light);color:var(--color-primary);font-size:1.5rem;">
-                    📚
-                </div>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:1rem;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?= htmlspecialchars($tc['name']) ?>">
-                        <?= htmlspecialchars($tc['name']) ?>
-                    </div>
-                    <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;display:flex;align-items:center;gap:0.25rem;">
-                        📍 <?= $tc['location'] ? htmlspecialchars($tc['location']) : 'Local não informado' ?>
+        <?php 
+        $showSocialFeed = hasDbPermission('social.feed_view', false);
+        
+        // Se o Feed Social estiver ativo, ocultamos os outros componentes da área principal (exceto notificações)
+        if (!$showSocialFeed): 
+        ?>
+            <!-- Componentes Tradicionais do Dashboard -->
+            <?php if (in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo']) && !empty($curInst['id'])): 
+                $db = getDB();
+                $stCourses = $db->prepare("
+                    SELECT c.id, c.name, c.location
+                    FROM courses c
+                    WHERE c.institution_id = ?
+                    ORDER BY c.name
+                ");
+                $stCourses->execute([$curInst['id']]);
+                $teacherCourses = $stCourses->fetchAll();
+            ?>
+                <?php if (!empty($teacherCourses)): ?>
+                <div class="fade-in" style="margin-bottom:2.5rem;">
+                    <h2 style="font-size:1.125rem;font-weight:700;color:var(--text-primary);margin-bottom:1.25rem;display:flex;align-items:center;gap:0.5rem;">
+                        📚 Cursos Ativos
+                    </h2>
+                    <div class="stats-grid" style="grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));">
+                        <?php foreach ($teacherCourses as $tc): ?>
+                        <a href="/courses/turmas.php?course_id=<?= $tc['id'] ?>" class="stat-card" style="text-decoration:none;transition:transform 0.2s;cursor:pointer;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
+                            <div class="stat-icon" style="background:var(--color-primary-light);color:var(--color-primary);font-size:1.5rem;">
+                                📚
+                            </div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:1rem;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?= htmlspecialchars($tc['name']) ?>">
+                                    <?= htmlspecialchars($tc['name']) ?>
+                                </div>
+                                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;display:flex;align-items:center;gap:0.25rem;">
+                                    📍 <?= $tc['location'] ? htmlspecialchars($tc['location']) : 'Local não informado' ?>
+                                </div>
+                            </div>
+                            <div style="color:var(--color-primary);font-size:1.25rem;margin-left:0.5rem;">
+                                ➜
+                            </div>
+                        </a>
+                        <?php endforeach; ?>
                     </div>
                 </div>
-                <div style="color:var(--color-primary);font-size:1.25rem;margin-left:0.5rem;">
-                    ➜
+                <?php endif; ?>
+            <?php elseif ($user['profile'] === 'Professor' && !empty($curInst['id'])): 
+                $db = getDB();
+                $stCourses = $db->prepare("
+                    SELECT DISTINCT c.id, c.name, c.location
+                    FROM courses c
+                    JOIN turmas t ON c.id = t.course_id
+                    JOIN turma_disciplinas td ON t.id = td.turma_id
+                    JOIN turma_disciplina_professores tdp ON td.id = tdp.turma_disciplina_id
+                    WHERE tdp.professor_id = ? AND c.institution_id = ?
+                    ORDER BY c.name
+                ");
+                $stCourses->execute([$user['id'], $curInst['id']]);
+                $teacherCourses = $stCourses->fetchAll();
+            ?>
+                <?php if (!empty($teacherCourses)): ?>
+                <div class="fade-in" style="margin-bottom:2.5rem;">
+                    <h2 style="font-size:1.125rem;font-weight:700;color:var(--text-primary);margin-bottom:1.25rem;display:flex;align-items:center;gap:0.5rem;">
+                        📚 Meus Cursos
+                    </h2>
+                    <div class="stats-grid" style="grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));">
+                        <?php foreach ($teacherCourses as $tc): ?>
+                        <a href="/courses/turmas.php?course_id=<?= $tc['id'] ?>" class="stat-card" style="text-decoration:none;transition:transform 0.2s;cursor:pointer;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
+                            <div class="stat-icon" style="background:var(--color-primary-light);color:var(--color-primary);font-size:1.5rem;">
+                                📚
+                            </div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:1rem;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="<?= htmlspecialchars($tc['name']) ?>">
+                                    <?= htmlspecialchars($tc['name']) ?>
+                                </div>
+                                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem;display:flex;align-items:center;gap:0.25rem;">
+                                    📍 <?= $tc['location'] ? htmlspecialchars($tc['location']) : 'Local não informado' ?>
+                                </div>
+                            </div>
+                            <div style="color:var(--color-primary);font-size:1.25rem;margin-left:0.5rem;">
+                                ➜
+                            </div>
+                        </a>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
-            </a>
-            <?php endforeach; ?>
-        </div>
-    </div>
-    <?php endif; ?>
-<?php endif; ?>
-
-
-<!-- Dashboard Grid -->
-<div class="dashboard-grid fade-in">
-
-
+                <?php endif; ?>
+            <?php endif; ?>
+        <?php endif; ?>
+    
+        <!-- Social Feed Integration -->
+        <?php if ($showSocialFeed): ?>
+            <?php require_once __DIR__ . '/social/feed_component.php'; ?>
+        <?php endif; ?>
 
     </div> <!-- /dashboard-main-content-area -->
 

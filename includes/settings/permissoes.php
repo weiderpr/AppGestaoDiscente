@@ -21,7 +21,8 @@ $categoryMap = [
     'representantes' => 'Alunos & Notas',
     'atendimentos'   => 'Pedagógico',
     'conselhos'      => 'Pedagógico',
-    'survey'         => 'Pedagógico'
+    'survey'         => 'Pedagógico',
+    'social'         => 'Acadêmico'
 ];
 
 $categoryIcons = [
@@ -71,7 +72,8 @@ function getFriendlyName($res) {
         'coordinators' => 'Coordenação',
         'representantes' => 'Representantes',
         'settings' => 'Configurações',
-        'survey' => 'Pesquisas'
+        'survey' => 'Pesquisas',
+        'social' => 'Feed Social'
     ];
     
     $actions = [
@@ -89,7 +91,8 @@ function getFriendlyName($res) {
         'config' => 'Configurações de Grupo',
         'view_all' => 'Ver Tudo (Instituição)',
         'comments' => 'Comentários',
-        'view_finished' => 'Ver Finalizados'
+        'view_finished' => 'Ver Finalizados',
+        'feed_view' => 'Visualizar Feed'
     ];
     
     $base = $names[$obj] ?? ucfirst($obj);
