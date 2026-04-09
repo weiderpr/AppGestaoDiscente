@@ -331,8 +331,8 @@ renderToastStyles();
         <div class="modal-body sancao-modal-body" style="flex: 1; display: flex; flex-direction: column; padding: 1rem 0 0 0; overflow: hidden;">
             
             <div class="modal-tabs">
-                <button class="modal-tab-btn active" onclick="switchTab('tab-identificacao')">Identificação</button>
-                <button class="modal-tab-btn" onclick="switchTab('tab-configuracao')">Configuração</button>
+                <button class="modal-tab-btn active" id="tabIdentificacaoBtn" onclick="switchTab('tab-identificacao')">Identificação</button>
+                <button class="modal-tab-btn" id="tabConfiguracaoBtn" onclick="switchTab('tab-configuracao')">Configuração</button>
                 <button class="modal-tab-btn" onclick="switchTab('tab-impressao')" id="tabImpressaoBtn" style="display:none;">Impressão</button>
                 <button class="modal-tab-btn" onclick="switchTab('tab-anexo')" id="tabAnexoBtn" style="display:none;">Arquivos / Conclusão</button>
             </div>
@@ -573,6 +573,7 @@ renderToastStyles();
 let debounceTimer;
 let currentAcoes = [];
 let currentSancaoId = null;
+const currentUserId = <?= (int)$user['id'] ?>;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadSancoes();
@@ -687,7 +688,7 @@ async function loadSancoes() {
                         <td style="text-align: center; white-space: nowrap;">
                             <button class="action-btn" onclick="editSancao(${s.id})" title="Detalhes/Editar">✏️</button>
                             <?php if(hasDbPermission('sancoes.manage', false)): ?>
-                            <button class="action-btn action-btn-danger" onclick="deleteSancao(${s.id})" title="Excluir">🗑️</button>
+                            ${(parseInt(s.author_id) === currentUserId) ? `<button class="action-btn action-btn-danger" onclick="deleteSancao(${s.id})" title="Excluir">🗑️</button>` : ''}
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -709,8 +710,14 @@ function openSancaoModal() {
     
     document.getElementById('alunoCard').style.display = 'none';
     document.getElementById('alunoHistoricoContainer').style.display = 'none';
+    
+    // Tab visibility resets
+    document.getElementById('tabIdentificacaoBtn').style.display = 'block';
+    document.getElementById('tabConfiguracaoBtn').style.display = 'block';
     document.getElementById('tabImpressaoBtn').style.display = 'none';
     document.getElementById('tabAnexoBtn').style.display = 'none';
+    
+    document.getElementById('btnSalvarSancao').style.display = 'inline-block';
     document.getElementById('btnFinalizarSancao').style.display = 'none';
     document.getElementById('btnImprimirRodape').style.display = 'none';
     
@@ -780,6 +787,16 @@ async function editSancao(id) {
             // Load Anexos
             loadAnexos(data.id);
             
+            // Ownership Restriction: Only show "Impressão" tab if not the creator
+            if (parseInt(data.author_id) !== currentUserId) {
+                document.getElementById('tabIdentificacaoBtn').style.display = 'none';
+                document.getElementById('tabConfiguracaoBtn').style.display = 'none';
+                document.getElementById('tabAnexoBtn').style.display = 'none';
+                document.getElementById('btnSalvarSancao').style.display = 'none';
+                
+                // Switch to Print tab
+                switchTab('tab-impressao');
+            }
         }
     } catch (e) {
         Toast.show('Erro ao carregar dados da sanção', 'error');

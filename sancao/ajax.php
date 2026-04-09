@@ -65,7 +65,7 @@ if ($action === 'list') {
     $statusTerm = trim($_GET['status'] ?? '');
     
     $sql = "
-        SELECT s.id, s.data_sancao, s.status, a.nome as aluno_nome, a.matricula, a.photo as aluno_foto, a.id as aluno_id,
+        SELECT s.id, s.data_sancao, s.status, s.author_id, a.nome as aluno_nome, a.matricula, a.photo as aluno_foto, a.id as aluno_id,
                t.description as turma_desc, st.titulo as tipo_titulo
         FROM sancao s
         JOIN alunos a ON s.aluno_id = a.id
@@ -263,6 +263,16 @@ if ($action === 'delete') {
     
     if (!$id) {
         echo json_encode(['status' => 'error', 'message' => 'ID não fornecido.']);
+        exit;
+    }
+    
+    // Check if the current user is the author
+    $stCheck = $db->prepare("SELECT author_id FROM sancao WHERE id = ? AND institution_id = ?");
+    $stCheck->execute([$id, $instId]);
+    $authorId = $stCheck->fetchColumn();
+
+    if (!$authorId || (int)$authorId !== (int)$user['id']) {
+        echo json_encode(['status' => 'error', 'message' => 'Você não tem permissão para excluir esta sanção pois não foi o criador do registro.']);
         exit;
     }
     
