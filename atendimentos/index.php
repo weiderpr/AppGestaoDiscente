@@ -26,30 +26,122 @@ renderToastStyles();
 ?>
 
 <style>
-/* Kanban Specific Styles */
+/* ===== Kanban Page — Layout Override ===== */
+
+/* Travar scroll vertical da página inteira — apenas no Kanban */
+html, body { overflow: hidden !important; height: 100% !important; }
+
+/* O main cresce pelo flex mas não deve criar scroll vertical */
+.main-content {
+    padding: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    height: calc(100vh - var(--navbar-height)) !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Ocultar footer nessa página — Kanban usa 100vh */
+.app-footer { display: none !important; }
+
+/* Sub-header: faixa fina e discreta — sem sticky (page scroll está bloqueado) */
+.kanban-subheader {
+    position: relative;
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.25rem;
+    height: 42px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    flex-shrink: 0;
+    gap: 1rem;
+}
+
+.kanban-subheader-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+}
+
+.kanban-subheader-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Botão "ghost" minimalista para Novo Atendimento */
+.btn-kanban-new {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: var(--radius-md);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary-light);
+    background: var(--color-primary-light);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.btn-kanban-new:hover {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+    box-shadow: 0 2px 10px rgba(79,70,229,.25);
+}
+
+/* Controle de arquivados */
+.kanban-archive-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+/* Kanban Board — Full viewport height */
 .kanban-board {
     display: flex;
     overflow-x: auto;
     overflow-y: hidden;
-    gap: 1.25rem;
-    padding: 0.5rem 0 1.5rem 0;
-    height: calc(100vh - 160px); /* Ajuste dinâmico */
+    gap: 0.625rem;
+    /* 42px subheader + navbar height */
+    height: calc(100vh - var(--navbar-height) - 42px);
     align-items: flex-start;
+    padding: 1rem 1.25rem 1rem;
 }
 
-/* Esconder scrollbar no Webkit */
-.kanban-board::-webkit-scrollbar { height: 8px; }
+/* Scrollbar horizontal discreta */
+.kanban-board::-webkit-scrollbar { height: 6px; }
+.kanban-board::-webkit-scrollbar-track { background: transparent; }
 .kanban-board::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+.kanban-board::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
 .kanban-column {
     background: var(--bg-surface-2nd);
     border-radius: var(--radius-lg);
-    width: 320px;
-    min-width: 320px;
+    flex: 1;
+    min-width: 260px;
     max-height: 100%;
     display: flex;
     flex-direction: column;
     border: 1px solid var(--border-color);
+    flex-shrink: 1;
 }
 
 .kanban-column-header {
@@ -78,128 +170,88 @@ renderToastStyles();
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    min-height: 100px; /* Para permitir drop quando vazio */
+    gap: 0.375rem;
+    min-height: 100px;
 }
 
-/* Estilo do Card */
+/* Cards */
 .k-card {
-    background: var(--bg-card);
+    background: var(--bg-card, var(--bg-surface));
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    padding: 1rem;
+    padding: 0.5rem 0.75rem;
     cursor: grab;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    transition: transform 0.15s, box-shadow 0.15s;
     user-select: none;
 }
-
-.k-card:active {
-    cursor: grabbing;
-}
-
-.k-card:hover {
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
-}
-
-.k-card.dragging {
-    opacity: 0.5;
-}
+.k-card:active { cursor: grabbing; }
+.k-card:hover { box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,.08)); transform: translateY(-1px); }
+.k-card.dragging { opacity: 0.5; }
 
 .k-card-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.3rem;
 }
 
 .k-badge {
-    font-size: 0.625rem;
+    font-size: 0.5625rem;
     font-weight: 700;
     text-transform: uppercase;
-    padding: 0.2rem 0.5rem;
-    border-radius: 8px;
-    letter-spacing: 0.05em;
+    padding: 0.15rem 0.4rem;
+    border-radius: 6px;
+    letter-spacing: 0.04em;
 }
-
 .k-badge-aluno { background: #dbeafe; color: #1e40af; }
 .k-badge-turma { background: #fef3c7; color: #92400e; }
 .k-badge-encaminhamento { background: #f3e8ff; color: #6b21a8; }
 
 .k-card-title {
-    font-size: 0.875rem;
+    font-size: 0.78rem;
     font-weight: 600;
     color: var(--text-primary);
-    line-height: 1.3;
-    margin-bottom: 0.75rem;
+    line-height: 1.25;
+    margin-bottom: 0.35rem;
 }
 
 .k-card-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 0.75rem;
+    margin-top: 0.35rem;
     border-top: 1px dashed var(--border-color);
-    padding-top: 0.75rem;
+    padding-top: 0.35rem;
 }
-
-.k-card-date {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-}
-
-.k-card-users {
-    display: flex;
-    margin-left: 0.5rem;
-}
-
+.k-card-date { font-size: 0.65rem; color: var(--text-muted); }
+.k-card-users { display: flex; margin-left: 0.5rem; }
 .k-card-user {
-    width: 24px;
-    height: 24px;
+    width: 20px; height: 20px;
     border-radius: 50%;
-    border: 2px solid var(--bg-card);
-    margin-left: -8px;
+    border: 2px solid var(--bg-surface);
+    margin-left: -6px;
     background: var(--bg-surface-2nd);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.6rem;
-    color: var(--text-muted);
-    font-weight: 700;
-    object-fit: cover;
-    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.55rem; color: var(--text-muted); font-weight: 700;
+    object-fit: cover; flex-shrink: 0;
 }
-
-.k-card-user:first-child {
-    margin-left: 0;
-}
-
+.k-card-user:first-child { margin-left: 0; }
 .k-card-student {
-    width: 24px;
-    height: 24px;
+    width: 20px; height: 20px;
     border-radius: 50%;
     border: 1px solid var(--border-color);
-    object-fit: cover;
-    flex-shrink: 0;
+    object-fit: cover; flex-shrink: 0;
     background: var(--bg-surface-2nd);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.65rem; font-weight: 700; color: var(--text-muted);
 }
 
-/* Modals Customizados para o Kanban */
+/* Modals */
 .timeline-container {
-    max-height: 400px;
-    overflow-y: auto;
-    padding-right: 0.5rem;
-    margin-top: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+    max-height: 400px; overflow-y: auto;
+    padding-right: 0.5rem; margin-top: 1rem;
+    display: flex; flex-direction: column; gap: 0.25rem;
 }
 .comment-item {
     background: var(--bg-surface-2nd);
@@ -209,89 +261,58 @@ renderToastStyles();
     border: 1px solid var(--border-color);
 }
 .comment-header {
-    display: flex;
-    justify-content: space-between;
+    display: flex; justify-content: space-between;
     margin-bottom: 0.125rem;
-    font-size: 0.75rem;
-    color: var(--text-muted);
+    font-size: 0.75rem; color: var(--text-muted);
 }
 .c-private-badge {
-    background: #fee2e2;
-    color: #991b1b;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.65rem;
-    font-weight: bold;
+    background: #fee2e2; color: #991b1b;
+    padding: 2px 6px; border-radius: 4px;
+    font-size: 0.65rem; font-weight: bold;
 }
 
-@media (max-width: 768px) {
-    .kanban-board {
-        scroll-snap-type: x mandatory;
-    }
-    .kanban-column {
-        scroll-snap-align: center;
-        width: 85vw;
-        min-width: 85vw;
-    }
-}
-/* Switch Toggle Style (liga/desliga) */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 34px;
-  height: 20px;
-}
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
+/* Switch Toggle */
+.switch { position: relative; display: inline-block; width: 30px; height: 17px; }
+.switch input { opacity: 0; width: 0; height: 0; }
 .slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: var(--border-color);
-  transition: .3s;
-  border-radius: 20px;
+    position: absolute; cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: var(--border-color);
+    transition: .3s; border-radius: 17px;
 }
 .slider:before {
-  position: absolute;
-  content: "";
-  height: 14px;
-  width: 14px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .3s;
-  border-radius: 50%;
+    position: absolute; content: "";
+    height: 11px; width: 11px;
+    left: 3px; bottom: 3px;
+    background-color: white; transition: .3s; border-radius: 50%;
 }
-input:checked + .slider {
-  background-color: var(--color-primary);
-}
-input:checked + .slider:before {
-  transform: translateX(14px);
+input:checked + .slider { background-color: var(--color-primary); }
+input:checked + .slider:before { transform: translateX(13px); }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .kanban-board { scroll-snap-type: x mandatory; padding: 0.75rem; }
+    .kanban-column { scroll-snap-align: center; width: 85vw; min-width: 85vw; }
+    .kanban-subheader-title { display: none; }
 }
 </style>
 
-<div class="page-header" style="margin-bottom: 1rem;">
-    <div class="header-content">
-        <h1 class="page-title">Gestão de Atendimentos</h1>
-        <p class="page-subtitle">Gestão dos atendimentos</p>
-    </div>
-</div>
-
-<div class="kanban-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
-    <!-- Só exibe se tiver permissão de criação -->
-    <button class="btn btn-primary" onclick="openNewAtendimentoModal()">
-        <span class="btn-icon">+</span> Novo Atendimento
-    </button>
-
-    <div style="display:flex; align-items:center; gap:0.75rem; background:var(--bg-surface-2nd); padding:0.4rem 0.75rem; border-radius:var(--radius-md); border:1px solid var(--border-color); box-shadow:var(--shadow-sm);">
-        <span style="font-size:0.8125rem; font-weight:600; color:var(--text-secondary);">Exibir Arquivados</span>
-        <label class="switch">
-            <input type="checkbox" id="toggleShowArchived" onchange="handleArchiveToggle()">
-            <span class="slider"></span>
+<!-- Sub-header Kanban (sticky, minimalista) -->
+<div class="kanban-subheader">
+    <span class="kanban-subheader-title">
+        📝 Atendimentos
+    </span>
+    <div class="kanban-subheader-actions">
+        <label class="kanban-archive-toggle" for="toggleShowArchived">
+            <label class="switch" style="flex-shrink:0;">
+                <input type="checkbox" id="toggleShowArchived" onchange="handleArchiveToggle()">
+                <span class="slider"></span>
+            </label>
+            <span>Arquivados</span>
         </label>
+        <button class="btn-kanban-new" onclick="openNewAtendimentoModal()">
+            + Novo Atendimento
+        </button>
     </div>
 </div>
 

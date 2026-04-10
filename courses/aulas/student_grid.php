@@ -101,6 +101,30 @@ $stExtra = $db->prepare('
 $stExtra->execute([$alunoId]);
 $atividades = $stExtra->fetchAll();
 
+// 4. Buscar Disciplinas Cursadas (para a aba Dispensas)
+$stCursando = $db->prepare('
+    SELECT DISTINCT d.codigo, d.descricao as disciplina_nome, t.description as turma_nome
+    FROM turma_alunos ta
+    JOIN turmas t ON t.id = ta.turma_id
+    JOIN gestao_turma_aulas gta ON gta.turma_id = t.id
+    JOIN disciplinas d ON d.codigo = gta.disciplina_codigo
+    WHERE ta.aluno_id = ? AND t.is_active = 1
+    ORDER BY d.descricao ASC
+');
+$stCursando->execute([$alunoId]);
+$disciplinasCursando = $stCursando->fetchAll();
+
+// 5. Buscar Dispensas Ativas
+$stDispensas = $db->prepare('SELECT turma_id, disciplina_codigo FROM alunos_dispensa WHERE aluno_id = ? AND is_active = 1');
+$stDispensas->execute([$alunoId]);
+$dispensasAtivas = $stDispensas->fetchAll();
+
+// Mapear dispensas para fácil verificação (chave: turmaId_codDisc)
+$dispensasMap = [];
+foreach ($dispensasAtivas as $d) {
+    $dispensasMap[$d['turma_id'] . '_' . $d['disciplina_codigo']] = true;
+}
+
 // Mesclar tudo para a Grade
 $eventos = array_merge($aulas, $atividades);
 
@@ -281,6 +305,9 @@ function timeToRowIndex($time, $startHour) {
         <button class="tab-btn" data-tab="info" onclick="switchStudentTab(this, 'info')">
             <span>ℹ️</span> Informações
         </button>
+        <button class="tab-btn" data-tab="dispensas" onclick="switchStudentTab(this, 'dispensas')">
+            <span>🚫</span> Dispensas
+        </button>
         <?php if ($canActivities): ?>
         <button class="tab-btn" data-tab="atividades" onclick="switchStudentTab(this, 'atividades')">
             <span>📝</span> Atividades
@@ -327,11 +354,17 @@ function timeToRowIndex($time, $startHour) {
                         $isExtra   = ($aula['tipo'] === 'extra');
                         $colorSeed = md5($aula['disciplina_nome'] . ($isExtra ? 'extra' : 'aula'));
                         $hue       = hexdec(substr($colorSeed, 0, 2)) % 360;
+
+                        // Verificar se esta aula está dispensada (apenas para tipo 'aula')
+                        $isWaived = false;
+                        if (!$isExtra && isset($aula['disciplina_codigo'])) {
+                            $isWaived = isset($dispensasMap[$aula['turma_id'] . '_' . $aula['disciplina_codigo']]);
+                        }
                     ?>
-                    <div class="grid-item-aula <?= $isExtra ? 'is-extra' : '' ?>" 
+                    <div class="grid-item-aula <?= $isExtra ? 'is-extra' : '' ?> <?= $isWaived ? 'is-waived' : '' ?>" 
                          style="grid-column: <?= $diaCol ?>; grid-row: <?= $rowStart ?> / <?= $rowEnd ?>; --item-hue: <?= $hue ?>;">
                         <div class="aula-content">
-                            <div class="aula-title" title="<?= htmlspecialchars($aula['disciplina_nome']) ?>">
+                            <div class="aula-title" title="<?= htmlspecialchars($aula['disciplina_nome']) . ($isWaived ? ' (DISPENSADA)' : '') ?>">
                                 <?= $isExtra ? '<span class="extra-badge">EXTRA</span> ' : '' ?>
                                 <?= htmlspecialchars($aula['disciplina_nome']) ?>
                             </div>
@@ -541,12 +574,11 @@ function timeToRowIndex($time, $startHour) {
                         <div style="margin-top:0.75rem; padding-top:0.5rem; border-top:1px solid var(--border-color); font-size:0.625rem; color:var(--text-muted); line-height:1.3;">
                             Insights: <?= $janelasLazer > 4 ? "Ótima distribuição de pausas." : "Considere adicionar pequenas pausas cognitivas." ?>
                         </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </div>
+                    </div> <!-- premium-card -->
+                </div> <!-- analysis-col -->
+            </div> <!-- analysis-grid -->
+        </div> <!-- analysis-dashboard -->
+    </div> <!-- tab-analise -->
 
     <!-- Tab Content: Informações (Nota Técnica) -->
     <div id="tab-info" class="tab-content-pane" style="display:none;">
@@ -600,6 +632,65 @@ function timeToRowIndex($time, $startHour) {
                 * Baseado em estudos de Neurociência Cognitiva e recomendações da OMS para o desenvolvimento infanto-juvenil.
             </div>
         </div>
+    </div>
+
+    <!-- Tab Content: Dispensas -->
+    <div id="tab-dispensas" class="tab-content-pane" style="display:none; padding: 1.5rem;">
+        <div style="margin-bottom: 1.5rem;">
+            <h4 style="margin:0; font-size:1.125rem; color:var(--text-primary);">🚫 Registro de Dispensas</h4>
+            <p style="font-size:0.875rem; color:var(--text-muted); margin-top:4px;">Abaixo estão as disciplinas vinculadas às turmas ativas deste aluno.</p>
+        </div>
+
+        <?php if (empty($disciplinasCursando)): ?>
+            <div style="text-align:center; padding:3rem; color:var(--text-muted); background: var(--bg-surface-2nd); border-radius: var(--radius-lg);">
+                <div style="font-size:2.5rem; margin-bottom:0.5rem; opacity:0.3;">📚</div>
+                <p>O aluno não possui disciplinas vinculadas a turmas ativas no momento.</p>
+            </div>
+        <?php else: ?>
+            <div class="table-responsive" style="border: 1px solid var(--border-color); border-radius: var(--radius-lg); overflow-y: auto; max-height: 400px; scrollbar-width: thin;">
+                <table class="table table-hover" style="margin-bottom:0; width: 100%; border-collapse: separate; border-spacing: 0;">
+                    <thead style="background: var(--bg-surface-2nd); position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 var(--border-color);">
+                        <tr>
+                            <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Disciplina</th>
+                            <th style="padding: 1rem; text-align: left; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Turma</th>
+                            <th style="padding: 1rem; text-align: center; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($disciplinasCursando as $disc): 
+                            $key = $turmaId . '_' . $disc['codigo'];
+                            $isWaived = isset($dispensasMap[$key]);
+                        ?>
+                            <tr style="border-top: 1px solid var(--border-color); <?= $isWaived ? 'background-color: var(--bg-surface-2nd); opacity: 0.8;' : '' ?>" class="<?= $isWaived ? 'row-waived' : '' ?>">
+                                <td style="padding: 1rem;">
+                                    <div style="font-weight:600; color: <?= $isWaived ? 'var(--text-muted)' : 'var(--text-primary)' ?>;">
+                                        <?= htmlspecialchars($disc['disciplina_nome']) ?>
+                                        <?= $isWaived ? ' <span style="font-size:0.65rem; background:#e2e8f0; padding:2px 6px; border-radius:4px; font-weight:normal;">DISPENSADO</span>' : '' ?>
+                                    </div>
+                                    <div style="font-size:0.75rem; color:var(--text-muted);"><?= htmlspecialchars($disc['codigo']) ?></div>
+                                </td>
+                                <td style="padding: 1rem; color: var(--text-secondary);"><?= htmlspecialchars($disc['turma_nome']) ?></td>
+                                <td style="padding: 1rem; text-align: center;">
+                                    <?php if ($isWaived): ?>
+                                        <button class="btn btn-sm btn-ghost" style="color: var(--color-success);" 
+                                                onclick="toggleDispensa(<?= $alunoId ?>, <?= $turmaId ?>, '<?= $disc['codigo'] ?>', true)"
+                                                title="Cancelar Dispensa">
+                                            ✅ Cancelar Dispensa
+                                        </button>
+                                    <?php else: ?>
+                                        <button class="btn btn-sm btn-ghost" style="color: var(--color-danger); opacity: 0.7;" 
+                                                onclick="toggleDispensa(<?= $alunoId ?>, <?= $turmaId ?>, '<?= $disc['codigo'] ?>', false)"
+                                                title="Solicitar Dispensa">
+                                            🚫 Dispensar
+                                        </button>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
     </div>
 
     <?php if ($canConfig): ?>
@@ -809,6 +900,47 @@ async function saveGroupConfig(e) {
         }
     } catch (err) {
         Toast.show('Erro ao salvar configurações de grupo.', 'danger');
+    }
+}
+
+/**
+ * Gestão de Dispensas
+ */
+async function toggleDispensa(alunoId, turmaId, discCodigo, isCurrentlyWaived) {
+    const actionLabel = isCurrentlyWaived ? 'cancelar a dispensa' : 'confirmar a dispensa';
+    if (!confirm(`Deseja realmente ${actionLabel} desta disciplina?`)) return;
+
+    const action = isCurrentlyWaived ? 'delete' : 'save';
+    const formData = new FormData();
+    formData.append('aluno_id', alunoId);
+    formData.append('turma_id', turmaId);
+    formData.append('disciplina_codigo', discCodigo);
+    formData.append('csrf_token', '<?= csrf_token() ?>');
+
+    try {
+        const resp = await fetch('aulas/student_dispensas_ajax.php?action=' + action, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const res = await resp.json();
+
+        if (res.success) {
+            Toast.show(res.message, 'success');
+            
+            // Recarregar o modal para refletir mudanças
+            const container = document.querySelector('.schedule-grid-wrap');
+            const photo     = container?.dataset.studentPhoto || '';
+            const name      = document.querySelector('.modal-title strong, .modal-title div')?.innerText || 'Aluno';
+            const activeTab = 'dispensas';
+            
+            openScheduleModal(alunoId, name, photo, activeTab);
+        } else {
+            Toast.show(res.message, 'danger');
+        }
+    } catch (err) {
+        console.error('Erro na operação de dispensa:', err);
+        Toast.show('Erro ao processar dispensa.', 'danger');
     }
 }
 </script>
@@ -1359,5 +1491,28 @@ async function saveGroupConfig(e) {
         linear-gradient(to bottom, var(--border-color) 1px, transparent 1px);
     background-size: calc(100% / 6) 45px; /* 45px = 60 minutos x 0.75px */
     opacity: 0.4;
+}
+
+/* Estilos de Aula Dispensada na Grade */
+.grid-item-aula.is-waived {
+    background: #f1f5f9 !important;
+    color: var(--text-muted) !important;
+    border-left-color: #cbd5e1 !important;
+    filter: grayscale(1);
+    opacity: 0.85;
+    z-index: 4; /* Fica abaixo das outras aulas se houver conflito */
+}
+
+.grid-item-aula.is-waived .aula-content {
+    text-decoration: line-through;
+}
+
+.grid-item-aula.is-waived .aula-title {
+    opacity: 0.7;
+}
+
+.grid-item-aula.is-waived:hover {
+    transform: none; /* Evita zoom em aula dispensada */
+    box-shadow: none;
 }
 </style>

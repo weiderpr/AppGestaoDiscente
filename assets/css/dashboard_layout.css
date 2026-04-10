@@ -48,10 +48,6 @@ body:has(.dashboard-work-wrapper) .main-content {
     height: auto !important;
 }
 
-/* Ajustes no rodapé para não ter padding fixo */
-body .app-footer {
-    padding-right: 2rem !important;
-}
 
 /* Responsividade */
 @media (max-width: 1400px) {

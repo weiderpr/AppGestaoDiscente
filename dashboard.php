@@ -41,6 +41,12 @@ if ($showNotifPanel) {
 require_once __DIR__ . '/includes/header.php';
 ?>
 
+<style>
+/* Dashboard — sem footer, sem scroll vertical na página */
+html, body { overflow: hidden !important; height: 100% !important; }
+.app-footer  { display: none !important; }
+</style>
+
 <div class="dashboard-work-wrapper">
     <?php if (hasDbPermission('dashboard.online_users', false)): ?>
         <aside class="dashboard-left-sidebar" aria-label="Usuários Online">
