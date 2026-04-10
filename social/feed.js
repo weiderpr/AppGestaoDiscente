@@ -557,9 +557,10 @@ class SocialFeed {
                     </div>
                 </div>
                 <div class="social-card-options">
-                    <button class="btn-card-option" onclick="window.socialFeed.toggleCardMenu(this, ${item.event_id})">⋮</button>
-                    <div class="card-option-menu" id="card-menu-${item.event_id}">
-                        <button onclick="window.socialFeed.viewStudent(${item.aluno_id})">👤 Ver Perfil</button>
+                    <button class="btn-card-option" onclick="window.socialFeed.toggleCardMenu(this, '${item.event_type}-${item.event_id}')">⋮</button>
+                    <div class="card-option-menu" id="card-menu-${item.event_type}-${item.event_id}">
+                        <button onclick="window.socialFeed.openCommentHistory(${item.aluno_id}, '${item.aluno_nome.replace(/'/g, "\\'").replace(/"/g, "&quot;")}', '${item.aluno_foto || ''}', ${item.turma_id})">📝 Comentários</button>
+                        <button onclick="window.socialFeed.openStudentSchedule(${item.aluno_id}, '${item.aluno_nome.replace(/'/g, "\\'").replace(/"/g, "&quot;")}', '${item.aluno_foto || ''}')">📅 Grade</button>
                         ${isOwner && item.event_type === 'comentario_professor' ? `
                             <button class="delete-option" onclick="window.socialFeed.deleteComment(${item.event_id})">🗑️ Excluir</button>
                         ` : ''}
@@ -599,6 +600,33 @@ class SocialFeed {
             }
         };
         document.addEventListener('click', closeMenu);
+    }
+
+    viewStudent(alunoId) {
+        window.location.href = `/profile.php?id=${alunoId}`;
+    }
+
+    openCommentHistory(alunoId, alunoNome, alunoFoto, turmaId) {
+        if (typeof openCommentModal === 'function') {
+            openCommentModal({
+                id: alunoId,
+                nome: alunoNome,
+                photo: alunoFoto,
+                photo_url: alunoFoto ? '/' + alunoFoto : null
+            }, turmaId);
+        } else {
+            console.error('Modal de comentários não carregado.');
+            if (typeof showError === 'function') showError('O sistema de comentários ainda está sendo carregado. Tente novamente em instantes.');
+        }
+    }
+
+    openStudentSchedule(alunoId, alunoNome, alunoFoto) {
+        if (typeof openScheduleModal === 'function') {
+            openScheduleModal(alunoId, alunoNome, alunoFoto);
+        } else {
+            console.error('Modal de grade não carregado.');
+            if (typeof showError === 'function') showError('O sistema de grade horária ainda está sendo carregado. Tente novamente em instantes.');
+        }
     }
 
     async deleteComment(id) {

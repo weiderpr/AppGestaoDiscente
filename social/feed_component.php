@@ -12,8 +12,10 @@ $userPhoto = !empty($u['photo']) ? '/' . $u['photo'] : '/assets/img/avatar-place
 
 
 <!-- Component Assets -->
-<link rel="stylesheet" href="/social/feed.css?v=1.0">
-<script src="/social/feed.js?v=1.0" defer></script>
+<link rel="stylesheet" href="/social/feed.css?v=1.2">
+<script src="/social/feed.js?v=1.4" defer></script>
+<script src="/assets/js/sentiment_system.js" defer></script>
+<script src="/assets/js/student_comments.js?v=2.4" defer></script>
 
 <div class="social-feed-layout">
     <!-- Sidebar Esquerda (Resizable) -->
@@ -101,5 +103,9 @@ $userPhoto = !empty($u['photo']) ? '/' . $u['photo'] : '/assets/img/avatar-place
             <div class="spinner" style="display: inline-block; margin-right: 0.5rem; animation: spin 1s linear infinite;">⌛</div>
             Buscando atividades anteriores...
         </div>
-    </main>
+</main>
 </div>
+
+<!-- Shared Student Modals -->
+<?php require_once __DIR__ . '/../includes/student_comment_modal.php'; ?>
+<?php require_once __DIR__ . '/../includes/student_schedule_modal.php'; ?>
