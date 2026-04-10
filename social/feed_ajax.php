@@ -17,7 +17,66 @@ if (!$instId) {
     echo json_encode(['status' => 'error', 'message' => 'Nenhuma instituição selecionada.']);
     exit;
 }
-try {
+
+// Handler para Criação de Comentário (POST)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create_comment') {
+    try {
+        require_once __DIR__ . '/../src/App/Services/Service.php';
+        require_once __DIR__ . '/../src/App/Services/AlunoService.php';
+        
+        $alunoId = (int)($_POST['aluno_id'] ?? 0);
+        $turmaId = (int)($_POST['turma_id'] ?? 0);
+        $conteudo = trim($_POST['conteudo'] ?? '');
+        
+        if (!$alunoId || !$conteudo) {
+            throw new Exception('Aluno e conteúdo são obrigatórios.');
+        }
+
+        // Se turmaId não veio, tenta buscar a mais recente do aluno
+        if (!$turmaId) {
+            $st = $db->prepare("SELECT turma_id FROM turma_alunos ta JOIN turmas t ON ta.turma_id = t.id WHERE aluno_id = ? ORDER BY t.ano DESC LIMIT 1");
+            $st->execute([$alunoId]);
+            $turmaId = (int)$st->fetchColumn();
+        }
+
+        if (!$turmaId) {
+            throw new Exception('O aluno selecionado não possui uma turma ativa vinculada.');
+        }
+
+        $service = new \App\Services\AlunoService();
+        $res = $service->addComentario($alunoId, $turmaId, $user['id'], $conteudo);
+
+        echo json_encode(['status' => 'success', 'id' => $res['id']]);
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// Handler para Exclusão de Comentário (POST)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_comment') {
+    try {
+        $commentId = (int)($_POST['id'] ?? 0);
+        if (!$commentId) throw new Exception('ID do comentário inválido.');
+
+        $stmt = $db->prepare("SELECT professor_id FROM comentarios_professores WHERE id = ?");
+        $stmt->execute([$commentId]);
+        $ownerId = (int)$stmt->fetchColumn();
+
+        if ($ownerId !== (int)$user['id']) {
+            throw new Exception('Você não tem permissão para excluir este comentário.');
+        }
+
+        $stmt = $db->prepare("DELETE FROM comentarios_professores WHERE id = ?");
+        $stmt->execute([$commentId]);
+
+        echo json_encode(['status' => 'success']);
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+    try {
     // Pagination params
     $limit  = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
     $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
@@ -56,6 +115,7 @@ try {
             cp.conteudo AS content,
             u.name AS responsible_name,
             u.photo AS responsible_photo,
+            u.id AS responsible_id,
             cp.created_at AS timestamp,
             'Comentário' as badge_text,
             'info' as badge_type,
@@ -83,6 +143,7 @@ try {
             ce.texto AS content,
             u.name AS responsible_name,
             u.photo AS responsible_photo,
+            u.id AS responsible_id,
             ce.created_at AS timestamp,
             'Conselho' as badge_text,
             'warning' as badge_type,
@@ -111,6 +172,7 @@ try {
             CONCAT(ga.titulo, IF(ga.descricao_publica IS NOT NULL AND ga.descricao_publica != '', CONCAT('\n', ga.descricao_publica), '')) AS content,
             u.name AS responsible_name,
             u.photo AS responsible_photo,
+            u.id AS responsible_id,
             ga.created_at AS timestamp,
             'Atendimento' as badge_text,
             'success' as badge_type,
@@ -145,6 +207,7 @@ try {
             CONCAT('No atendimento \"', ga.titulo, '\":\n', gac.texto) AS content,
             u.name AS responsible_name,
             u.photo AS responsible_photo,
+            u.id AS responsible_id,
             gac.created_at AS timestamp,
             'Comentário Atend.' as badge_text,
             'success' as badge_type,
@@ -180,6 +243,7 @@ try {
             CONCAT(st.titulo, ': ', s.observacoes) AS content,
             u.name AS responsible_name,
             u.photo AS responsible_photo,
+            u.id AS responsible_id,
             s.created_at AS timestamp,
             'Sanção' as badge_text,
             'danger' as badge_type,

@@ -75,36 +75,111 @@
     padding-right: 0.5rem;
 }
 
-/* Social Filters Header */
-.social-feed-header {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: var(--radius-lg);
-    padding: 0.875rem 1.25rem;
-    margin-bottom: 1.25rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+.social-post-creator-wrapper {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     position: sticky;
     top: 0;
     z-index: 20;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
-[data-theme="dark"] .social-feed-header {
-    background: rgba(30, 41, 59, 0.7);
-    border-color: rgba(255, 255, 255, 0.1);
+.social-post-creator-wrapper.is-active {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
 }
 
-.social-feed-title {
-    font-size: 1.25rem;
-    font-weight: 800;
-    color: var(--text-primary);
+.social-post-creator {
+    padding: 1rem;
     display: flex;
-    align-items: center;
+    align-items: center; /* Centered by default */
     gap: 0.75rem;
+}
+
+.user-avatar-wrapper {
+    flex-shrink: 0;
+}
+
+.user-avatar-round {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--bg-surface-2nd);
+    box-shadow: 0 0 0 1px var(--border-color-light);
+}
+
+.post-input-container {
+    flex: 1;
+}
+
+.post-input-inline {
+    background: var(--bg-surface-2nd);
+    border-radius: 20px;
+    padding: 0.625rem 1.25rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    cursor: text;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    width: 100%;
+    resize: none;
+    height: 40px;
+    min-height: 40px;
+    overflow: hidden;
+    line-height: normal;
+    outline: none !important;
+}
+
+.social-post-creator-wrapper.is-active .post-input-inline {
+    background: transparent;
+    border-radius: 0;
+    padding: 0.125rem 0;
+    font-size: 0.875rem; /* Even smaller font */
+    height: 50px; /* Even smaller height */
+}
+
+.social-post-creator-wrapper.is-active .social-post-creator {
+    align-items: flex-start;
+    padding-bottom: 0.5rem;
+}
+
+.post-creator-actions {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border-color-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    animation: slideDown 0.2s ease-out;
+}
+
+.inline-mention-tag {
+    margin-right: auto;
+}
+
+.post-creator-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-ghost {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+}
+
+.btn-ghost:hover {
+    background: var(--bg-surface-2nd);
+    color: var(--text-secondary);
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Feed Cards */
@@ -173,14 +248,79 @@
     flex-direction: column;
     line-height: 1.3;
     min-width: 0;
+    flex: 1; /* Take available space */
+}
+
+.social-card-options {
+    position: relative;
+    margin-left: 1rem;
+    flex-shrink: 0; /* Don't squash the dots */
+}
+
+.btn-card-option {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.25rem;
+    cursor: pointer;
+    padding: 0 0.5rem;
+    line-height: 1;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+}
+
+.btn-card-option:hover {
+    background: var(--bg-surface-2nd);
+    color: var(--text-primary);
+}
+
+.card-option-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+    min-width: 140px;
+    display: none;
+    padding: 0.25rem;
+    animation: slideUp 0.2s ease-out;
+}
+
+.card-option-menu.show {
+    display: block;
+}
+
+.card-option-menu button {
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    background: transparent;
+    border: none;
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+}
+
+.card-option-menu button:hover {
+    background: var(--color-danger-light);
+    color: var(--color-danger);
 }
 
 .aluno-title-row {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap; /* Prevent wrapping */
     margin-bottom: 0.125rem;
+    min-width: 0;
 }
 
 .aluno-name {
@@ -200,14 +340,47 @@
 }
 
 .event-badge {
-    padding: 0.1rem 0.4rem;
-    border-radius: 4px;
-    font-size: 0.55rem;
-    font-weight: 900;
+    padding: 0.15rem 0.625rem;
+    border-radius: var(--radius-full);
+    font-size: 0.6rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.02em;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid transparent;
 }
+
+.badge-info {
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border-color: #bae6fd;
+}
+
+.badge-success {
+    background-color: #dcfce7;
+    color: #15803d;
+    border-color: #bbf7d0;
+}
+
+.badge-warning {
+    background-color: #fef3c7;
+    color: #b45309;
+    border-color: #fde68a;
+}
+
+.badge-danger {
+    background-color: #fee2e2;
+    color: #b91c1c;
+    border-color: #fecaca;
+}
+
+/* Dark mode overrides for badges */
+[data-theme="dark"] .badge-info { background: #0c4a6e; color: #7dd3fc; border-color: #0c4a6e; }
+[data-theme="dark"] .badge-success { background: #064e3b; color: #6ee7b7; border-color: #064e3b; }
+[data-theme="dark"] .badge-warning { background: #451a03; color: #fcd34d; border-color: #451a03; }
+[data-theme="dark"] .badge-danger { background: #450a0a; color: #fca5a5; border-color: #450a0a; }
 
 /* Card Body */
 .social-card-body {
@@ -215,7 +388,7 @@
     line-height: 1.5;
     color: var(--text-secondary);
     background: var(--bg-surface-2nd);
-    padding: 0.625rem 0.75rem;
+    padding: 0.5rem 0.75rem;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-color-light);
 }

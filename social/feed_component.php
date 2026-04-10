@@ -2,7 +2,14 @@
 /**
  * Vértice Acadêmico — Social Feed Component Shell
  */
+
+require_once __DIR__ . '/../includes/auth.php';
+$u = getCurrentUser();
+$userName = $u['name'] ?? 'Usuário';
+$userFirstName = explode(' ', $userName)[0];
+$userPhoto = !empty($u['photo']) ? '/' . $u['photo'] : '/assets/img/avatar-placeholder.png';
 ?>
+
 
 <!-- Component Assets -->
 <link rel="stylesheet" href="/social/feed.css?v=1.0">
@@ -34,18 +41,52 @@
 
     <!-- Feed Central area -->
     <main class="social-feed-container">
-        <!-- Header com filtros/ações -->
-        <header class="social-feed-header">
-            <div class="social-feed-title">
-                <span>📱 Feed de Acompanhamento</span>
+        <!-- Área de Criação de Post (Inline) -->
+        <div class="social-post-creator-wrapper">
+            <header class="social-post-creator" id="inline-post-creator">
+                <div class="user-avatar-wrapper">
+                    <img src="<?= $userPhoto ?>" 
+                         class="user-avatar-round" 
+                         alt="<?= $userName ?>"
+                         onerror="this.src='/assets/img/avatar-placeholder.png'">
+                </div>
+                
+                <div class="post-input-container">
+                    <textarea id="inline-post-textarea" 
+                              class="post-input-inline" 
+                              placeholder="No que você está pensando, <?= $userFirstName ?>?"
+                              autocomplete="off"
+                              spellcheck="false"></textarea>
+                    
+                    <!-- Mention Dropdown (Inline) -->
+                    <div id="mention-results" class="search-results-dropdown" style="display: none; width: 100%;"></div>
+                </div>
+            </header>
+
+            <!-- Inline Actions & Tags (Hidden until focus/content) -->
+            <div class="post-creator-actions" id="inline-post-actions" style="display: none;">
+                <div id="selected-mention-container" class="inline-mention-tag" style="display: none;">
+                    <span class="filter-tag">
+                        <span id="mention-tag-icon">👤</span>
+                        <span id="mention-tag-name"></span>
+                        <span class="filter-tag-remove" onclick="window.socialFeed.clearMention()">&times;</span>
+                    </span>
+                </div>
+
+                <div class="post-creator-buttons">
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-publish-post" onclick="window.socialFeed.submitPost()">
+                        Publicar
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="window.socialFeed.resetPostArea()">
+                        Cancelar
+                    </button>
+                </div>
             </div>
-            
-            <div class="social-feed-actions">
-                <button class="btn btn-secondary btn-sm" onclick="window.socialFeed.loadFeed()">
-                    🔄 Atualizar
-                </button>
-            </div>
-        </header>
+
+            <!-- Hidden Meta Inputs -->
+            <input type="hidden" id="mention-aluno-id" value="">
+            <input type="hidden" id="mention-turma-id" value="">
+        </div>
 
         <!-- Listagem de Cards -->
         <div class="social-feed-list">
