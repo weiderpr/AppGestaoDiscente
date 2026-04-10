@@ -15,6 +15,7 @@ if (!$alunoId) {
 
 $canActivities = hasDbPermission('students.schedule.activities', false);
 $canConfig     = hasDbPermission('students.schedule.config', false);
+$canDispensas  = hasDbPermission('students.schedule.dispensas', false);
 
 // 0. Buscar Foto e Nome do Aluno (para persistir no refresh)
 $stAluno = $db->prepare('SELECT nome, photo FROM alunos WHERE id = ?');
@@ -102,27 +103,38 @@ $stExtra->execute([$alunoId]);
 $atividades = $stExtra->fetchAll();
 
 // 4. Buscar Disciplinas Cursadas (para a aba Dispensas)
-$stCursando = $db->prepare('
-    SELECT DISTINCT d.codigo, d.descricao as disciplina_nome, t.description as turma_nome
-    FROM turma_alunos ta
-    JOIN turmas t ON t.id = ta.turma_id
-    JOIN gestao_turma_aulas gta ON gta.turma_id = t.id
-    JOIN disciplinas d ON d.codigo = gta.disciplina_codigo
-    WHERE ta.aluno_id = ? AND t.is_active = 1
-    ORDER BY d.descricao ASC
-');
-$stCursando->execute([$alunoId]);
-$disciplinasCursando = $stCursando->fetchAll();
-
-// 5. Buscar Dispensas Ativas
-$stDispensas = $db->prepare('SELECT turma_id, disciplina_codigo FROM alunos_dispensa WHERE aluno_id = ? AND is_active = 1');
-$stDispensas->execute([$alunoId]);
-$dispensasAtivas = $stDispensas->fetchAll();
-
-// Mapear dispensas para fácil verificação (chave: turmaId_codDisc)
+$disciplinasCursando = [];
 $dispensasMap = [];
-foreach ($dispensasAtivas as $d) {
-    $dispensasMap[$d['turma_id'] . '_' . $d['disciplina_codigo']] = true;
+
+if ($canDispensas) {
+    $stCursando = $db->prepare('
+        SELECT DISTINCT d.codigo, d.descricao as disciplina_nome, t.description as turma_nome
+        FROM turma_alunos ta
+        JOIN turmas t ON t.id = ta.turma_id
+        JOIN gestao_turma_aulas gta ON gta.turma_id = t.id
+        JOIN disciplinas d ON d.codigo = gta.disciplina_codigo
+        WHERE ta.aluno_id = ? AND t.is_active = 1
+        ORDER BY d.descricao ASC
+    ');
+    $stCursando->execute([$alunoId]);
+    $disciplinasCursando = $stCursando->fetchAll();
+
+    // 5. Buscar Dispensas Ativas
+    $stDispensas = $db->prepare('SELECT turma_id, disciplina_codigo FROM alunos_dispensa WHERE aluno_id = ? AND is_active = 1');
+    $stDispensas->execute([$alunoId]);
+    $dispensasAtivas = $stDispensas->fetchAll();
+
+    foreach ($dispensasAtivas as $d) {
+        $dispensasMap[$d['turma_id'] . '_' . $d['disciplina_codigo']] = true;
+    }
+} else {
+    // Se não pode gerenciar, ainda precisamos das dispensas para tachar na grade (visualização)
+    $stDispensas = $db->prepare('SELECT turma_id, disciplina_codigo FROM alunos_dispensa WHERE aluno_id = ? AND is_active = 1');
+    $stDispensas->execute([$alunoId]);
+    $dispensasAtivas = $stDispensas->fetchAll();
+    foreach ($dispensasAtivas as $d) {
+        $dispensasMap[$d['turma_id'] . '_' . $d['disciplina_codigo']] = true;
+    }
 }
 
 // Mesclar tudo para a Grade
@@ -305,9 +317,11 @@ function timeToRowIndex($time, $startHour) {
         <button class="tab-btn" data-tab="info" onclick="switchStudentTab(this, 'info')">
             <span>ℹ️</span> Informações
         </button>
+        <?php if ($canDispensas): ?>
         <button class="tab-btn" data-tab="dispensas" onclick="switchStudentTab(this, 'dispensas')">
             <span>🚫</span> Dispensas
         </button>
+        <?php endif; ?>
         <?php if ($canActivities): ?>
         <button class="tab-btn" data-tab="atividades" onclick="switchStudentTab(this, 'atividades')">
             <span>📝</span> Atividades
@@ -634,6 +648,7 @@ function timeToRowIndex($time, $startHour) {
         </div>
     </div>
 
+    <?php if ($canDispensas): ?>
     <!-- Tab Content: Dispensas -->
     <div id="tab-dispensas" class="tab-content-pane" style="display:none; padding: 1.5rem;">
         <div style="margin-bottom: 1.5rem;">
@@ -692,6 +707,7 @@ function timeToRowIndex($time, $startHour) {
             </div>
         <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <?php if ($canConfig): ?>
     <!-- Tab Content: Configurações -->
@@ -947,13 +963,25 @@ async function toggleDispensa(alunoId, turmaId, discCodigo, isCurrentlyWaived) {
 
 <style>
 .schedule-grid-wrap {
-    height: 80vh; 
+    height: 100%; 
     display: flex;
     flex-direction: column;
     padding: 0; 
     box-sizing: border-box;
     background: var(--bg-surface);
-    overflow: hidden; /* Scroll movido apenas para o interior das abas */
+    overflow: hidden; 
+}
+
+/* Ajustes para o modal pai (se inserido via Modal.js) */
+#schedule_modal .modal-dialog {
+    height: 90vh;
+}
+
+#schedule_modal .modal-body {
+    padding: 0 !important;
+    overflow: hidden !important;
+    display: flex;
+    flex-direction: column;
 }
 
 .modal-tabs-on-grid {
@@ -996,7 +1024,7 @@ async function toggleDispensa(alunoId, turmaId, discCodigo, isCurrentlyWaived) {
     flex-direction: column;
     padding: 1.5rem;
     min-height: 0;
-    overflow: hidden;
+    overflow-y: auto; /* Habilita scroll apenas onde o conteúdo transborda */
 }
 
 .tab-content-pane.active {

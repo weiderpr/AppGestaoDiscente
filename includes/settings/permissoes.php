@@ -90,6 +90,7 @@ function getFriendlyName($res) {
         'permissoes' => 'Acesso',
         'schedule' => 'Grade Horária',
         'activities' => 'Atividades Extras',
+        'dispensas' => 'Dispensas',
         'config' => 'Configurações de Grupo',
         'view_all' => 'Ver Tudo (Instituição)',
         'comments' => 'Comentários',
