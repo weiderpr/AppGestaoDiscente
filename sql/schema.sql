@@ -631,6 +631,7 @@ CREATE TABLE `users` (
   `is_teacher` tinyint(1) NOT NULL DEFAULT '0',
   `theme` enum('light','dark') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'light',
   `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `last_access` datetime DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),

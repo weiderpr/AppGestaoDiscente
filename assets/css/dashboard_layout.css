@@ -1,0 +1,78 @@
+/* Dashboard 3-Column Layout */
+
+.dashboard-work-wrapper {
+    display: flex;
+    gap: 1.5rem;
+    width: 100%;
+    align-items: stretch; /* Todos os filhos estiram para a mesma altura */
+    padding-right: 0 !important; /* Reseta o padding da sidebar de notificações */
+}
+
+.dashboard-left-sidebar {
+    width: 20%;
+    min-width: 240px;
+    max-width: 300px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* O componente dentro da sidebar deve ocupar 100% da altura do flex container */
+.dashboard-left-sidebar > * {
+    flex: 1;
+    min-height: 0;
+}
+
+.dashboard-main-content-area {
+    flex: 1;
+    min-width: 0; /* Permite que o flex child encolha se necessário */
+}
+
+.dashboard-notif-sidebar {
+    width: 320px;
+    flex-shrink: 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: var(--bg-surface);
+    display: flex;
+    flex-direction: column;
+    position: static !important;
+    height: auto !important;
+}
+
+/* Ajustes no rodapé para não ter padding fixo */
+body .app-footer {
+    padding-right: 2rem !important;
+}
+
+/* Responsividade */
+@media (max-width: 1400px) {
+    .dashboard-left-sidebar {
+        width: 250px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .dashboard-work-wrapper {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+    .dashboard-left-sidebar {
+        width: 100%;
+        max-width: none;
+        height: auto;
+        order: 2;
+    }
+    .dashboard-left-sidebar > * {
+        flex: none;
+    }
+    .dashboard-main-content-area {
+        width: 100%;
+        flex: none;
+        order: 1;
+    }
+    .dashboard-notif-sidebar {
+        width: 100% !important;
+        order: 3;
+    }
+}

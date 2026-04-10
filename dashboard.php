@@ -34,6 +34,7 @@ if ($showNotifPanel) {
     $notifService = new \App\Services\NotificationService();
     $notifications = $notifService->getUnreadForUser($user);
     $extraCSS[] = '/assets/css/dashboard_notifications.css?v=1.3';
+    $extraCSS[] = '/assets/css/dashboard_layout.css?v=1.0';
     $extraJS[]  = '/assets/js/dashboard_notifications.js?v=1.3';
 }
 
@@ -41,6 +42,10 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 
 <div class="dashboard-work-wrapper">
+    <aside class="dashboard-left-sidebar" aria-label="Usuários Online">
+        <?php include __DIR__ . '/componentes/usuarios_online/index.php'; ?>
+    </aside>
+
     <div class="dashboard-main-content-area">
 
         <?php 

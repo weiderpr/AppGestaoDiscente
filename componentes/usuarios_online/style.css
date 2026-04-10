@@ -1,0 +1,140 @@
+/* Scoped styles for Online Users Component */
+
+.comp-online-users {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Preenche a altura do container flex pai */
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+    transition: all var(--transition-base);
+}
+
+.comp-online-header {
+    padding: 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-surface-2nd);
+}
+
+.comp-online-title {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+}
+
+.comp-online-badge {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--radius-full);
+}
+
+.comp-online-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+    min-height: 0; /* Fundamental para overflow funcionar dentro de flex */
+}
+
+/* Custom Scrollbar for the list */
+.comp-online-list::-webkit-scrollbar {
+    width: 6px;
+}
+.comp-online-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+.comp-online-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+.comp-online-list::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+.online-user-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: var(--radius-md);
+    transition: background var(--transition-fast);
+}
+
+.online-user-card:hover {
+    background: var(--bg-hover);
+}
+
+.online-user-avatar-wrapper {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.online-user-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--bg-surface);
+    box-shadow: 0 0 0 1px var(--border-color);
+}
+
+.online-user-dot {
+    position: absolute;
+    bottom: 1px;
+    right: 1px;
+    width: 10px;
+    height: 10px;
+    background-color: var(--color-success);
+    border: 2px solid var(--bg-surface);
+    border-radius: 50%;
+}
+
+.online-user-info {
+    min-width: 0;
+    flex: 1;
+}
+
+.online-user-name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.online-user-role {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+}
+
+.comp-online-loading, 
+.comp-online-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    .comp-online-users {
+        height: auto;
+        max-height: 400px;
+    }
+}

@@ -38,6 +38,15 @@ if (isLoggedIn()) {
     if (!in_array($currentAction, $exemptActions)) {
         requireInstitution();
     }
+
+    // Atualiza o último acesso do usuário (Control de Presença Online)
+    try {
+        $db = getDB();
+        $stUpdate = $db->prepare("UPDATE users SET last_access = NOW() WHERE id = ?");
+        $stUpdate->execute([$_SESSION['user_id']]);
+    } catch (Exception $e) {
+        error_log("Erro ao atualizar last_access: " . $e->getMessage());
+    }
 }
 
 // Perfis de acesso disponíveis
