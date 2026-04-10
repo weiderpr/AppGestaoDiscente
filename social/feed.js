@@ -49,7 +49,17 @@ class SocialFeed {
 
         textarea.addEventListener('focus', () => {
             wrapper.classList.add('is-active');
-            actions.style.display = 'flex';
+        });
+
+        // Click outside to reset
+        document.addEventListener('click', (e) => {
+            const isClickInside = wrapper.contains(e.target);
+            const isMentionList = e.target.closest('#mention-results');
+            
+            if (!isClickInside && !isMentionList && wrapper.classList.contains('is-active')) {
+                // Return to initial state as requested
+                this.resetPostArea();
+            }
         });
 
         // Mentions setup for inline textarea
@@ -172,14 +182,14 @@ class SocialFeed {
         textarea.focus();
     }
 
-    clearMention() {
+    clearMention(shouldFocus = true) {
         document.getElementById('mention-aluno-id').value = '';
         document.getElementById('mention-turma-id').value = '';
         const container = document.getElementById('selected-mention-container');
         if (container) container.style.display = 'none';
         
         const textarea = document.getElementById('inline-post-textarea');
-        if (textarea) textarea.focus();
+        if (textarea && shouldFocus) textarea.focus();
     }
 
     resetPostArea() {
@@ -187,12 +197,11 @@ class SocialFeed {
         const textarea = document.getElementById('inline-post-textarea');
         const actions = document.getElementById('inline-post-actions');
         
-        if (wrapper && textarea && actions) {
+        if (wrapper && textarea) {
             textarea.value = '';
             textarea.style.height = '40px';
             wrapper.classList.remove('is-active');
-            actions.style.display = 'none';
-            this.clearMention();
+            this.clearMention(false); // Do not focus back when resetting
         }
     }
 

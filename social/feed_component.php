@@ -64,7 +64,7 @@ $userPhoto = !empty($u['photo']) ? '/' . $u['photo'] : '/assets/img/avatar-place
             </header>
 
             <!-- Inline Actions & Tags (Hidden until focus/content) -->
-            <div class="post-creator-actions" id="inline-post-actions" style="display: none;">
+            <div class="post-creator-actions" id="inline-post-actions">
                 <div id="selected-mention-container" class="inline-mention-tag" style="display: none;">
                     <span class="filter-tag">
                         <span id="mention-tag-icon">👤</span>
