@@ -1,6 +1,7 @@
 <?php
 ini_set('display_errors', 0);
 error_reporting(0);
+require_once __DIR__ . '/../includes/components/AtendimentoMedals.php';
 /**
  * AJAX - Detalhes do aluno para conselho de classe
  */
@@ -170,30 +171,29 @@ foreach ($etapasConselho as $e) {
 }
 
 // 6. Distribuição das notas da turma (para Boxplot)
-$distribuicaoTurma = [];
-try {
-    $sqlDist = "
-        SELECT en.disciplina_codigo, en.aluno_id, SUM(en.nota) as soma_aluno
-        FROM etapa_notas en
-        WHERE en.etapa_id IN ($placeholders)
-          AND en.aluno_id IN (SELECT aluno_id FROM turma_alunos WHERE turma_id = ?)
-        GROUP BY en.disciplina_codigo, en.aluno_id
-    ";
-    $stDist = $db->prepare($sqlDist);
-    $stDist->execute(array_merge($etapasIds, [$targetTurmaId]));
-    $resDist = $stDist->fetchAll(PDO::FETCH_ASSOC);
-    
-    foreach ($resDist as $row) {
-        $distribuicaoTurma[$row['disciplina_codigo']][] = (float)$row['soma_aluno'];
-    }
-} catch (Throwable $e) {
-    // Silently fail if query fails
-}
+// ... (omitted same code) ...
+
+// ---- BUSCAR ATENDIMENTOS ATIVOS PARA AS MEDALHAS ----
+$activeAtendimentos = [];
+$stAtend = $db->prepare("
+    SELECT u.name, u.profile, u.photo
+    FROM gestao_atendimentos at
+    JOIN gestao_atendimento_usuarios gau ON at.id = gau.atendimento_id
+    JOIN users u ON gau.usuario_id = u.id
+    WHERE at.aluno_id = ? 
+      AND at.status IN ('Aberto', 'Em Atendimento') 
+      AND at.is_archived = 0 
+      AND at.deleted_at IS NULL
+");
+$stAtend->execute([$alunoId]);
+$activeAtendimentos = $stAtend->fetchAll(PDO::FETCH_ASSOC);
+$medalsHtml = renderAtendimentoMedals($alunoId, $activeAtendimentos);
 
 echo json_encode([
     'aluno' => $aluno,
     'etapas' => $etapasConselho,
     'soma_media_aprovacao' => $somaMediaAprovacao,
     'disciplinas' => array_values($disciplinasAgrupadas),
-    'distribuicao_turma' => $distribuicaoTurma
+    'distribuicao_turma' => $distribuicaoTurma,
+    'medals_html' => $medalsHtml
 ]);

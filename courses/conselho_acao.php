@@ -2,6 +2,7 @@
 /**
  * Vértice Acadêmico — Ação do Conselho de Classe
  */
+require_once __DIR__ . '/../includes/components/AtendimentoMedals.php';
 require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
@@ -181,6 +182,30 @@ if (!empty($etapasIds)) {
         }
         return strcmp($a['nome'], $b['nome']);
     });
+
+    // ---- BUSCAR ATENDIMENTOS ATIVOS PARA AS MEDALHAS ----
+    $activeAtendimentosMap = [];
+    if (!empty($alunos)) {
+        $alunoIds_medals = array_column($alunos, 'id');
+        $placeholdersAtend = implode(',', array_fill(0, count($alunoIds_medals), '?'));
+        
+        $stAtend = $db->prepare("
+            SELECT at.aluno_id, u.name, u.profile, u.photo
+            FROM gestao_atendimentos at
+            JOIN gestao_atendimento_usuarios gau ON at.id = gau.atendimento_id
+            JOIN users u ON gau.usuario_id = u.id
+            WHERE at.aluno_id IN ($placeholdersAtend) 
+              AND at.status IN ('Aberto', 'Em Atendimento') 
+              AND at.is_archived = 0 
+              AND at.deleted_at IS NULL
+              AND at.institution_id = ?
+        ");
+        $stAtend->execute(array_merge($alunoIds_medals, [$instId]));
+        
+        foreach ($stAtend->fetchAll(PDO::FETCH_ASSOC) as $at) {
+            $activeAtendimentosMap[$at['aluno_id']][] = $at;
+        }
+    }
 }
 
 $pageTitle = 'Conselho de Classe - ' . htmlspecialchars($conselho['descricao']);
@@ -621,7 +646,10 @@ function removerParticipante(id) {
                             </td>
                             <td style="padding:.75rem 1rem;vertical-align:middle;">
                                 <div style="display:flex; flex-direction:column; gap:0.25rem;">
-                                    <span style="font-weight:600;color:var(--text-primary);"><?= htmlspecialchars($aluno['nome']) ?></span>
+                                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                                        <span style="font-weight:600;color:var(--text-primary);"><?= htmlspecialchars($aluno['nome']) ?></span>
+                                        <?= renderAtendimentoMedals($aluno['id'], $activeAtendimentosMap[$aluno['id']] ?? []) ?>
+                                    </div>
                                     <?php if (($aluno['total_sancoes'] ?? 0) > 0): ?>
                                         <div class="sancao-popover-trigger" data-aluno-id="<?= $aluno['id'] ?>" style="display:inline-flex; align-items:center; gap:0.25rem; font-size:0.7rem; font-weight:700; color:#ef4444; background:#fef2f2; border:1px solid #fee2e2; padding:1px 6px; border-radius:12px; width:fit-content; border: 1px solid #fca5a5; cursor: help;" title="Passe o mouse para ver detalhes">
                                             ⚠️ <?= $aluno['total_sancoes'] ?> <?= $aluno['total_sancoes'] > 1 ? 'Sanções' : 'Sanção' ?>
@@ -961,6 +989,9 @@ function showDetailTab(tabId) {
             html += '<div style="flex:1;">';
             html += '<div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.125rem;">';
             html += '<div style="font-weight:700;font-size:1.125rem;color:var(--text-primary);">' + a.nome + '</div>';
+            if (dados.medals_html) {
+                html += dados.medals_html;
+            }
             if (a.total_sancoes > 0) {
                 html += '<div class="sancao-popover-trigger" data-aluno-id="' + a.id + '" style="display:inline-flex; align-items:center; gap:0.25rem; font-size:0.75rem; font-weight:700; color:#ef4444; background:#fef2f2; border:1px solid #fca5a5; padding:2px 8px; border-radius:12px; cursor: help; margin-bottom: 2px;" title="Passe o mouse para ver os detalhes das ocorrências">';
                 html += '⚠️ ' + a.total_sancoes + ' ' + (a.total_sancoes > 1 ? 'Sanções' : 'Sanção');

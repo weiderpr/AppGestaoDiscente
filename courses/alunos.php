@@ -29,6 +29,7 @@ if (!$instId) {
 require_once __DIR__ . '/../includes/toast.php';
 require_once __DIR__ . '/../includes/loading.php';
 require_once __DIR__ . '/../includes/modal.php';
+require_once __DIR__ . '/../includes/components/AtendimentoMedals.php';
 
 // ---- AJAX: BUSCAR ALUNOS DE OUTRA TURMA ----
 if (isset($_GET['api']) && $_GET['api'] === 'get_students') {
@@ -346,6 +347,30 @@ $otherTurmas = $db->prepare('
 $otherTurmas->execute([$instId, $turmaId]);
 $otherTurmas = $otherTurmas->fetchAll();
 
+// ---- BUSCAR ATENDIMENTOS ATIVOS PARA AS MEDALHAS ----
+$activeAtendimentosMap = [];
+if (!empty($alunos)) {
+    $alunoIds = array_column($alunos, 'id');
+    $placeholders = implode(',', array_fill(0, count($alunoIds), '?'));
+    
+    $stAtend = $db->prepare("
+        SELECT at.aluno_id, u.name, u.profile, u.photo
+        FROM gestao_atendimentos at
+        JOIN gestao_atendimento_usuarios gau ON at.id = gau.atendimento_id
+        JOIN users u ON gau.usuario_id = u.id
+        WHERE at.aluno_id IN ($placeholders) 
+          AND at.status IN ('Aberto', 'Em Atendimento') 
+          AND at.is_archived = 0 
+          AND at.deleted_at IS NULL
+          AND at.institution_id = ?
+    ");
+    $stAtend->execute(array_merge($alunoIds, [$instId]));
+    
+    foreach ($stAtend->fetchAll(PDO::FETCH_ASSOC) as $at) {
+        $activeAtendimentosMap[$at['aluno_id']][] = $at;
+    }
+}
+
 // ---- CONTAGEM DE ALUNOS SEM TURMA ----
 $unlinkedCount = $db->query("
     SELECT COUNT(*) 
@@ -478,6 +503,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <td style="font-weight:600;">
                         <div style="display:flex; align-items:center; gap:0.5rem;">
                             <span><?= htmlspecialchars($a['nome']) ?></span>
+                            <?= renderAtendimentoMedals($a['id'], $activeAtendimentosMap[$a['id']] ?? []) ?>
                             <?php if (($a['total_sancoes'] ?? 0) > 0): ?>
                                 <span class="sancao-popover-trigger" data-aluno-id="<?= $a['id'] ?>" style="display:inline-flex; align-items:center; gap:0.25rem; font-size:0.7rem; font-weight:700; color:#ef4444; background:#fef2f2; border:1px solid #fca5a5; padding:1px 6px; border-radius:12px; cursor: help;" title="Passe o mouse para ver detalhes">
                                     ⚠️ <?= $a['total_sancoes'] ?>
