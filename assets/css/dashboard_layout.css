@@ -8,6 +8,14 @@
     padding-right: 0 !important; /* Reseta o padding da sidebar de notificações */
 }
 
+/* Expande o conteúdo para a largura total da tela */
+body:has(.dashboard-work-wrapper) .main-content {
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding: 1rem 1.5rem;
+}
+
 .dashboard-left-sidebar {
     width: 20%;
     min-width: 240px;

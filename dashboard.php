@@ -42,9 +42,11 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 
 <div class="dashboard-work-wrapper">
-    <aside class="dashboard-left-sidebar" aria-label="Usuários Online">
-        <?php include __DIR__ . '/componentes/usuarios_online/index.php'; ?>
-    </aside>
+    <?php if (hasDbPermission('dashboard.online_users', false)): ?>
+        <aside class="dashboard-left-sidebar" aria-label="Usuários Online">
+            <?php include __DIR__ . '/componentes/usuarios_online/index.php'; ?>
+        </aside>
+    <?php endif; ?>
 
     <div class="dashboard-main-content-area">
 
