@@ -22,20 +22,27 @@ try {
     $limit  = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
     $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
     
-    // Aluno Filter
-    $alunoIdsRaw = isset($_GET['aluno_ids']) && !empty($_GET['aluno_ids']) ? explode(',', $_GET['aluno_ids']) : [];
-    $validAlunoIds = [];
-    foreach ($alunoIdsRaw as $id) {
-        if ((int)$id > 0) $validAlunoIds[] = (int)$id;
-    }
+    // Advanced Filters
+    $validAlunoIds  = [];
+    $validTurmaIds  = [];
+    $validCourseIds = [];
+
+    if (!empty($_GET['aluno_ids']))  foreach (explode(',', $_GET['aluno_ids'])  as $id) if ((int)$id > 0) $validAlunoIds[]  = (int)$id;
+    if (!empty($_GET['turma_ids']))  foreach (explode(',', $_GET['turma_ids'])  as $id) if ((int)$id > 0) $validTurmaIds[]  = (int)$id;
+    if (!empty($_GET['course_ids'])) foreach (explode(',', $_GET['course_ids']) as $id) if ((int)$id > 0) $validCourseIds[] = (int)$id;
+
+    $filterSql = "";
+    $hasFilters = !empty($validAlunoIds) || !empty($validTurmaIds) || !empty($validCourseIds);
     
-    $alunoFilter = "";
-    if (!empty($validAlunoIds)) {
-        $alunoFilter = " AND a.id IN (" . implode(',', $validAlunoIds) . ") ";
+    if ($hasFilters) {
+        $clauses = [];
+        if (!empty($validAlunoIds))  $clauses[] = "a.id IN (" . implode(',', $validAlunoIds) . ")";
+        if (!empty($validTurmaIds))  $clauses[] = "t.id IN (" . implode(',', $validTurmaIds) . ")";
+        if (!empty($validCourseIds)) $clauses[] = "c.id IN (" . implode(',', $validCourseIds) . ")";
+        $filterSql = " AND (" . implode(' OR ', $clauses) . ") ";
     }
 
     // Aggregator Query using UNION to bring all social activities
-    // Fields: event_type, event_id, aluno_id, aluno_nome, aluno_foto, content, responsible_name, responsible_photo, timestamp, badge_text, badge_type
     
     $sql = "
     SELECT * FROM (
@@ -51,7 +58,10 @@ try {
             u.photo AS responsible_photo,
             cp.created_at AS timestamp,
             'Comentário' as badge_text,
-            'info' as badge_type
+            'info' as badge_type,
+            t.description AS turma_desc,
+            t.ano AS turma_ano,
+            c.name AS curso_nome
         FROM comentarios_professores cp
         JOIN alunos a ON cp.aluno_id = a.id
         JOIN users u ON cp.professor_id = u.id
@@ -59,7 +69,7 @@ try {
         JOIN courses c ON t.course_id = c.id
         WHERE c.institution_id = :inst_id_1
           AND a.deleted_at IS NULL
-          $alunoFilter
+          $filterSql
 
         UNION ALL
 
@@ -75,14 +85,19 @@ try {
             u.photo AS responsible_photo,
             ce.created_at AS timestamp,
             'Conselho' as badge_text,
-            'warning' as badge_type
+            'warning' as badge_type,
+            t.description AS turma_desc,
+            t.ano AS turma_ano,
+            c.name AS curso_nome
         FROM conselho_encaminhamentos ce
         JOIN alunos a ON ce.aluno_id = a.id
         JOIN users u ON ce.author_id = u.id
         JOIN conselhos_classe cc ON ce.conselho_id = cc.id
+        JOIN turmas t ON cc.turma_id = t.id
+        JOIN courses c ON t.course_id = c.id
         WHERE cc.institution_id = :inst_id_2
           AND a.deleted_at IS NULL
-          $alunoFilter
+          $filterSql
 
         UNION ALL
 
@@ -98,14 +113,25 @@ try {
             u.photo AS responsible_photo,
             ga.created_at AS timestamp,
             'Atendimento' as badge_text,
-            'success' as badge_type
+            'success' as badge_type,
+            t.description AS turma_desc,
+            t.ano AS turma_ano,
+            c.name AS curso_nome
         FROM gestao_atendimentos ga
         JOIN alunos a ON ga.aluno_id = a.id
         JOIN users u ON ga.author_id = u.id
+        -- Subquery approach to get the current turma for the student accurately
+        LEFT JOIN (
+            SELECT ta.aluno_id, ta.turma_id FROM turma_alunos ta 
+            JOIN turmas t2 ON ta.turma_id = t2.id 
+            ORDER BY t2.ano DESC 
+        ) AS current_ta ON a.id = current_ta.aluno_id
+        LEFT JOIN turmas t ON current_ta.turma_id = t.id
+        LEFT JOIN courses c ON t.course_id = c.id
         WHERE ga.institution_id = :inst_id_3
           AND ga.deleted_at IS NULL
           AND a.deleted_at IS NULL
-          $alunoFilter
+          $filterSql
 
         UNION ALL
 
@@ -121,16 +147,26 @@ try {
             u.photo AS responsible_photo,
             gac.created_at AS timestamp,
             'Comentário Atend.' as badge_text,
-            'success' as badge_type
+            'success' as badge_type,
+            t.description AS turma_desc,
+            t.ano AS turma_ano,
+            c.name AS curso_nome
         FROM gestao_atendimento_comentarios gac
         JOIN gestao_atendimentos ga ON gac.atendimento_id = ga.id
         JOIN alunos a ON ga.aluno_id = a.id
         JOIN users u ON gac.usuario_id = u.id
+        LEFT JOIN (
+            SELECT ta.aluno_id, ta.turma_id FROM turma_alunos ta 
+            JOIN turmas t2 ON ta.turma_id = t2.id 
+            ORDER BY t2.ano DESC 
+        ) AS current_ta ON a.id = current_ta.aluno_id
+        LEFT JOIN turmas t ON current_ta.turma_id = t.id
+        LEFT JOIN courses c ON t.course_id = c.id
         WHERE ga.institution_id = :inst_id_4 
           AND gac.is_private = 0
           AND ga.deleted_at IS NULL
           AND a.deleted_at IS NULL
-          $alunoFilter
+          $filterSql
 
         UNION ALL
 
@@ -146,14 +182,19 @@ try {
             u.photo AS responsible_photo,
             s.created_at AS timestamp,
             'Sanção' as badge_text,
-            'danger' as badge_type
+            'danger' as badge_type,
+            t.description AS turma_desc,
+            t.ano AS turma_ano,
+            c.name AS curso_nome
         FROM sancao s
         JOIN sancao_tipo st ON s.sancao_tipo_id = st.id
         JOIN alunos a ON s.aluno_id = a.id
         JOIN users u ON s.author_id = u.id
+        JOIN turmas t ON s.turma_id = t.id
+        JOIN courses c ON t.course_id = c.id
         WHERE s.institution_id = :inst_id_5
           AND a.deleted_at IS NULL
-          $alunoFilter
+          $filterSql
     ) AS feed
     ORDER BY timestamp DESC
     LIMIT :limit OFFSET :offset

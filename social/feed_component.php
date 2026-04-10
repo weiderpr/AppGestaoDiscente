@@ -12,16 +12,13 @@
     <!-- Sidebar Esquerda (Resizable) -->
     <aside class="social-sidebar">
         <div class="social-sidebar-content">
-            <span class="sidebar-title">Personalizar Feed</span>
-            
-            <div class="social-filter-group" style="margin-top: 1rem;">
-                <label class="form-label" style="font-size: 0.75rem;">Filtrar por Aluno</label>
+            <div class="social-filter-group">
                 <div class="input-group input-group-sm">
                     <span class="input-icon">🔍</span>
                     <input type="text" 
                            id="aluno-search-input" 
                            class="form-control" 
-                           placeholder="Buscar nome ou matrícula..."
+                           placeholder="Pesquisar aluno..."
                            autocomplete="off">
                 </div>
                 
@@ -31,12 +28,6 @@
 
             <!-- Active Filters Container -->
             <div id="active-filters" class="active-filters-container"></div>
-
-            <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
-                <div id="btn-feed-geral" style="padding: 0.75rem 1rem; background: var(--bg-surface-2nd); color: var(--text-primary); border-radius: var(--radius-md); font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); font-size: 0.875rem;" onclick="window.socialFeed.clearFilters()">
-                    🏠 Feed Geral
-                </div>
-            </div>
         </div>
         <div class="social-resizer"></div>
     </aside>

@@ -19,7 +19,7 @@ class SocialFeed {
         this.isLoading = false;
         
         // Filter state
-        this.selectedAlunos = [];
+        this.selectedFilters = []; // Array of {id, name, type}
         this.searchTimeout = null;
         
         this.init();
@@ -36,7 +36,7 @@ class SocialFeed {
         window.addEventListener('resize', () => this.handleResponsiveLayout());
     }
 
-    // --- Student Filters ---
+    // --- Student/Turma/Course Filters ---
 
     setupAutocomplete() {
         const input = document.getElementById('aluno-search-input');
@@ -72,26 +72,32 @@ class SocialFeed {
         });
     }
 
-    renderSearchResults(students) {
+    renderSearchResults(items) {
         const results = document.getElementById('aluno-search-results');
-        if (students.length === 0) {
-            results.innerHTML = '<div style="padding: 1rem; font-size: 0.75rem; color: var(--text-muted); text-align: center;">Nenhum aluno encontrado.</div>';
+        if (items.length === 0) {
+            results.innerHTML = '<div style="padding: 1rem; font-size: 0.75rem; color: var(--text-muted); text-align: center;">Nenhum resultado encontrado.</div>';
         } else {
-            results.innerHTML = students.map(s => `
-                <div class="search-result-item" data-id="${s.id}" data-nome="${s.nome}">
-                    <img src="/${s.foto || 'assets/img/avatar-placeholder.png'}" onerror="this.src='/assets/img/avatar-placeholder.png'">
+            const icons = { 'aluno': '👤', 'turma': '🏫', 'curso': '🎓' };
+            
+            results.innerHTML = items.map(s => `
+                <div class="search-result-item" data-id="${s.id}" data-name="${s.name}" data-type="${s.type}">
+                    ${s.type === 'aluno' 
+                        ? `<img src="/${s.foto || 'assets/img/avatar-placeholder.png'}" onerror="this.src='/assets/img/avatar-placeholder.png'">`
+                        : `<div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 14px; background: var(--bg-surface-2nd); border-radius: 4px;">${icons[s.type]}</div>`
+                    }
                     <div class="search-result-info">
-                        <span class="search-result-name">${s.nome}</span>
-                        <span class="search-result-desc">${s.turma_desc || 'S/ Turma'} • ${s.matricula}</span>
+                        <span class="search-result-name">${s.name}</span>
+                        <span class="search-result-desc">${s.subtext || ''} ${s.matricula ? '• ' + s.matricula : ''}</span>
                     </div>
                 </div>
             `).join('');
 
             results.querySelectorAll('.search-result-item').forEach(item => {
                 item.addEventListener('click', () => {
-                    this.addAlunoFilter({
+                    this.addFilter({
                         id: item.dataset.id,
-                        nome: item.dataset.nome
+                        name: item.dataset.name,
+                        type: item.dataset.type
                     });
                     results.style.display = 'none';
                     document.getElementById('aluno-search-input').value = '';
@@ -101,22 +107,22 @@ class SocialFeed {
         results.style.display = 'block';
     }
 
-    addAlunoFilter(aluno) {
-        if (this.selectedAlunos.find(a => a.id === aluno.id)) return;
+    addFilter(filter) {
+        if (this.selectedFilters.find(f => f.id === filter.id && f.type === filter.type)) return;
         
-        this.selectedAlunos.push(aluno);
+        this.selectedFilters.push(filter);
         this.renderFilterTags();
-        this.loadFeed(false); // Reset and reload
+        this.loadFeed(false); 
     }
 
-    removeAlunoFilter(alunoId) {
-        this.selectedAlunos = this.selectedAlunos.filter(a => a.id !== alunoId);
+    removeFilter(id, type) {
+        this.selectedFilters = this.selectedFilters.filter(f => !(f.id === id && f.type === type));
         this.renderFilterTags();
-        this.loadFeed(false); // Reset and reload
+        this.loadFeed(false);
     }
 
     clearFilters() {
-        this.selectedAlunos = [];
+        this.selectedFilters = [];
         this.renderFilterTags();
         document.getElementById('aluno-search-input').value = '';
         this.loadFeed(false);
@@ -124,30 +130,20 @@ class SocialFeed {
 
     renderFilterTags() {
         const container = document.getElementById('active-filters');
-        const btnGeral = document.getElementById('btn-feed-geral');
-        
         if (!container) return;
 
-        if (this.selectedAlunos.length === 0) {
+        if (this.selectedFilters.length === 0) {
             container.innerHTML = '';
-            if (btnGeral) {
-                btnGeral.style.background = 'var(--gradient-brand)';
-                btnGeral.style.color = 'white';
-                btnGeral.style.borderColor = 'transparent';
-            }
             return;
         }
 
-        if (btnGeral) {
-            btnGeral.style.background = 'var(--bg-surface-2nd)';
-            btnGeral.style.color = 'var(--text-primary)';
-            btnGeral.style.borderColor = 'var(--border-color)';
-        }
+        const icons = { 'aluno': '👤', 'turma': '🏫', 'curso': '🎓' };
 
-        container.innerHTML = this.selectedAlunos.map(a => `
+        container.innerHTML = this.selectedFilters.map(f => `
             <div class="filter-tag">
-                <span>${a.nome.split(' ')[0]}</span>
-                <span class="filter-tag-remove" onclick="window.socialFeed.removeAlunoFilter('${a.id}')">&times;</span>
+                <span style="font-size: 10px; margin-right: 2px;">${icons[f.type]}</span>
+                <span>${f.name.split(' ')[0]}</span>
+                <span class="filter-tag-remove" onclick="window.socialFeed.removeFilter('${f.id}', '${f.type}')">&times;</span>
             </div>
         `).join('');
     }
@@ -245,9 +241,15 @@ class SocialFeed {
 
         this.isLoading = true;
 
-        const alunoIds = this.selectedAlunos.map(a => a.id).join(',');
+        const filters = { aluno: [], turma: [], curso: [] };
+        this.selectedFilters.forEach(f => {
+            if (filters[f.type]) filters[f.type].push(f.id);
+        });
+
         let url = `/social/feed_ajax.php?offset=${this.offset}&limit=${this.limit}`;
-        if (alunoIds) url += `&aluno_ids=${alunoIds}`;
+        if (filters.aluno.length > 0) url += `&aluno_ids=${filters.aluno.join(',')}`;
+        if (filters.turma.length > 0) url += `&turma_ids=${filters.turma.join(',')}`;
+        if (filters.curso.length > 0) url += `&course_ids=${filters.curso.join(',')}`;
 
         try {
             const response = await fetch(url);
@@ -313,8 +315,11 @@ class SocialFeed {
                 <div class="social-card-user">
                     ${alunoPhotoHtml}
                     <div class="aluno-info">
-                        <span class="aluno-name">${item.aluno_nome}</span>
-                        <span class="event-badge badge-${item.badge_type}">${item.badge_text}</span>
+                        <div class="aluno-title-row">
+                            <span class="aluno-name">${item.aluno_nome}</span>
+                            <span class="event-badge badge-${item.badge_type}">${item.badge_text}</span>
+                        </div>
+                        <span class="aluno-meta">${item.turma_desc} (${item.turma_ano}) — ${item.curso_nome}</span>
                     </div>
                 </div>
                 <div class="card-actions">
