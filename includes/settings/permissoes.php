@@ -23,6 +23,7 @@ $categoryMap = [
     'conselhos'      => 'Pedagógico',
     'survey'         => 'Pedagógico',
     'social'         => 'Acadêmico',
+    'naapi'          => 'Pedagógico',
     'dashboard'      => 'Sistema'
 ];
 
@@ -75,6 +76,7 @@ function getFriendlyName($res) {
         'settings' => 'Configurações',
         'survey' => 'Pesquisas',
         'social' => 'Feed Social',
+        'naapi' => 'NAAPI',
         'dashboard' => 'Dashboard'
     ];
     

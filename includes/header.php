@@ -173,7 +173,8 @@ if (empty($user['photo'])) {
             <!-- Acompanhamento (Dropdown) -->
             <?php
             $hasAcompanhamentoAccess = hasDbPermission('atendimentos.index', false) 
-                || hasDbPermission('sancoes.index', false);
+                || hasDbPermission('sancoes.index', false)
+                || hasDbPermission('naapi.index', false);
             ?>
             <?php if ($hasAcompanhamentoAccess): ?>
             <div class="nav-dropdown nav-menu-item">
@@ -189,6 +190,15 @@ if (empty($user['photo'])) {
                        role="menuitem">
                         <span class="nav-icon">📝</span>
                         <span>Atendimentos</span>
+                    </a>
+                    <?php endif; ?>
+
+                    <?php if (hasDbPermission('naapi.index', false)): ?>
+                    <a href="/naapi/index.php" 
+                       class="nav-dropdown-item <?= strpos($_SERVER['PHP_SELF'], '/naapi/') !== false ? 'active' : '' ?>" 
+                       role="menuitem">
+                        <span class="nav-icon">🧠</span>
+                        <span>NAAPI</span>
                     </a>
                     <?php endif; ?>
 

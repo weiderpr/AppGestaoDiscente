@@ -617,7 +617,7 @@ switch ($action) {
 
         $uploadDir = __DIR__ . '/../assets/uploads/atendimentos/';
         if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0775, true);
+            mkdir($uploadDir, 0777, true);
         }
 
         $newName = uniqid('atend_' . $atendId . '_', true) . '.' . $ext;
