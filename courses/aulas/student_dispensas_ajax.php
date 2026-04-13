@@ -13,7 +13,12 @@ if (!$canManage) {
     exit;
 }
 
-header('Content-Type: application/json');
+// Previne poluição do JSON por alertas/erros do PHP
+ini_set('display_errors', 0);
+ini_set('html_errors', 0);
+error_reporting(E_ALL);
+
+header('Content-Type: application/json; charset=utf-8');
 
 $db      = getDB();
 $user    = getCurrentUser();
@@ -75,6 +80,10 @@ try {
             echo json_encode(['success' => false, 'message' => 'Ação inválida.']);
             break;
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
+    // Garante retorno JSON mesmo em erros fatais do PHP
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=utf-8', true, 500);
+    }
     echo json_encode(['success' => false, 'message' => 'Erro no servidor: ' . $e->getMessage()]);
 }

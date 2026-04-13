@@ -866,7 +866,7 @@ async function deleteActivity(id) {
     formData.append('csrf_token', '<?= csrf_token() ?>');
     
     try {
-        const resp = await fetch('aulas/student_activities_ajax.php?action=delete', {
+        const resp = await fetch('/courses/aulas/student_activities_ajax.php?action=delete', {
             method: 'POST',
             body: formData,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -895,7 +895,7 @@ async function saveGroupConfig(e) {
     const formData = new FormData(form);
     
     try {
-        const resp = await fetch('aulas/student_groups_ajax.php?action=save', {
+        const resp = await fetch('/courses/aulas/student_groups_ajax.php?action=save', {
             method: 'POST',
             body: formData,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -934,11 +934,22 @@ async function toggleDispensa(alunoId, turmaId, discCodigo, isCurrentlyWaived) {
     formData.append('csrf_token', '<?= csrf_token() ?>');
 
     try {
-        const resp = await fetch('aulas/student_dispensas_ajax.php?action=' + action, {
+        const resp = await fetch('/courses/aulas/student_dispensas_ajax.php?action=' + action, {
             method: 'POST',
             body: formData,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
+
+        if (!resp.ok) {
+            const errorText = await resp.text();
+            let errorMessage = `Erro HTTP ${resp.status}`;
+            try {
+                const errorJson = JSON.parse(errorText);
+                errorMessage = errorJson.message || errorMessage;
+            } catch(e) {}
+            throw new Error(errorMessage);
+        }
+
         const res = await resp.json();
 
         if (res.success) {
@@ -956,7 +967,7 @@ async function toggleDispensa(alunoId, turmaId, discCodigo, isCurrentlyWaived) {
         }
     } catch (err) {
         console.error('Erro na operação de dispensa:', err);
-        Toast.show('Erro ao processar dispensa.', 'danger');
+        Toast.show(err.message || 'Erro ao processar dispensa.', 'danger');
     }
 }
 </script>

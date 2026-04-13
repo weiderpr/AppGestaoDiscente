@@ -187,7 +187,7 @@ $stAtend = $db->prepare("
 ");
 $stAtend->execute([$alunoId]);
 $activeAtendimentos = $stAtend->fetchAll(PDO::FETCH_ASSOC);
-$medalsHtml = renderAtendimentoMedals($alunoId, $activeAtendimentos);
+$medalsHtml = renderAtendimentoMedals($alunoId, $activeAtendimentos, 'bottom');
 
 echo json_encode([
     'aluno' => $aluno,
