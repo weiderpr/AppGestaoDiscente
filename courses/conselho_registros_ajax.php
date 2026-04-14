@@ -3,6 +3,8 @@
  * Vértice Acadêmico — API de Registros do Conselho (Post-its)
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/ConselhoService.php';
 requireLogin();
 
 header('Content-Type: application/json');
@@ -23,10 +25,10 @@ try {
                 throw new Exception('Dados incompletos para salvar o registro.');
             }
 
-            $stmt = $db->prepare("INSERT INTO conselho_registros (conselho_id, aluno_id, user_id, texto) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$conselhoId, $alunoId, $user['id'], $texto]);
+            $conselhoService = new \App\Services\ConselhoService();
+            $result = $conselhoService->addRegistro($conselhoId, $user['id'], $alunoId, $texto);
 
-            echo json_encode(['success' => true, 'id' => $db->lastInsertId()]);
+            echo json_encode($result);
             break;
 
         case 'list':
@@ -65,30 +67,10 @@ try {
             $id = (int)($_POST['id'] ?? 0);
             if (!$id) throw new Exception('ID ausente');
 
-            // Verificar se o usuário pode excluir (autor ou admin) e se o conselho está ativo
-            $stmt = $db->prepare("
-                SELECT cr.user_id, cc.is_active 
-                FROM conselho_registros cr
-                JOIN conselhos_classe cc ON cr.conselho_id = cc.id
-                WHERE cr.id = ?
-            ");
-            $stmt->execute([$id]);
-            $reg = $stmt->fetch();
-            
-            if (!$reg) throw new Exception('Registro não encontrado');
+            $conselhoService = new \App\Services\ConselhoService();
+            $success = $conselhoService->deleteRegistro($id, $user['id'], $user['profile']);
 
-            if ($reg['is_active'] == 0) {
-                throw new Exception('Não é possível excluir registros de um conselho finalizado');
-            }
-            
-            if ($reg['user_id'] != $user['id'] && !in_array($user['profile'], ['Administrador', 'Coordenador'])) {
-                throw new Exception('Sem permissão para excluir este registro.');
-            }
-
-            $stmt = $db->prepare("DELETE FROM conselho_registros WHERE id = ?");
-            $stmt->execute([$id]);
-
-            echo json_encode(['success' => true]);
+            echo json_encode(['success' => $success]);
             break;
 
         default:

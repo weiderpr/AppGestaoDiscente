@@ -3,12 +3,17 @@
  * AJAX - Comentários do aluno no conselho de classe
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/AuditHelper.php';
 requireLogin();
+
+use App\Services\AuditHelper;
 
 header('Content-Type: application/json; charset=UTF-8');
 
 $db = getDB();
 $user = getCurrentUser();
+$audit = new AuditHelper();
 $conselhoId = (int)($_REQUEST['conselho_id'] ?? 0);
 $alunoId = (int)($_REQUEST['aluno_id'] ?? 0);
 
@@ -27,6 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     $st = $db->prepare('INSERT INTO conselhos_comentarios (conselho_id, user_id, comentario) VALUES (?, ?, ?)');
     $st->execute([$conselhoId, $user['id'], $comentario]);
+    
+    $audit->log('CREATE', 'conselhos_comentarios', (int)$db->lastInsertId(), null, [
+        'conselho_id' => $conselhoId,
+        'user_id' => $user['id'],
+        'comentario' => $comentario
+    ]);
     
     echo json_encode(['success' => true]);
     exit;

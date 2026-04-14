@@ -4,6 +4,9 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/CourseService.php';
+
 requireLogin();
 
 $user    = getCurrentUser();
@@ -12,6 +15,8 @@ hasDbPermission('courses.update');
 $db     = getDB();
 $inst   = getCurrentInstitution();
 $instId = $inst['id'];
+
+$courseService = new \App\Services\CourseService();
 
 if (!$instId) {
     header('Location: /select_institution.php?redirect=' . urlencode('/courses/index.php'));
@@ -22,10 +27,8 @@ $id = (int)($_GET['id'] ?? 0);
 if (!$id) { header('Location: /courses/index.php'); exit; }
 
 // Busca o curso — garante que pertence à instituição logada
-$stmt = $db->prepare('SELECT * FROM courses WHERE id=? AND institution_id=? LIMIT 1');
-$stmt->execute([$id, $instId]);
-$course = $stmt->fetch();
-if (!$course) { header('Location: /courses/index.php'); exit; }
+$course = $courseService->findById($id);
+if (!$course || $course['institution_id'] != $instId) { header('Location: /courses/index.php'); exit; }
 
 // Segurança: Coordenador só edita os seus cursos
 if ($user['profile'] === 'Coordenador') {
@@ -56,12 +59,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($st->fetch()) {
                 $error = 'Já existe outro curso com este nome nesta instituição.';
             } else {
-                $db->prepare('UPDATE courses SET name=?, location=? WHERE id=? AND institution_id=?')
-                   ->execute([$name, $location ?: null, $id, $instId]);
+                $courseService->update($id, [
+                    'name' => $name,
+                    'location' => $location ?: null
+                ]);
                 $success = 'Curso atualizado com sucesso!';
-                $stmt = $db->prepare('SELECT * FROM courses WHERE id=? LIMIT 1');
-                $stmt->execute([$id]);
-                $course = $stmt->fetch();
+                $course = $courseService->findById($id);
             }
         }
     }

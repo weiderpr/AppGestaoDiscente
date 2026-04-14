@@ -138,30 +138,31 @@ function registerUser(array $data): array {
         $photoPath = 'assets/uploads/avatars/' . $fileName;
     }
 
-    // Insere usuário
-    $hash = password_hash($data['password'], PASSWORD_BCRYPT);
-    $stmt = $db->prepare(
-        'INSERT INTO users (name, email, password, phone, photo, profile, theme)
-         VALUES (?, ?, ?, ?, ?, ?, ?)'
-    );
-    $stmt->execute([
-        trim($data['name']),
-        strtolower(trim($data['email'])),
-        $hash,
-        trim($data['phone'] ?? ''),
-        $photoPath,
-        $data['profile'],
-        'light',
-    ]);
-
-    $userId = (int) $db->lastInsertId();
+    // Insere usuário via Serviço
+    require_once __DIR__ . '/../src/App/Services/Service.php';
+    require_once __DIR__ . '/../src/App/Services/UserService.php';
+    $userService = new \App\Services\UserService();
+    
+    try {
+        $userId = $userService->register([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => $data['password'],
+            'phone' => $data['phone'] ?? '',
+            'photo' => $photoPath,
+            'profile' => $data['profile'],
+            'theme' => 'light'
+        ]);
+    } catch (Exception $e) {
+        return ['error' => 'Erro ao realizar cadastro: ' . $e->getMessage()];
+    }
 
     // Loga automaticamente após registro
     session_regenerate_id(true);
     $_SESSION['user_id']    = $userId;
     $_SESSION['user_name']  = trim($data['name']);
     $_SESSION['user_theme'] = 'light';
-
+    
     return ['success' => true];
 }
 
@@ -213,6 +214,16 @@ function countUserInstitutions(int $userId): int {
  * Encerra a sessão
  */
 function logoutUser(): void {
+    if (isLoggedIn()) {
+        try {
+            require_once __DIR__ . '/../src/App/Services/Service.php';
+            require_once __DIR__ . '/../src/App/Services/UserService.php';
+            $userService = new \App\Services\UserService();
+            $userService->logLogout((int)$_SESSION['user_id']);
+        } catch (Exception $e) {
+            error_log("Erro ao auditar logout: " . $e->getMessage());
+        }
+    }
     session_unset();
     session_destroy();
     header('Location: /login.php');

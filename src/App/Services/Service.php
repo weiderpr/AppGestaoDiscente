@@ -5,10 +5,14 @@
  */
 
 namespace App\Services;
+require_once __DIR__ . '/Traits/Auditable.php';
 
 use PDO;
+use App\Services\Traits\Auditable;
 
 abstract class Service {
+    use Auditable;
+    
     protected PDO $db;
 
     public function __construct() {

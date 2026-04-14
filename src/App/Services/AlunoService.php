@@ -53,7 +53,10 @@ class AlunoService extends Service {
             $data['photo'] ?? null
         ]);
 
-        return ['success' => true, 'id' => $this->lastInsertId()];
+        $newId = $this->lastInsertId();
+        $this->audit('CREATE', 'alunos', $newId, null, $data);
+
+        return ['success' => true, 'id' => $newId];
     }
 
     public function update(int $id, array $data): array {
@@ -84,15 +87,25 @@ class AlunoService extends Service {
         $params[] = $id;
         $sql = 'UPDATE alunos SET ' . implode(', ', $fields) . ' WHERE id = ?';
         
+        $old = $this->fetchOne('SELECT * FROM alunos WHERE id = ?', [$id]);
         $this->execute($sql, $params);
+        $this->audit('UPDATE', 'alunos', $id, $old, $data);
+
         return ['success' => true];
     }
 
     public function delete(int $id): bool {
-        return $this->execute(
+        $old = $this->fetchOne('SELECT * FROM alunos WHERE id = ?', [$id]);
+        $deleted = $this->execute(
             'UPDATE alunos SET deleted_at = NOW() WHERE id = ?',
             [$id]
         ) > 0;
+
+        if ($deleted && $old) {
+            $this->audit('DELETE', 'alunos', $id, $old, ['deleted_at' => date('Y-m-d H:i:s')]);
+        }
+
+        return $deleted;
     }
 
     public function count(int $institutionId = null): int {
@@ -136,7 +149,31 @@ class AlunoService extends Service {
              VALUES (?, ?, ?, ?)'
         )->execute([$alunoId, $turmaId, $professorId, $conteudo]);
 
-        return ['success' => true, 'id' => $this->lastInsertId()];
+        $newId = $this->lastInsertId();
+        $this->audit('CREATE', 'comentarios_professores', $newId, null, [
+            'aluno_id' => $alunoId,
+            'turma_id' => $turmaId,
+            'professor_id' => $professorId,
+            'conteudo' => $conteudo
+        ]);
+
+        return ['success' => true, 'id' => $newId];
+    }
+
+    public function deleteComentario(int $id): bool {
+        $old = $this->fetchOne('SELECT * FROM comentarios_professores WHERE id = ?', [$id]);
+        if (!$old) return false;
+
+        $deleted = $this->execute(
+            'DELETE FROM comentarios_professores WHERE id = ?',
+            [$id]
+        ) > 0;
+
+        if ($deleted) {
+            $this->audit('DELETE', 'comentarios_professores', $id, $old, ['deleted' => true]);
+        }
+
+        return $deleted;
     }
 
     public function getNotas(int $alunoId, int $turmaId = null): array {

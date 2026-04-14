@@ -4,6 +4,9 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/TurmaService.php';
+
 requireLogin();
 
 $user    = getCurrentUser();
@@ -12,6 +15,8 @@ hasDbPermission('courses.index'); // Nova verificação baseada em RBAC (Central
 $db     = getDB();
 $inst   = getCurrentInstitution();
 $instId = $inst['id'];
+
+$turmaService = new \App\Services\TurmaService();
 
 if (!$instId) {
     header('Location: /select_institution.php?redirect=' . urlencode('/courses/index.php'));
@@ -79,8 +84,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !csrf_verify($_POST['csrf_token'] ?
         if ($st->fetch()) {
             $error = 'Já existe uma turma com esta descrição neste curso.';
         } else {
-            $db->prepare('INSERT INTO turmas (course_id, description, ano, nota_maxima, media_aprovacao) VALUES (?,?,?,?,?)')
-               ->execute([$courseId, $description, $ano, $nota_maxima, $media_aprovacao]);
+            $turmaService->create($courseId, [
+                'description' => $description,
+                'ano' => $ano,
+                'nota_maxima' => $nota_maxima,
+                'media_aprovacao' => $media_aprovacao
+            ]);
             $success = "Turma «{$description}» cadastrada com sucesso!";
         }
     }
@@ -89,17 +98,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !csrf_verify($_POST['csrf_token'] ?
 // ---- TOGGLE ----
 if ($action === 'toggle' && !empty($_POST['turma_id'])) {
     $tid = (int)$_POST['turma_id'];
-    $db->prepare('UPDATE turmas SET is_active = !is_active WHERE id=? AND course_id=?')
-       ->execute([$tid, $courseId]);
-    $success = 'Status da turma atualizado.';
+    $current = $db->prepare('SELECT is_active FROM turmas WHERE id=? AND course_id=?');
+    $current->execute([$tid, $courseId]);
+    $t = $current->fetch();
+    if ($t) {
+        $turmaService->update($tid, ['is_active' => !$t['is_active']]);
+        $success = 'Status da turma atualizado.';
+    }
 }
 
 // ---- EXCLUIR ----
 if ($action === 'delete' && !empty($_POST['turma_id'])) {
     $tid = (int)$_POST['turma_id'];
-    $db->prepare('DELETE FROM turmas WHERE id=? AND course_id=?')
-       ->execute([$tid, $courseId]);
-    $success = 'Turma removida.';
+    if ($turmaService->delete($tid)) {
+        $success = 'Turma removida.';
+    } else {
+        $error = 'Erro ao remover turma.';
+    }
 }
 
 // ---- LISTAR TURMAS ----

@@ -4,7 +4,11 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/AuditHelper.php';
 requireLogin();
+
+use App\Services\AuditHelper;
 
 $user = getCurrentUser();
 if (!$user || !in_array($user['profile'], ['Administrador', 'Coordenador'])) {
@@ -15,6 +19,7 @@ if (!$user || !in_array($user['profile'], ['Administrador', 'Coordenador'])) {
 $db = getDB();
 $inst = getCurrentInstitution();
 $instId = $inst['id'] ?? 0;
+$audit = new AuditHelper();
 
 if (!$instId) {
     header('Location: /select_institution.php?redirect=' . urlencode('/subjects/categories.php'));
@@ -36,8 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $st = $db->prepare("INSERT INTO disciplina_categorias (institution_id, nome) VALUES (?, ?)");
                 $st->execute([$instId, $nome]);
+                $audit->log('CREATE', 'disciplina_categorias', (int)$db->lastInsertId(), null, ['nome' => $nome]);
                 $success = 'Categoria adicionada com sucesso!';
-            } catch (PDOException $e) {
+            } catch (\PDOException $e) {
                 $error = 'Erro ao adicionar categoria: ' . $e->getMessage();
             }
         } else {
@@ -50,10 +56,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $nome = trim($_POST['nome'] ?? '');
         if ($id && $nome) {
             try {
+                $old = $db->query("SELECT * FROM disciplina_categorias WHERE id=$id AND institution_id=$instId")->fetch(PDO::FETCH_ASSOC);
                 $st = $db->prepare("UPDATE disciplina_categorias SET nome=? WHERE id=? AND institution_id=?");
                 $st->execute([$nome, $id, $instId]);
+                $audit->log('UPDATE', 'disciplina_categorias', $id, $old, ['nome' => $nome]);
                 $success = 'Categoria atualizada!';
-            } catch (PDOException $e) {
+            } catch (\PDOException $e) {
                 $error = 'Erro ao atualizar: ' . $e->getMessage();
             }
         }
@@ -63,10 +71,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id) {
             try {
+                $old = $db->query("SELECT * FROM disciplina_categorias WHERE id=$id AND institution_id=$instId")->fetch(PDO::FETCH_ASSOC);
                 $st = $db->prepare("DELETE FROM disciplina_categorias WHERE id=? AND institution_id=?");
                 $st->execute([$id, $instId]);
+                $audit->log('DELETE', 'disciplina_categorias', $id, $old, null);
                 $success = 'Categoria removida!';
-            } catch (PDOException $e) {
+            } catch (\PDOException $e) {
                 $error = 'Erro ao remover. Verifique se existem disciplinas vinculadas.';
             }
         }

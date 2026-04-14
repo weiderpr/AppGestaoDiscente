@@ -3,13 +3,18 @@
  * Vértice Acadêmico — Gestão de Representantes da Turma
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/AuditHelper.php';
 hasDbPermission('representantes.manage');
+
+use App\Services\AuditHelper;
 
 $user    = getCurrentUser();
 
 $db     = getDB();
 $inst   = getCurrentInstitution();
 $instId = $inst['id'];
+$audit  = new AuditHelper();
 
 if (!$instId) {
     header('Location: /select_institution.php?redirect=' . urlencode($_SERVER['REQUEST_URI']));
@@ -57,8 +62,9 @@ if (isset($_POST['action']) && $_POST['action'] === 'add') {
         try {
             $db->prepare('INSERT INTO turma_representantes (turma_id, aluno_id) VALUES (?,?)')
                ->execute([$turmaId, $alunoId]);
+            $audit->log('CREATE', 'turma_representantes', $turmaId, null, ['turma_id' => $turmaId, 'aluno_id' => $alunoId]);
             $success = 'Representante vinculado com sucesso!';
-        } catch (PDOException $e) {
+        } catch (\PDOException $e) {
             if ($e->getCode() == 23000) { $error = 'Este aluno já é representante desta turma.'; }
             else { $error = 'Erro ao vincular representante.'; }
         }
@@ -70,6 +76,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'remove') {
     $alunoId = (int)($_POST['aluno_id'] ?? 0);
     $db->prepare('DELETE FROM turma_representantes WHERE turma_id=? AND aluno_id=?')
        ->execute([$turmaId, $alunoId]);
+    $audit->log('DELETE', 'turma_representantes', $turmaId, ['turma_id' => $turmaId, 'aluno_id' => $alunoId], null);
     $success = 'Vínculo de representante removido.';
 }
 

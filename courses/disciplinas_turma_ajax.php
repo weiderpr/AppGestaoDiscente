@@ -4,6 +4,10 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/AuditHelper.php';
+
+use App\Services\AuditHelper;
 
 $csrfToken = $_GET['csrf_token'] ?? '';
 requireLogin();
@@ -18,6 +22,7 @@ $disciplinaNome = htmlspecialchars($_GET['disciplina_nome']);
 $db     = getDB();
 $inst   = getCurrentInstitution();
 $instId = $inst['id'];
+$audit  = new AuditHelper();
 
 // Verificar se a relação turma-disciplina pertence à instituição
 $stCheck = $db->prepare('
@@ -50,8 +55,9 @@ if (($_POST['action'] ?? '') === 'add_professor') {
         try {
             $db->prepare('INSERT INTO turma_disciplina_professores (turma_disciplina_id, professor_id) VALUES (?, ?)')
                ->execute([$tdId, $professorId]);
+            $audit->log('CREATE', 'turma_disciplina_professores', (int)$db->lastInsertId(), null, ['turma_id' => $tdId, 'professor_id' => $professorId]);
             $success = 'Professor vinculado com sucesso!';
-        } catch (PDOException $e) {
+        } catch (\PDOException $e) {
             if (strpos($e->getMessage(), 'Duplicate') !== false) {
                 $error = 'Este professor já está atribuído a esta disciplina.';
             } else {
@@ -65,7 +71,11 @@ if (($_POST['action'] ?? '') === 'add_professor') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'remove_professor') {
     $tdpId = (int)($_POST['td_professor_id'] ?? 0);
     if ($tdpId) {
+        $old = $db->query("SELECT * FROM turma_disciplina_professores WHERE id = $tdpId")->fetch(PDO::FETCH_ASSOC);
         $db->prepare('DELETE FROM turma_disciplina_professores WHERE id = ?')->execute([$tdpId]);
+        if ($old) {
+            $audit->log('DELETE', 'turma_disciplina_professores', $tdpId, $old, null);
+        }
         $success = 'Professor desvinculado.';
     }
 }

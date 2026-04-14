@@ -63,4 +63,8 @@ The project follows a "Pragmatic Hybrid" architecture, combining modern MVC patt
 - **DRY (Don't Repeat Yourself)**: Move common logic to `includes/functions.php` or specialized Services.
 - **AJAX handling**: Use `success()` and `error()` methods from the base `Controller` class (or equivalent JSON/header helpers) for consistent API responses.
 
+## 6. Guardrails de Auditoria e Persistência
+- **Escrita Centralizada:** É terminantemente proibido realizar operações de INSERT, UPDATE ou DELETE diretamente em arquivos da raiz ou controllers. Toda persistência deve ocorrer via Camada de Service.
+- **Auditoria Obrigatória:** Todos os novos Services devem estender `App\Services\Service` ou utilizar o Trait `App\Services\Traits\Auditable`.
+- **Prevenção de Vazamento:** O sistema de log nunca deve registrar campos sensíveis como 'password', 'token' ou 'secret'.
 Sempre que sugerir mover um arquivo para a nova estrutura definida em directory_structure.md, você deve automaticamente identificar e atualizar todos os include, require e caminhos de arquivos (href/src) que apontavam para o local antigo.

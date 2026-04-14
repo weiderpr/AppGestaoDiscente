@@ -59,20 +59,38 @@ $success = '';
 $error = '';
 $action = $_POST['action'] ?? '';
 
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/ConselhoService.php';
+$conselhoService = new \App\Services\ConselhoService();
+
 if ($action === 'finalizar_conselho') {
     if (!$canFull) die('Acesso negado.');
-    $db->prepare('UPDATE conselhos_classe SET is_active = 0 WHERE id = ?')->execute([$conselhoId]);
+    $conselhoService->toggleStatus($conselhoId);
     header("Location: conselho_acao.php?id=$conselhoId&tab=avaliacao&success=" . urlencode('Conselho de Classe finalizado com sucesso!'));
     exit;
 }
 
 if ($action === 'salvar_presenca') {
     if (!$canFull) die('Acesso negado.');
-    $presentes = $_POST['presentes'] ?? [];
-    $db->prepare('DELETE FROM conselhos_presentes WHERE conselho_id = ?')->execute([$conselhoId]);
-    foreach ($presentes as $userId) {
-        $db->prepare('INSERT INTO conselhos_presentes (conselho_id, user_id) VALUES (?, ?)')->execute([$conselhoId, (int)$userId]);
+    $presentesNovos = array_map('intval', $_POST['presentes'] ?? []);
+    
+    // Buscar presentes atuais para comparar e audit cada remoção/adição
+    $st = $db->prepare('SELECT user_id FROM conselhos_presentes WHERE conselho_id = ?');
+    $st->execute([$conselhoId]);
+    $presentesAtuais = array_column($st->fetchAll(), 'user_id');
+
+    // Remover quem não está na nova lista
+    foreach ($presentesAtuais as $oldId) {
+        if (!in_array($oldId, $presentesNovos)) {
+            $conselhoService->removeParticipante($conselhoId, $oldId);
+        }
     }
+
+    // Adicionar novos
+    foreach ($presentesNovos as $newId) {
+        $conselhoService->setParticipante($conselhoId, $newId);
+    }
+
     header("Location: conselho_acao.php?id=$conselhoId&tab=presenca&success=" . urlencode('Lista de presença salva com sucesso!'));
     exit;
 }

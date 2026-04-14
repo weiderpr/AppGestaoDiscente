@@ -3,6 +3,10 @@
  * Vértice Acadêmico — Alunos de uma Turma
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/AlunoService.php';
+require_once __DIR__ . '/../src/App/Services/TurmaService.php';
+
 requireLogin();
 
 $user    = getCurrentUser();
@@ -19,6 +23,9 @@ $canComment  = hasDbPermission('students.comments', false) || $isProfessor || $i
 $db     = getDB();
 $inst   = getCurrentInstitution();
 $instId = $inst['id'];
+
+$alunoService = new \App\Services\AlunoService();
+$turmaService = new \App\Services\TurmaService();
 
 if (!$instId) {
     header('Location: /select_institution.php?redirect=' . urlencode($_SERVER['REQUEST_URI']));
@@ -159,24 +166,20 @@ if ($action === 'create') {
         try {
             $db->beginTransaction();
 
-            // 1. Verifica se aluno já existe (pela matrícula)
-            $stExist = $db->prepare('SELECT id, photo FROM alunos WHERE matricula = ? LIMIT 1');
-            $stExist->execute([$matricula]);
-            $aluno = $stExist->fetch();
+            $aluno = $alunoService->findByMatricula($matricula);
 
             if ($aluno) {
                 $alunoId = $aluno['id'];
-                $photoPath = $aluno['photo'];
-                // Atualiza dados se necessário (opcional, vamos atualizar nome/tel/email)
-                $db->prepare('UPDATE alunos SET nome=?, telefone=?, email=? WHERE id=?')
-                   ->execute([$nome, $telefone, $email, $alunoId]);
+                $alunoService->update($alunoId, [
+                    'nome' => $nome,
+                    'telefone' => $telefone,
+                    'email' => $email
+                ]);
             } else {
-                // Novo aluno
                 $photoPath = null;
                 if (!empty($_FILES['photo']['tmp_name'])) {
                     $ext     = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
-                    $allowed = ['jpg','jpeg','png','webp'];
-                    if (in_array($ext, $allowed)) {
+                    if (in_array($ext, ['jpg','jpeg','png','webp'])) {
                         $destDir  = __DIR__ . '/../assets/uploads/alunos/';
                         $fileName = uniqid('student_', true) . '.' . $ext;
                         if (move_uploaded_file($_FILES['photo']['tmp_name'], $destDir . $fileName)) {
@@ -184,14 +187,17 @@ if ($action === 'create') {
                         }
                     }
                 }
-                $stIns = $db->prepare('INSERT INTO alunos (matricula, nome, telefone, email, photo) VALUES (?,?,?,?,?)');
-                $stIns->execute([$matricula, $nome, $telefone, $email, $photoPath]);
-                $alunoId = $db->lastInsertId();
+                $resultCreate = $alunoService->create([
+                    'matricula' => $matricula,
+                    'nome'      => $nome,
+                    'telefone'  => $telefone,
+                    'email'     => $email,
+                    'photo'     => $photoPath
+                ]);
+                $alunoId = $resultCreate['id'];
             }
 
-            // 2. Vincula à turma (se não estiver vinculado)
-            $db->prepare('INSERT IGNORE INTO turma_alunos (turma_id, aluno_id) VALUES (?,?)')
-               ->execute([$turmaId, $alunoId]);
+            $turmaService->addAluno($turmaId, $alunoId);
 
             $db->commit();
             $success = "Aluno «{$nome}» vinculado com sucesso!";
@@ -213,13 +219,10 @@ if ($action === 'update' && !empty($_POST['aluno_id'])) {
     if (empty($matricula) || empty($nome)) {
         $error = 'Matrícula e Nome são obrigatórios.';
     } else {
-        // Verifica matrícula única (exceto este aluno)
-        $stM = $db->prepare('SELECT id FROM alunos WHERE matricula=? AND id!=? LIMIT 1');
-        $stM->execute([$matricula, $aid]);
-        if ($stM->fetch()) {
+        $existing = $alunoService->findByMatricula($matricula);
+        if ($existing && $existing['id'] != $aid) {
             $error = 'Já existe outro aluno com esta matrícula.';
         } else {
-            // Upload de nova foto
             $photoPath = $_POST['current_photo'] ?? null;
             if (!empty($_FILES['photo']['tmp_name'])) {
                 $ext     = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
@@ -231,20 +234,25 @@ if ($action === 'update' && !empty($_POST['aluno_id'])) {
                 }
             }
             
-            $db->prepare('UPDATE alunos SET matricula=?, nome=?, telefone=?, email=?, photo=? WHERE id=?')
-               ->execute([$matricula, $nome, $telefone, $email, $photoPath, $aid]);
+            $alunoService->update($aid, [
+                'matricula' => $matricula,
+                'nome' => $nome,
+                'telefone' => $telefone,
+                'email' => $email,
+                'photo' => $photoPath
+            ]);
             $success = 'Dados do aluno atualizados com sucesso!';
         }
     }
 }
 if ($action === 'remove' && !empty($_POST['aluno_id'])) {
     $aid = (int)$_POST['aluno_id'];
-    $db->prepare('DELETE FROM turma_alunos WHERE turma_id=? AND aluno_id=?')
-       ->execute([$turmaId, $aid]);
-    // Também remove se for representante desta turma específica
-    $db->prepare('DELETE FROM turma_representantes WHERE turma_id=? AND aluno_id=?')
-       ->execute([$turmaId, $aid]);
-    $success = 'Aluno removido desta turma.';
+    if ($turmaService->removeAluno($turmaId, $aid)) {
+        // Também remove se for representante desta turma específica
+        $db->prepare('DELETE FROM turma_representantes WHERE turma_id=? AND aluno_id=?')
+           ->execute([$turmaId, $aid]);
+        $success = 'Aluno removido desta turma.';
+    }
 }
 
 // ---- IMPORTAR DE OUTRA TURMA ----
@@ -257,9 +265,8 @@ if ($action === 'import' && !empty($_POST['source_turma_id'])) {
     } elseif (empty($studentIds)) {
         $error = 'Selecione ao menos um aluno para importar.';
     } else {
-        $stImp = $db->prepare('INSERT IGNORE INTO turma_alunos (turma_id, aluno_id) VALUES (?,?)');
         foreach ($studentIds as $sid) {
-            $stImp->execute([$turmaId, (int)$sid]);
+            $turmaService->addAluno($turmaId, (int)$sid);
         }
         $success = count($studentIds) . ' aluno(s) importado(s) com sucesso!';
     }

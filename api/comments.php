@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/AlunoService.php';
+
 requireLogin();
 
 $user = getCurrentUser();
@@ -12,6 +15,7 @@ if (!$user || !hasDbPermission('students.comments', false)) {
 }
 
 $db = getDB();
+$alunoService = new \App\Services\AlunoService();
 $professorId = $user['id'];
 
 // GET: Buscar comentários
@@ -42,8 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 echo json_encode(['error' => 'Acesso negado: Você não leciona nesta turma']);
                 exit;
             }
-        } elseif ($isPedagogo) {
-            // Pedagogo e similares têm acesso a todas as turmas da instituição
         } elseif ($isCoord) {
             $stCheckCoord = $db->prepare('
                 SELECT 1 FROM course_coordinators cc
@@ -120,7 +122,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Controle de Acesso por Perfil
         $isProfessor = ($user['profile'] === 'Professor');
         $isCoord = ($user['profile'] === 'Coordenador');
-        $isAdmin = ($user['profile'] === 'Administrador');
 
         if ($isProfessor) {
             $stCheck = $db->prepare('
@@ -148,12 +149,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         try {
-            // Insere novo comentário (sempre adiciona ao histórico)
-            $stIns = $db->prepare('INSERT INTO comentarios_professores (professor_id, aluno_id, turma_id, conteudo) VALUES (?, ?, ?, ?)');
-            $stIns->execute([$professorId, $alunoId, $turmaId, $conteudo]);
-            $commentId = $db->lastInsertId();
-            
-            echo json_encode(['success' => true, 'id' => $commentId]);
+            $commentIdResult = $alunoService->addComentario(
+                $alunoId,
+                $turmaId,
+                $professorId,
+                $conteudo
+            );
+            echo json_encode(['success' => true, 'id' => $commentIdResult['id'] ?? null]);
         } catch (Exception $e) {
             echo json_encode(['error' => 'Erro ao salvar: ' . $e->getMessage()]);
         }
@@ -169,19 +171,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         
-        // Verifica permissão para excluir
-        if ($user['profile'] === 'Administrador') {
-            // Admins podem excluir qualquer comentário
-            $stDel = $db->prepare('DELETE FROM comentarios_professores WHERE id = ?');
-            $stDel->execute([$commentId]);
-        } else {
-            // Outros perfis só excluem os próprios comentários
-            $stDel = $db->prepare('DELETE FROM comentarios_professores WHERE id = ? AND professor_id = ?');
-            $stDel->execute([$commentId, $professorId]);
+        try {
+            $success = $alunoService->deleteComentario($commentId, $professorId, $user['profile'] === 'Administrador');
+            echo json_encode(['success' => $success]);
+        } catch (Exception $e) {
+            echo json_encode(['error' => 'Erro ao excluir: ' . $e->getMessage()]);
         }
-        
-        header('Content-Type: application/json');
-        echo json_encode(['success' => $stDel->rowCount() > 0]);
         exit;
     }
 }

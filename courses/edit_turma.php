@@ -4,6 +4,9 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/TurmaService.php';
+
 requireLogin();
 
 $user    = getCurrentUser();
@@ -12,6 +15,8 @@ hasDbPermission('courses.update');
 $db     = getDB();
 $inst   = getCurrentInstitution();
 $instId = $inst['id'];
+
+$turmaService = new \App\Services\TurmaService();
 
 if (!$instId) {
     header('Location: /select_institution.php?redirect=' . urlencode('/courses/index.php'));
@@ -29,10 +34,8 @@ $course = $stc->fetch();
 if (!$course) { header('Location: /courses/index.php'); exit; }
 
 // Busca a turma garantindo que pertence ao curso
-$stmt = $db->prepare('SELECT * FROM turmas WHERE id=? AND course_id=? LIMIT 1');
-$stmt->execute([$id, $courseId]);
-$turma = $stmt->fetch();
-if (!$turma) { header('Location: /courses/turmas.php?course_id=' . $courseId); exit; }
+$turma = $turmaService->findById($id);
+if (!$turma || $turma['course_id'] != $courseId) { header('Location: /courses/turmas.php?course_id=' . $courseId); exit; }
 
 $success = '';
 $error   = '';
@@ -58,15 +61,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($st->fetch()) {
             $error = 'Já existe outra turma com esta descrição neste curso.';
         } else {
-            $db->prepare('UPDATE turmas SET description=?, ano=?, nota_maxima=?, media_aprovacao=? WHERE id=? AND course_id=?')
-               ->execute([$description, $ano, $nota_maxima, $media_aprovacao, $id, $courseId]);
+            $turmaService->update($id, [
+                'description' => $description,
+                'ano' => $ano,
+                'nota_maxima' => $nota_maxima,
+                'media_aprovacao' => $media_aprovacao
+            ]);
             $success = 'Turma atualizada com sucesso!';
-            $stmt = $db->prepare('SELECT * FROM turmas WHERE id=? LIMIT 1');
-            $stmt->execute([$id]);
-            $turma = $stmt->fetch();
+            $turma = $turmaService->findById($id);
         }
     }
-    }
+}
 }
 
 $pageTitle = 'Editar Turma';

@@ -39,6 +39,13 @@ $navItems = [
         'desc'     => 'Gerenciamento de acesso por perfil',
         'url'      => '/settings.php?section=permissoes',
     ],
+    [
+        'section'  => 'audit_logs',
+        'icon'     => '🔍',
+        'label'    => 'Auditoria',
+        'desc'     => 'Logs de alterações globais do sistema',
+        'url'      => '/settings.php?section=audit_logs',
+    ],
 ];
 
 // Filtrar itens por perfil (dinâmico via RBAC)

@@ -24,7 +24,8 @@ $categoryMap = [
     'survey'         => 'Pedagógico',
     'social'         => 'Acadêmico',
     'naapi'          => 'Pedagógico',
-    'dashboard'      => 'Sistema'
+    'dashboard'      => 'Sistema',
+    'audit'          => 'Sistema'
 ];
 
 $categoryIcons = [
@@ -98,7 +99,8 @@ function getFriendlyName($res) {
         'comments' => 'Comentários',
         'view_finished' => 'Ver Finalizados',
         'feed_view' => 'Visualizar Feed',
-        'online_users' => 'Usuários Online'
+        'online_users' => 'Usuários Online',
+        'view_logs' => 'Ver Logs'
     ];
     
     $base = $names[$obj] ?? ucfirst($obj);

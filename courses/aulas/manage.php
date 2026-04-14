@@ -5,12 +5,17 @@
  */
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/csrf.php';
+require_once __DIR__ . '/../../src/App/Services/Service.php';
+require_once __DIR__ . '/../../src/App/Services/AuditHelper.php';
+
+use App\Services\AuditHelper;
 
 requireLogin();
 
 $db     = getDB();
 $inst   = getCurrentInstitution();
 $instId = $inst['id'];
+$audit  = new AuditHelper();
 
 $turmaId          = (int)($_REQUEST['turma_id'] ?? 0);
 $disciplinaCodigo = $_REQUEST['disciplina_codigo'] ?? '';
@@ -61,8 +66,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ');
                     $st->execute([$turmaId, $disciplinaCodigo, $dia, $inicio, $fim, $local, $ocupacao, $user['id']]);
+                    $audit->log('CREATE', 'gestao_turma_aulas', (int)$db->lastInsertId(), null, [
+                        'turma_id' => $turmaId,
+                        'disciplina_codigo' => $disciplinaCodigo,
+                        'dia_semana' => $dia,
+                        'horario_inicio' => $inicio,
+                        'horario_fim' => $fim,
+                        'local' => $local,
+                        'ocupacao' => $ocupacao
+                    ]);
                     $success = 'Aula cadastrada com sucesso!';
-                } catch (PDOException $e) {
+                } catch (\PDOException $e) {
                     $error = 'Erro ao salvar: ' . $e->getMessage();
                 }
             }
@@ -71,7 +85,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'delete_aula') {
             $aulaId = (int)($_POST['aula_id'] ?? 0);
             if ($aulaId) {
+                $old = $db->query("SELECT * FROM gestao_turma_aulas WHERE id = $aulaId AND turma_id = $turmaId")->fetch(PDO::FETCH_ASSOC);
                 $db->prepare('DELETE FROM gestao_turma_aulas WHERE id = ? AND turma_id = ?')->execute([$aulaId, $turmaId]);
+                if ($old) {
+                    $audit->log('DELETE', 'gestao_turma_aulas', $aulaId, $old, null);
+                }
                 $success = 'Aula removida.';
             }
         }

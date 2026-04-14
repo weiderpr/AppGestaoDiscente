@@ -45,10 +45,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (!$error) {
-            $stmt = $db->prepare(
-                'UPDATE users SET name=?, phone=?, photo=?, theme=? WHERE id=?'
-            );
-            $stmt->execute([$name, $phone, $photoPath, $theme, $user['id']]);
+            require_once __DIR__ . '/src/App/Services/Service.php';
+            require_once __DIR__ . '/src/App/Services/UserService.php';
+            $userService = new \App\Services\UserService();
+
+            $userService->updateProfile($user['id'], [
+                'name' => $name,
+                'phone' => $phone,
+                'photo' => $photoPath,
+                'theme' => $theme
+            ]);
 
             // Atualiza sessão
             $_SESSION['user_name']  = $name;
@@ -78,9 +84,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['new_password'])) {
     } elseif ($new !== $confirm) {
         $error = 'As novas senhas não coincidem.';
     } else {
-        $hash = password_hash($new, PASSWORD_BCRYPT);
-        $stmt = $db->prepare('UPDATE users SET password=? WHERE id=?');
-        $stmt->execute([$hash, $user['id']]);
+        require_once __DIR__ . '/src/App/Services/Service.php';
+        require_once __DIR__ . '/src/App/Services/UserService.php';
+        $userService = new \App\Services\UserService();
+        
+        $userService->changePassword($user['id'], $new);
         $success = 'Senha alterada com sucesso!';
     }
 }

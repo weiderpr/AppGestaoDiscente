@@ -4,6 +4,9 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/CourseService.php';
+
 requireLogin();
 
 $user = getCurrentUser();
@@ -12,6 +15,8 @@ hasDbPermission('courses.index'); // Verifica se o usuário tem permissão para 
 $db      = getDB();
 $inst    = getCurrentInstitution();
 $instId  = $inst['id'];
+
+$courseService = new \App\Services\CourseService();
 
 // Se não há instituição selecionada, solicita seleção
 if (!$instId) {
@@ -43,16 +48,22 @@ if ($action === 'create' && hasDbPermission('courses.create', false)) {
         if ($st->fetch()) {
             $error = 'Já existe um curso com este nome nesta instituição.';
         } else {
-            $db->prepare('INSERT INTO courses (institution_id, name, location) VALUES (?,?,?)')
-               ->execute([$instId, $name, $location ?: null]);
+            $result = $courseService->create($instId, [
+                'name' => $name,
+                'location' => $location ?: null
+            ]);
             
-            $newId = $db->lastInsertId();
-            if ($user['profile'] === 'Coordenador') {
-                $db->prepare('INSERT INTO course_coordinators (course_id, user_id) VALUES (?,?)')
-                   ->execute([$newId, $user['id']]);
+            if (isset($result['success'])) {
+                $newId = $result['id'];
+                if ($user['profile'] === 'Coordenador') {
+                    // Adiciona o criador como coordenador
+                    $db->prepare('INSERT INTO course_coordinators (course_id, user_id) VALUES (?,?)')
+                       ->execute([$newId, $user['id']]);
+                }
+                $success = "Curso «{$name}» cadastrado com sucesso!";
+            } else {
+                $error = $result['error'] ?? 'Erro ao criar curso.';
             }
-
-            $success = "Curso «{$name}» cadastrado com sucesso!";
         }
     }
 }
@@ -60,17 +71,24 @@ if ($action === 'create' && hasDbPermission('courses.create', false)) {
 // ---- TOGGLE ----
 if ($action === 'toggle' && !empty($_POST['course_id']) && hasDbPermission('courses.update', false)) {
     $cid = (int)$_POST['course_id'];
-    $db->prepare('UPDATE courses SET is_active = !is_active WHERE id=? AND institution_id=?')
-       ->execute([$cid, $instId]);
-    $success = 'Status do curso atualizado.';
+    $current = $db->prepare('SELECT is_active FROM courses WHERE id=? AND institution_id=?');
+    $current->execute([$cid, $instId]);
+    $course = $current->fetch();
+    
+    if ($course) {
+        $courseService->update($cid, ['is_active' => !$course['is_active']]);
+        $success = 'Status do curso atualizado.';
+    }
 }
 
 // ---- EXCLUIR ----
 if ($action === 'delete' && !empty($_POST['course_id']) && hasDbPermission('courses.delete', false)) {
     $cid = (int)$_POST['course_id'];
-    $db->prepare('DELETE FROM courses WHERE id=? AND institution_id=?')
-       ->execute([$cid, $instId]);
-    $success = 'Curso removido.';
+    if ($courseService->delete($cid)) {
+        $success = 'Curso removido.';
+    } else {
+        $error = 'Erro ao remover curso ou curso não encontrado.';
+    }
 }
 
 

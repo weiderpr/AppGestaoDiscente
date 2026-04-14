@@ -3,13 +3,18 @@
  * Vértice Acadêmico — Gestão de Coordenadores do Curso
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/AuditHelper.php';
 hasDbPermission('coordinators.manage');
+
+use App\Services\AuditHelper;
 
 $user    = getCurrentUser();
 
 $db     = getDB();
 $inst   = getCurrentInstitution();
 $instId = $inst['id'];
+$audit  = new AuditHelper();
 
 if (!$instId) {
     header('Location: /select_institution.php?redirect=' . urlencode('/courses/index.php'));
@@ -49,8 +54,9 @@ if (isset($_POST['action']) && $_POST['action'] === 'add') {
             try {
                 $db->prepare('INSERT INTO course_coordinators (course_id, user_id) VALUES (?,?)')
                    ->execute([$courseId, $uid]);
+                $audit->log('CREATE', 'course_coordinators', $courseId, null, ['course_id' => $courseId, 'user_id' => $uid]);
                 $success = 'Coordenador vinculado com sucesso!';
-            } catch (PDOException $e) {
+            } catch (\PDOException $e) {
                 if ($e->getCode() == 23000) { $error = 'Este usuário já coordena este curso.'; }
                 else { $error = 'Erro ao vincular coordenador.'; }
             }
@@ -63,6 +69,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'remove') {
     $uid = (int)($_POST['user_id'] ?? 0);
     $db->prepare('DELETE FROM course_coordinators WHERE course_id=? AND user_id=?')
        ->execute([$courseId, $uid]);
+    $audit->log('DELETE', 'course_coordinators', $courseId, ['course_id' => $courseId, 'user_id' => $uid], null);
     $success = 'Vínculo de coordenação removido.';
 }
 

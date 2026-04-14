@@ -4,13 +4,18 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/DisciplinaService.php';
 hasDbPermission('subjects.index');
+
+use App\Services\DisciplinaService;
 
 $user = getCurrentUser();
 
 $db = getDB();
 $inst = getCurrentInstitution();
 $instId = $inst['id'] ?? 0;
+$disciplinaService = new DisciplinaService();
 
 if (!$instId) {
     header('Location: /select_institution.php?redirect=' . urlencode('/subjects/index.php'));
@@ -35,21 +40,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($codigo && $descricao && $categoriaId) {
             try {
+                $data = ['codigo' => $codigo, 'descricao' => $descricao, 'categoria_id' => $categoriaId, 'observacoes' => $obs];
                 if ($action === 'add') {
-                    $st = $db->prepare("INSERT INTO disciplinas (codigo, institution_id, categoria_id, descricao, observacoes) VALUES (?, ?, ?, ?, ?)");
-                    $st->execute([$codigo, $instId, $categoriaId, $descricao, $obs]);
+                    $disciplinaService->create($data, $instId);
                     $success = 'Disciplina cadastrada com sucesso!';
                 } else {
-                    $st = $db->prepare("UPDATE disciplinas SET codigo=?, categoria_id=?, descricao=?, observacoes=? WHERE codigo=? AND institution_id=?");
-                    $st->execute([$codigo, $categoriaId, $descricao, $obs, $old_codigo, $instId]);
+                    $disciplinaService->update($old_codigo, $data, $instId);
                     $success = 'Disciplina atualizada!';
                 }
-            } catch (PDOException $e) {
+            } catch (\PDOException $e) {
                 if ($e->getCode() == 23000) {
                     $error = 'Já existe uma disciplina com este código.';
                 } else {
                     $error = 'Erro no banco de dados: ' . $e->getMessage();
                 }
+            } catch (\Exception $e) {
+                $error = 'Erro ao salvar: ' . $e->getMessage();
             }
         } else {
             $error = 'Código, Descrição e Categoria são obrigatórios.';
@@ -60,82 +66,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $codigo = trim($_POST['codigo'] ?? '');
         if ($codigo) {
             try {
-                $st = $db->prepare("DELETE FROM disciplinas WHERE codigo=? AND institution_id=?");
-                $st->execute([$codigo, $instId]);
+                $disciplinaService->delete($codigo, $instId);
                 $success = 'Disciplina removida!';
-            } catch (PDOException $e) {
+            } catch (\Exception $e) {
                 $error = 'Erro ao remover: ' . $e->getMessage();
             }
         }
     }
 
     if ($action === 'import_file' && !empty($_FILES['import_file']['tmp_name'])) {
-        $file = $_FILES['import_file']['tmp_name'];
-        $handle = fopen($file, "r");
-        $imported = 0;
-        
-        $firstLine = fgets($handle);
-        rewind($handle);
-        $delimiter = (str_contains($firstLine, ';')) ? ';' : ',';
-
         try {
-            $db->beginTransaction();
-            while (($data = fgetcsv($handle, 1000, $delimiter)) !== FALSE) {
-                if (str_contains(strtolower($data[0] ?? ''), 'codi')) continue;
-
-                $codigo    = trim($data[0] ?? '');
-                $descricao = trim($data[1] ?? '');
-                $catId     = (int)($data[2] ?? 0);
-
-                if (!$codigo || !$descricao || !$catId) continue;
-
-                $stCat = $db->prepare("SELECT 1 FROM disciplina_categorias WHERE id = ? AND institution_id = ?");
-                $stCat->execute([$catId, $instId]);
-                if (!$stCat->fetch()) continue;
-
-                $stCheck = $db->prepare("SELECT 1 FROM disciplinas WHERE codigo = ? AND institution_id = ?");
-                $stCheck->execute([$codigo, $instId]);
-                if ($stCheck->fetch()) {
-                    $db->prepare("UPDATE disciplinas SET descricao = ?, categoria_id = ? WHERE codigo = ? AND institution_id = ?")
-                       ->execute([$descricao, $catId, $codigo, $instId]);
-                } else {
-                    $db->prepare("INSERT INTO disciplinas (codigo, descricao, categoria_id, institution_id) VALUES (?, ?, ?, ?)")
-                       ->execute([$codigo, $descricao, $catId, $instId]);
-                }
-                $imported++;
-            }
-            $db->commit();
+            $imported = $disciplinaService->importFromCsv($_FILES['import_file']['tmp_name'], $instId);
             $success = "Importação concluída: {$imported} disciplinas processadas.";
-        } catch (Exception $e) {
-            $db->rollBack();
+        } catch (\Exception $e) {
             $error = "Erro na importação: " . $e->getMessage();
         }
-        fclose($handle);
     }
 }
 
 // --- LISTAGEM ---
 $search = trim($_GET['search'] ?? '');
-$sql = "
-    SELECT d.*, c.nome as categoria_nome 
-    FROM disciplinas d
-    JOIN disciplina_categorias c ON c.id = d.categoria_id
-    WHERE d.institution_id = ?
-";
-$params = [$instId];
-
-if ($search) {
-    $sql .= ' AND (d.descricao LIKE ? OR c.nome LIKE ? OR d.codigo LIKE ?)';
-    $params[] = "%{$search}%";
-    $params[] = "%{$search}%";
-    $params[] = "%{$search}%";
-}
-
-$sql .= " ORDER BY d.descricao ASC";
-
-$st = $db->prepare($sql);
-$st->execute($params);
-$subjects = $st->fetchAll();
+$subjects = $disciplinaService->list($instId, $search);
 
 // Buscar categorias para o select
 $stCat = $db->prepare("SELECT * FROM disciplina_categorias WHERE institution_id = ? ORDER BY nome ASC");

@@ -4,6 +4,8 @@
  */
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
+require_once __DIR__ . '/src/App/Services/Service.php';
+require_once __DIR__ . '/src/App/Services/Traits/Auditable.php';
 hasDbPermission('settings.index');
 
 $user = getCurrentUser();
@@ -11,7 +13,7 @@ $user = getCurrentUser();
 $requestedSection = $_GET['section'] ?? 'avaliacoes';
 if (!hasDbPermission('settings.' . $requestedSection, false)) {
     // Tenta encontrar a primeira área disponível para este usuário
-    $availableSections = ['avaliacoes', 'backup', 'permissoes'];
+    $availableSections = ['avaliacoes', 'backup', 'permissoes', 'audit_logs'];
     foreach ($availableSections as $sec) {
         if (hasDbPermission('settings.' . $sec, false)) {
             header('Location: /settings.php?section=' . $sec);
@@ -24,6 +26,8 @@ if (!hasDbPermission('settings.' . $requestedSection, false)) {
 }
 
 $db = getDB();
+// Audit helper inline (settings não tem Service próprio)
+class _SettingsAudit extends \App\Services\Service { public function log(string $a, string $t, int $id, $old, $new): void { $this->audit($a,$t,$id,$old,$new); } }
 
 // Mensagens de feedback
 $success = $_GET['success'] ?? '';
@@ -211,14 +215,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
         $desc   = trim($_POST['descricao'] ?? '');
 
         try {
+            $auditHelper = new _SettingsAudit();
             if ($action === 'add_tipo' && $nome) {
                 $db->prepare("INSERT INTO tipos_avaliacao (nome, descricao) VALUES (?, ?)")->execute([$nome, $desc]);
+                $auditHelper->log('CREATE', 'tipos_avaliacao', (int)$db->lastInsertId(), null, ['nome' => $nome, 'descricao' => $desc]);
                 $success = 'Tipo de avaliação cadastrado!';
             } elseif ($action === 'edit_tipo' && $id && $nome) {
+                $old = $db->prepare("SELECT * FROM tipos_avaliacao WHERE id=?")->execute([$id]) ? $db->query("SELECT * FROM tipos_avaliacao WHERE id=$id")->fetch(PDO::FETCH_ASSOC) : null;
                 $db->prepare("UPDATE tipos_avaliacao SET nome=?, descricao=? WHERE id=?")->execute([$nome, $desc, $id]);
+                $auditHelper->log('UPDATE', 'tipos_avaliacao', $id, $old, ['nome' => $nome, 'descricao' => $desc]);
                 $success = 'Tipo de avaliação atualizado!';
             } elseif ($action === 'delete_tipo' && $id) {
+                $old = $db->prepare("SELECT * FROM tipos_avaliacao WHERE id=?")->execute([$id]) ? $db->query("SELECT * FROM tipos_avaliacao WHERE id=$id")->fetch(PDO::FETCH_ASSOC) : null;
                 $db->prepare("UPDATE tipos_avaliacao SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$id]);
+                $auditHelper->log('DELETE', 'tipos_avaliacao', $id, $old, null);
                 $success = 'Tipo de avaliação removido!';
             }
         } catch (PDOException $e) {
@@ -235,7 +245,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
         $id = (int)($_POST['id'] ?? 0);
         if ($id) {
             try {
+                $auditHelper = $auditHelper ?? new _SettingsAudit();
+                $old = $db->query("SELECT * FROM avaliacoes WHERE id=$id")->fetch(PDO::FETCH_ASSOC);
                 $db->prepare("UPDATE avaliacoes SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")->execute([$id]);
+                $auditHelper->log('DELETE', 'avaliacoes', $id, $old, null);
                 $success = 'Avaliação removida com sucesso!';
             } catch (PDOException $e) {
                 $error = 'Erro ao remover: ' . $e->getMessage();
@@ -252,7 +265,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
         $id = (int)($_POST['id'] ?? 0);
         if ($id) {
             try {
+                $auditHelper = $auditHelper ?? new _SettingsAudit();
+                $old = $db->query("SELECT * FROM respostas_avaliacao WHERE id=$id")->fetch(PDO::FETCH_ASSOC);
                 $db->prepare("DELETE FROM respostas_avaliacao WHERE id = ?")->execute([$id]);
+                $auditHelper->log('DELETE', 'respostas_avaliacao', $id, $old, null);
                 $success = 'Resposta removida com sucesso!';
             } catch (PDOException $e) {
                 $error = 'Erro ao remover: ' . $e->getMessage();
@@ -283,6 +299,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
                 }
             }
             $db->commit();
+            // Auditoria de permissões
+            $auditHelper2 = new _SettingsAudit();
+            $auditHelper2->log('UPDATE', 'profile_permissions', (int)$currentInstitutionId, null, ['profiles_updated' => $profiles, 'resources' => $resources]);
             $success = 'Permissões atualizadas com sucesso!';
         } catch (Exception $e) {
             if ($db->inTransaction()) $db->rollBack();
@@ -298,7 +317,8 @@ $activeSub = $_GET['sub'] ?? 'backup';
 $allowedSubs = [
     'backup'     => ['backup', 'restore', 'logs'],
     'avaliacoes' => ['dashboard', 'tipos', 'lista', 'create', 'respostas'],
-    'permissoes' => ['manage']
+    'permissoes' => ['manage'],
+    'audit_logs' => ['index']
 ];
 if (!in_array($activeSub, $allowedSubs[$activeSection] ?? [])) {
     $activeSub = $allowedSubs[$activeSection][0];
@@ -625,8 +645,11 @@ document.addEventListener('DOMContentLoaded', function() {
             break;
     }
     ?>
-</div><!-- /settings-section avaliacoes -->
-
+</div>
+<!-- ===== SEÇÃO: AUDITORIA ===== -->
+<div class="settings-section <?= $activeSection === 'audit_logs' ? 'active' : '' ?>">
+    <?php include __DIR__ . '/includes/settings/audit_logs.php'; ?>
+</div>
 <!-- ===== SEÇÃO: PERMISSÕES ===== -->
 <div class="settings-section <?= $activeSection === 'permissoes' ? 'active' : '' ?>">
     <?php include __DIR__ . '/includes/settings/permissoes.php'; ?>

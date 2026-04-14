@@ -8,6 +8,12 @@ requireLogin();
 
 $db = getDB();
 
+// Auditoria
+require_once __DIR__ . '/src/App/Services/Service.php';
+require_once __DIR__ . '/src/App/Services/UserService.php';
+$userService = new \App\Services\UserService();
+
+
 // Busca as instituições vinculadas ao usuário logado
 $stmt = $db->prepare(
     'SELECT i.id, i.name, i.photo, i.cnpj, i.responsible, i.address
@@ -24,6 +30,7 @@ if (empty($institutions)) {
     $_SESSION['institution_id']           = null;
     $_SESSION['current_institution_id']   = null;
     $_SESSION['current_institution_name'] = null;
+    $userService->logLogin((int)$_SESSION['user_id']);
     header('Location: ' . getHomepage());
     exit;
 }
@@ -34,6 +41,7 @@ if (count($institutions) === 1) {
     $_SESSION['current_institution_id']   = $institutions[0]['id'];
     $_SESSION['current_institution_name'] = $institutions[0]['name'];
     $_SESSION['current_institution_photo']= $institutions[0]['photo'];
+    $userService->logLogin((int)$_SESSION['user_id']);
     header('Location: ' . getHomepage());
     exit;
 }
@@ -47,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['institution_id'])) {
             $_SESSION['current_institution_id']    = $inst['id'];
             $_SESSION['current_institution_name']  = $inst['name'];
             $_SESSION['current_institution_photo'] = $inst['photo'];
+            $userService->logLogin((int)$_SESSION['user_id']);
             $dest = $_POST['redirect'] ?? getHomepage();
             // Sanitiza destino
             if (!preg_match('/^\/[a-zA-Z0-9\/\-_.?=&]*$/', $dest)) $dest = getHomepage();

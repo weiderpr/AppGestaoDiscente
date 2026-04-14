@@ -5,9 +5,6 @@
 
 namespace App\Services;
 
-use PDO;
-use Exception;
-
 class AtendimentoService extends Service {
     
     /**
@@ -44,6 +41,8 @@ class AtendimentoService extends Service {
                ->execute([$data['encaminhamento_id']]);
         }
         
+        $this->audit('CREATE', 'gestao_atendimentos', $atendimentoId, null, $data);
+        
         return $atendimentoId;
     }
 
@@ -52,7 +51,23 @@ class AtendimentoService extends Service {
      */
     public function addResponsible(int $atendimentoId, int $usuarioId): bool {
         $st = $this->db->prepare("INSERT IGNORE INTO gestao_atendimento_usuarios (atendimento_id, usuario_id) VALUES (?, ?)");
-        return $st->execute([$atendimentoId, $usuarioId]);
+        $added = $st->execute([$atendimentoId, $usuarioId]);
+        if ($added) {
+            $this->audit('CREATE', 'gestao_atendimento_usuarios', $atendimentoId, null, ['usuario_id' => $usuarioId]);
+        }
+        return $added;
+    }
+
+    /**
+     * Remove um responsável do atendimento
+     */
+    public function removeResponsible(int $atendimentoId, int $usuarioId): bool {
+        $old = $this->fetchOne("SELECT * FROM gestao_atendimento_usuarios WHERE atendimento_id = ? AND usuario_id = ?", [$atendimentoId, $usuarioId]);
+        $deleted = $this->execute("DELETE FROM gestao_atendimento_usuarios WHERE atendimento_id = ? AND usuario_id = ?", [$atendimentoId, $usuarioId]) > 0;
+        if ($deleted && $old) {
+            $this->audit('DELETE', 'gestao_atendimento_usuarios', $atendimentoId, $old, null);
+        }
+        return $deleted;
     }
 
     /**
@@ -126,6 +141,9 @@ class AtendimentoService extends Service {
      * Atualiza um atendimento existente
      */
     public function update(int $id, int $instId, array $data): bool {
+        $old = $this->fetchOne("SELECT * FROM gestao_atendimentos WHERE id = ? AND institution_id = ?", [$id, $instId]);
+        if (!$old) return false;
+
         $st = $this->db->prepare("
             UPDATE gestao_atendimentos SET 
                 descricao_profissional = ?, 
@@ -133,19 +151,137 @@ class AtendimentoService extends Service {
                 updated_at = NOW()
             WHERE id = ? AND institution_id = ?
         ");
-        return $st->execute([
-            $data['professional_text'],
-            $data['public_text'],
+        
+        $updated = $st->execute([
+            $data['professional_text'] ?? $old['descricao_profissional'],
+            $data['public_text'] ?? $old['descricao_publica'],
             $id,
             $instId
         ]);
+
+        if ($updated) {
+            $this->audit('UPDATE', 'gestao_atendimentos', $id, $old, $data);
+        }
+        return $updated;
     }
 
     /**
      * Atualiza o status de um atendimento
      */
     public function updateStatus(int $id, int $instId, string $status): bool {
+        $old = $this->fetchOne("SELECT status FROM gestao_atendimentos WHERE id = ? AND institution_id = ?", [$id, $instId]);
+        if (!$old) return false;
+
         $st = $this->db->prepare("UPDATE gestao_atendimentos SET status = ? WHERE id = ? AND institution_id = ?");
-        return $st->execute([$status, $id, $instId]);
+        $updated = $st->execute([$status, $id, $instId]);
+
+        if ($updated) {
+            // Handle completion of linked encaminhamento
+            if ($status === 'Finalizado') {
+                $this->execute("
+                    UPDATE conselho_encaminhamentos 
+                    SET status = 'Concluído' 
+                    WHERE id = (SELECT encaminhamento_id FROM gestao_atendimentos WHERE id = ?)
+                ", [$id]);
+            }
+            $this->audit('UPDATE', 'gestao_atendimentos', $id, $old, ['status' => $status]);
+        }
+        return $updated;
+    }
+
+    /**
+     * Arquiva ou desarquiva um atendimento
+     */
+    public function archive(int $id, bool $archive = true): bool {
+        $old = $this->fetchOne("SELECT is_archived FROM gestao_atendimentos WHERE id = ?", [$id]);
+        $st = $this->db->prepare("UPDATE gestao_atendimentos SET is_archived = ? WHERE id = ?");
+        $updated = $st->execute([$archive ? 1 : 0, $id]);
+        if ($updated) {
+            $this->audit('UPDATE', 'gestao_atendimentos', $id, $old, ['is_archived' => $archive]);
+        }
+        return $updated;
+    }
+
+    /**
+     * Adiciona um comentário ao atendimento
+     */
+    public function addComment(array $data): int {
+        $st = $this->db->prepare("
+            INSERT INTO gestao_atendimento_comentarios (atendimento_id, usuario_id, texto, is_private)
+            VALUES (?, ?, ?, ?)
+        ");
+        $st->execute([
+            $data['atendimento_id'],
+            $data['usuario_id'],
+            $data['texto'],
+            (int)$data['is_private']
+        ]);
+        $id = (int)$this->db->lastInsertId();
+        $this->audit('CREATE', 'gestao_atendimento_comentarios', $id, null, $data);
+        return $id;
+    }
+
+    /**
+     * Remove um comentário
+     */
+    public function deleteComment(int $id): bool {
+        $old = $this->fetchOne("SELECT * FROM gestao_atendimento_comentarios WHERE id = ?", [$id]);
+        $deleted = $this->execute("DELETE FROM gestao_atendimento_comentarios WHERE id = ?", [$id]) > 0;
+        if ($deleted && $old) {
+            $this->audit('DELETE', 'gestao_atendimento_comentarios', $id, $old, null);
+        }
+        return $deleted;
+    }
+
+    /**
+     * Adiciona um anexo ao atendimento
+     */
+    public function addAnexo(array $data): int {
+        $st = $this->db->prepare("
+            INSERT INTO gestao_atendimentos_anexos (atendimento_id, usuario_id, arquivo, descricao, extensao, tamanho)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        $st->execute([
+            $data['atendimento_id'],
+            $data['usuario_id'],
+            $data['arquivo'],
+            $data['descricao'],
+            $data['extensao'],
+            $data['tamanho']
+        ]);
+        $id = (int)$this->db->lastInsertId();
+        $this->audit('CREATE', 'gestao_atendimentos_anexos', $id, null, $data);
+        return $id;
+    }
+
+    /**
+     * Remove um anexo
+     */
+    public function deleteAnexo(int $id): bool {
+        $old = $this->fetchOne("SELECT * FROM gestao_atendimentos_anexos WHERE id = ?", [$id]);
+        $deleted = $this->execute("DELETE FROM gestao_atendimentos_anexos WHERE id = ?", [$id]) > 0;
+        if ($deleted && $old) {
+            $this->audit('DELETE', 'gestao_atendimentos_anexos', $id, $old, null);
+        }
+        return $deleted;
+    }
+
+    /**
+     * Exclui (soft-delete) um atendimento
+     */
+    public function deleteAtendimento(int $id, int $instId): bool {
+        $old = $this->fetchOne("SELECT * FROM gestao_atendimentos WHERE id = ? AND institution_id = ?", [$id, $instId]);
+        if (!$old) return false;
+
+        // Se houver um encaminhamento vinculado, reverte o status dele para 'Pendente'
+        if ($old['encaminhamento_id']) {
+            $this->execute("UPDATE conselho_encaminhamentos SET status = 'Pendente' WHERE id = ?", [$old['encaminhamento_id']]);
+        }
+
+        $deleted = $this->execute("UPDATE gestao_atendimentos SET deleted_at = NOW() WHERE id = ? AND institution_id = ?", [$id, $instId]) > 0;
+        if ($deleted) {
+            $this->audit('DELETE', 'gestao_atendimentos', $id, $old, ['deleted_at' => date('Y-m-d H:i:s')]);
+        }
+        return $deleted;
     }
 }

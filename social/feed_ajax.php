@@ -56,21 +56,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
 // Handler para Exclusão de Comentário (POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_comment') {
     try {
+        require_once __DIR__ . '/../src/App/Services/Service.php';
+        require_once __DIR__ . '/../src/App/Services/AlunoService.php';
+        
         $commentId = (int)($_POST['id'] ?? 0);
         if (!$commentId) throw new Exception('ID do comentário inválido.');
 
+        $db = getDB();
         $stmt = $db->prepare("SELECT professor_id FROM comentarios_professores WHERE id = ?");
         $stmt->execute([$commentId]);
         $ownerId = (int)$stmt->fetchColumn();
 
-        if ($ownerId !== (int)$user['id']) {
+        if ($ownerId !== (int)$user['id'] && $user['profile'] !== 'Administrador') {
             throw new Exception('Você não tem permissão para excluir este comentário.');
         }
 
-        $stmt = $db->prepare("DELETE FROM comentarios_professores WHERE id = ?");
-        $stmt->execute([$commentId]);
-
-        echo json_encode(['status' => 'success']);
+        $service = new \App\Services\AlunoService();
+        if ($service->deleteComentario($commentId)) {
+            echo json_encode(['status' => 'success']);
+        } else {
+            throw new Exception('Não foi possível excluir o comentário ou ele já foi removido.');
+        }
     } catch (Exception $e) {
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     }

@@ -3,6 +3,8 @@
  * AJAX API for Referrals (Encaminhamentos)
  */
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/ConselhoService.php';
 require_once __DIR__ . '/../includes/atendimentos_functions.php';
 requireLogin();
 
@@ -29,26 +31,14 @@ try {
                 throw new Exception('Campos obrigatórios ausentes');
             }
 
-            $db->beginTransaction();
+            $conselhoService = new \App\Services\ConselhoService();
+            $result = $conselhoService->addEncaminhamento($conselhoId, $user['id'], $alunoId, [
+                'setor_tipo' => $setorTipo,
+                'texto' => $texto,
+                'data_expectativa' => $dataExpectativa,
+                'usuarios_id' => $usuariosId
+            ]);
 
-            $stmt = $db->prepare("
-                INSERT INTO conselho_encaminhamentos (conselho_id, aluno_id, author_id, setor_tipo, texto, data_expectativa)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ");
-            $stmt->execute([$conselhoId, $alunoId > 0 ? $alunoId : null, $user['id'], $setorTipo, $texto, $dataExpectativa]);
-            $encaminhamentoId = $db->lastInsertId();
-
-            if (!empty($usuariosId) && is_array($usuariosId)) {
-                $stmtUser = $db->prepare("INSERT INTO conselho_encaminhamento_usuarios (encaminhamento_id, user_id) VALUES (?, ?)");
-                foreach ($usuariosId as $uId) {
-                    $uId = (int)$uId;
-                    if ($uId > 0) {
-                        $stmtUser->execute([$encaminhamentoId, $uId]);
-                    }
-                }
-            }
-
-            $db->commit();
             echo json_encode(['success' => true, 'message' => 'Encaminhamento registrado com sucesso']);
             break;
 
@@ -130,35 +120,8 @@ try {
             if (!hasDbPermission('conselhos.index', false)) throw new Exception('Acesso negado: Perfil insuficiente para excluir encaminhamentos.');
             $referralId = (int)($_GET['id'] ?? 0);
             if (!$referralId) throw new Exception('ID do encaminhamento ausente');
-
-            // Verifica se o encaminhamento existe, quem é o autor e se o conselho está ativo
-            $stCheck = $db->prepare("
-                SELECT ce.author_id, cc.is_active 
-                FROM conselho_encaminhamentos ce
-                JOIN conselhos_classe cc ON ce.conselho_id = cc.id
-                WHERE ce.id = ?
-            ");
-            $stCheck->execute([$referralId]);
-            $referral = $stCheck->fetch();
-
-            if (!$referral) throw new Exception('Encaminhamento não encontrado');
-
-            if ($referral['is_active'] == 0) {
-                throw new Exception('Não é possível excluir encaminhamentos de um conselho finalizado');
-            }
-
-            // Permissões: Admin, Coordenador ou o Autor
-            $allowed = ['Administrador', 'Coordenador'];
-            if (!in_array($user['profile'], $allowed) && (int)$user['id'] !== (int)$referral['author_id']) {
-                throw new Exception('Você não tem permissão para excluir este encaminhamento');
-            }
-
-            $db->beginTransaction();
-            // Remove usuários vinculados primeiro
-            $db->prepare("DELETE FROM conselho_encaminhamento_usuarios WHERE encaminhamento_id = ?")->execute([$referralId]);
-            // Remove o encaminhamento
-            $db->prepare("DELETE FROM conselho_encaminhamentos WHERE id = ?")->execute([$referralId]);
-            $db->commit();
+            $conselhoService = new \App\Services\ConselhoService();
+            $conselhoService->deleteEncaminhamento($referralId, $user['id'], $user['profile']);
 
             echo json_encode(['success' => true, 'message' => 'Encaminhamento removido com sucesso']);
             break;

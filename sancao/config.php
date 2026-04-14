@@ -4,11 +4,16 @@
  */
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/SancaoConfigService.php';
 hasDbPermission('sancoes.config');
+
+use App\Services\SancaoConfigService;
 
 $db = getDB();
 $inst = getCurrentInstitution();
 $instId = $inst['id'];
+$configService = new SancaoConfigService();
 
 $success = '';
 $error = '';
@@ -23,55 +28,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             // CRUD Tipos
             if ($action === 'save_tipo') {
-                $id = (int)($_POST['id'] ?? 0);
                 $titulo = trim($_POST['titulo'] ?? '');
-                $descricao = trim($_POST['descricao'] ?? '');
-                
                 if (empty($titulo)) throw new Exception("O título é obrigatório.");
-                
-                if ($id > 0) {
-                    $st = $db->prepare("UPDATE sancao_tipo SET titulo = ?, descricao = ? WHERE id = ? AND institution_id = ?");
-                    $st->execute([$titulo, $descricao, $id, $instId]);
-                    $success = "Tipo de sanção atualizado com sucesso.";
-                } else {
-                    $st = $db->prepare("INSERT INTO sancao_tipo (titulo, descricao, institution_id) VALUES (?, ?, ?)");
-                    $st->execute([$titulo, $descricao, $instId]);
-                    $success = "Novo tipo de sanção cadastrado.";
-                }
+                $id = (int)($_POST['id'] ?? 0);
+                $configService->saveTipo(['id' => $id, 'titulo' => $titulo, 'descricao' => trim($_POST['descricao'] ?? '')], $instId);
+                $success = $id > 0 ? "Tipo de sanção atualizado com sucesso." : "Novo tipo de sanção cadastrado.";
             }
             
             elseif ($action === 'toggle_tipo') {
-                $id = (int)($_POST['id'] ?? 0);
-                $active = (int)($_POST['active'] ?? 0);
-                $st = $db->prepare("UPDATE sancao_tipo SET is_active = ? WHERE id = ? AND institution_id = ?");
-                $st->execute([$active, $id, $instId]);
-                $success = $active ? "Tipo de sanção reativado." : "Tipo de sanção desativado.";
+                $configService->toggleTipo((int)($_POST['id'] ?? 0), $instId);
+                $success = ((int)($_POST['active'] ?? 0)) ? "Tipo de sanção reativado." : "Tipo de sanção desativado.";
             }
 
             // CRUD Ações
             elseif ($action === 'save_acao') {
-                $id = (int)($_POST['id'] ?? 0);
                 $descricao = trim($_POST['descricao'] ?? '');
-                
                 if (empty($descricao)) throw new Exception("A descrição é obrigatória.");
-                
-                if ($id > 0) {
-                    $st = $db->prepare("UPDATE sancao_acao SET descricao = ? WHERE id = ? AND institution_id = ?");
-                    $st->execute([$descricao, $id, $instId]);
-                    $success = "Fato gerador de sanção atualizado.";
-                } else {
-                    $st = $db->prepare("INSERT INTO sancao_acao (descricao, institution_id) VALUES (?, ?)");
-                    $st->execute([$descricao, $instId]);
-                    $success = "Novo fato gerador cadastrado.";
-                }
+                $id = (int)($_POST['id'] ?? 0);
+                $configService->saveAcao(['id' => $id, 'descricao' => $descricao], $instId);
+                $success = $id > 0 ? "Fato gerador de sanção atualizado." : "Novo fato gerador cadastrado.";
             }
             
             elseif ($action === 'toggle_acao') {
-                $id = (int)($_POST['id'] ?? 0);
-                $active = (int)($_POST['active'] ?? 0);
-                $st = $db->prepare("UPDATE sancao_acao SET is_active = ? WHERE id = ? AND institution_id = ?");
-                $st->execute([$active, $id, $instId]);
-                $success = $active ? "Fato gerador reativado." : "Fato gerador desativado.";
+                $configService->toggleAcao((int)($_POST['id'] ?? 0), $instId);
+                $success = ((int)($_POST['active'] ?? 0)) ? "Fato gerador reativado." : "Fato gerador desativado.";
             }
         } catch (Exception $e) {
             $error = $e->getMessage();

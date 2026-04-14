@@ -24,6 +24,10 @@ if (!$instId) {
     exit;
 }
 
+require_once __DIR__ . '/../src/App/Services/Service.php';
+require_once __DIR__ . '/../src/App/Services/ConselhoService.php';
+$conselhoService = new \App\Services\ConselhoService();
+
 $success = '';
 $error   = '';
 $action  = $_POST['action'] ?? '';
@@ -43,29 +47,21 @@ if ($action === 'save') {
     if (empty($descricao) || empty($data_hora) || $course_id <= 0 || $turma_id <= 0) {
         $error = 'Curso, Turma, Descrição e Data/Hora são obrigatórios.';
     } else {
+        $data = [
+            'descricao' => $descricao,
+            'data_hora' => $data_hora,
+            'local_reuniao' => $local_reuniao,
+            'avaliacao_id' => $avaliacao_id,
+            'course_id' => $course_id,
+            'turma_id' => $turma_id,
+            'etapas' => $etapas
+        ];
+
         if ($id > 0) {
-            // Update
-            $st = $db->prepare('UPDATE conselhos_classe SET course_id=?, turma_id=?, descricao=?, data_hora=?, local_reuniao=?, avaliacao_id=? WHERE id=? AND institution_id=?');
-            $st->execute([$course_id, $turma_id, $descricao, $data_hora, $local_reuniao ?: null, $avaliacao_id > 0 ? $avaliacao_id : null, $id, $instId]);
-            
-            // Remove etapas antigas e insere novas
-            $db->prepare('DELETE FROM conselhos_etapas WHERE conselho_id = ?')->execute([$id]);
-            foreach ($etapas as $etapa_id) {
-                $db->prepare('INSERT INTO conselhos_etapas (conselho_id, etapa_id) VALUES (?, ?)')->execute([$id, (int)$etapa_id]);
-            }
-            
+            $conselhoService->update($id, $data);
             $success = 'Conselho de Classe atualizado com sucesso!';
         } else {
-            // Insert
-            $st = $db->prepare('INSERT INTO conselhos_classe (institution_id, course_id, turma_id, descricao, data_hora, local_reuniao, avaliacao_id) VALUES (?,?,?,?,?,?,?)');
-            $st->execute([$instId, $course_id, $turma_id, $descricao, $data_hora, $local_reuniao ?: null, $avaliacao_id > 0 ? $avaliacao_id : null]);
-            $newId = $db->lastInsertId();
-            
-            // Insere etapas
-            foreach ($etapas as $etapa_id) {
-                $db->prepare('INSERT INTO conselhos_etapas (conselho_id, etapa_id) VALUES (?, ?)')->execute([$newId, (int)$etapa_id]);
-            }
-            
+            $conselhoService->create($instId, $course_id, $turma_id, $data);
             $success = 'Conselho de Classe agendado com sucesso!';
         }
     }
@@ -75,8 +71,7 @@ if ($action === 'save') {
 if ($action === 'toggle' && !empty($_POST['id'])) {
     if (!$canFull) die('Acesso negado.');
     $id = (int)$_POST['id'];
-    $db->prepare('UPDATE conselhos_classe SET is_active = !is_active WHERE id=? AND institution_id=?')
-       ->execute([$id, $instId]);
+    $conselhoService->toggleStatus($id);
     $success = 'Status do conselho atualizado.';
 }
 
@@ -84,8 +79,7 @@ if ($action === 'toggle' && !empty($_POST['id'])) {
 if ($action === 'delete' && !empty($_POST['id'])) {
     if (!$canFull) die('Acesso negado.');
     $id = (int)$_POST['id'];
-    $db->prepare('DELETE FROM conselhos_classe WHERE id=? AND institution_id=?')
-       ->execute([$id, $instId]);
+    $conselhoService->delete($id);
     $success = 'Conselho de Classe removido permanentemente.';
 }
 

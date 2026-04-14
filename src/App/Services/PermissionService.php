@@ -49,11 +49,27 @@ class PermissionService extends Service {
     public function updatePermission(string $profile, string $resource, bool $canAccess): bool {
         if (!$this->institutionId) return false;
 
+        $old = $this->fetchOne(
+            'SELECT * FROM profile_permissions WHERE profile = ? AND resource = ? AND instituicao_id = ?',
+            [$profile, $resource, $this->institutionId]
+        );
+
         $sql = 'INSERT INTO profile_permissions (profile, resource, can_access, instituicao_id) 
                 VALUES (?, ?, ?, ?) 
                 ON DUPLICATE KEY UPDATE can_access = ?, updated_at = NOW()';
         
-        return $this->execute($sql, [$profile, $resource, $canAccess ? 1 : 0, $this->institutionId, $canAccess ? 1 : 0]) > 0;
+        $execution = $this->execute($sql, [$profile, $resource, $canAccess ? 1 : 0, $this->institutionId, $canAccess ? 1 : 0]);
+        
+        if ($execution > 0) {
+            $action = $old ? 'UPDATE' : 'CREATE';
+            $this->audit($action, 'profile_permissions', $old['id'] ?? 0, $old, [
+                'profile' => $profile,
+                'resource' => $resource,
+                'can_access' => $canAccess ? 1 : 0
+            ]);
+        }
+        
+        return $execution > 0;
     }
     
     /**
