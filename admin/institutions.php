@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !csrf_verify($_POST['csrf_token'] ?
             $newInstId = $db->lastInsertId();
 
             // Duplica as permissões da instituição atual (onde o usuário está logado) para a nova
-            $currentInstId = $_SESSION['current_institution_id'] ?? null;
+            $currentInstId = $_SESSION['institution_id'] ?? null;
             if ($currentInstId && $newInstId) {
                 // Clona os registros trocando o instituicao_id
                 $stCopy = $db->prepare('

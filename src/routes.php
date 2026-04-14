@@ -8,10 +8,10 @@ use App\Controllers\UserController;
 use App\Controllers\CourseController;
 use App\Controllers\AlunoController;
 
+use App\Middleware\InstitutionMiddleware;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\RoleMiddleware;
 use App\Middleware\CsrfMiddleware;
-use App\Middleware\InstitutionMiddleware;
 
 $router = new Router();
 $router->globalMiddleware(new CsrfMiddleware());
@@ -19,6 +19,15 @@ $router->globalMiddleware(new CsrfMiddleware());
 // Middlewares padrão
 $auth = new AuthMiddleware();
 $inst = new InstitutionMiddleware();
+
+// Dashboard e Configurações (Acesso base)
+$router->get('/dashboard', function() { require __DIR__ . '/../dashboard.php'; }, 'dashboard')
+       ->middleware($auth)
+       ->middleware($inst);
+
+$router->get('/settings', function() { require __DIR__ . '/../settings.php'; }, 'settings')
+       ->middleware($auth)
+       ->middleware($inst);
 
 // Usuários: Somente Admin
 $router->get('/admin/users', [UserController::class, 'index'], 'users.index')

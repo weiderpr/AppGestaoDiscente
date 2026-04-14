@@ -63,7 +63,7 @@ html, body { overflow: hidden !important; height: 100% !important; }
         if (!$showSocialFeed): 
         ?>
             <!-- Componentes Tradicionais do Dashboard -->
-            <?php if (in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo']) && !empty($curInst['id'])): 
+            <?php if (in_array($user['profile'], ['Pedagogo', 'Assistente Social', 'Psicólogo'])): 
                 $db = getDB();
                 $stCourses = $db->prepare("
                     SELECT c.id, c.name, c.location
@@ -101,7 +101,7 @@ html, body { overflow: hidden !important; height: 100% !important; }
                     </div>
                 </div>
                 <?php endif; ?>
-            <?php elseif ($user['profile'] === 'Professor' && !empty($curInst['id'])): 
+            <?php elseif ($user['profile'] === 'Professor'): 
                 $db = getDB();
                 $stCourses = $db->prepare("
                     SELECT DISTINCT c.id, c.name, c.location

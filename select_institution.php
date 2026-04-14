@@ -21,6 +21,7 @@ $institutions = $stmt->fetchAll();
 
 // Se não houver nenhuma, vai direto ao destino sem bloquear
 if (empty($institutions)) {
+    $_SESSION['institution_id']           = null;
     $_SESSION['current_institution_id']   = null;
     $_SESSION['current_institution_name'] = null;
     header('Location: ' . getHomepage());
@@ -29,6 +30,7 @@ if (empty($institutions)) {
 
 // Se só tiver uma, seleciona automaticamente
 if (count($institutions) === 1) {
+    $_SESSION['institution_id']           = $institutions[0]['id'];
     $_SESSION['current_institution_id']   = $institutions[0]['id'];
     $_SESSION['current_institution_name'] = $institutions[0]['name'];
     $_SESSION['current_institution_photo']= $institutions[0]['photo'];
@@ -41,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['institution_id'])) {
     $chosenId = (int)$_POST['institution_id'];
     foreach ($institutions as $inst) {
         if ($inst['id'] === $chosenId) {
+            $_SESSION['institution_id']            = $inst['id'];
             $_SESSION['current_institution_id']    = $inst['id'];
             $_SESSION['current_institution_name']  = $inst['name'];
             $_SESSION['current_institution_photo'] = $inst['photo'];

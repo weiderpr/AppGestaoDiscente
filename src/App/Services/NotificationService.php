@@ -13,7 +13,7 @@ class NotificationService extends Service {
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
-        $this->institutionId = $_SESSION['current_institution_id'] ?? null;
+        $this->institutionId = $_SESSION['institution_id'] ?? null;
     }
 
     /**

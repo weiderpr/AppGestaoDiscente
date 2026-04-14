@@ -271,9 +271,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
         $perms = $_POST['perms'] ?? []; // format: [profile][resource] = 1
 
         try {
-            $currentInstitutionId = getCurrentInstitution()['id'] ?? null;
-            if (!$currentInstitutionId) throw new Exception("Sessão da Instituição inválida.");
-
+            $currentInstitutionId = getCurrentInstitution()['id'];
             $db->beginTransaction();
             foreach ($profiles as $p) {
                 foreach ($resources as $r) {

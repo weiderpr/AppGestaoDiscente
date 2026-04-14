@@ -14,12 +14,15 @@ class InstitutionMiddleware implements Middleware {
      * @param callable $next O próximo passo na cadeia
      */
     public function handle(array $params, callable $next): void {
-        // Reutiliza a lógica de autenticação global para consistência
-        require_once __DIR__ . '/../../../includes/auth.php';
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 
-        $inst = getCurrentInstitution();
+        // Verifica se a instituição está selecionada na sessão
+        // Conforme novo padrão: institution_id
+        $instId = $_SESSION['institution_id'] ?? $_SESSION['current_institution_id'] ?? null;
 
-        if (!$inst['id']) {
+        if (!$instId) {
             // Suporte para requisições AJAX
             if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest') {
                 http_response_code(401);

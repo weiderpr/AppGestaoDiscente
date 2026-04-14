@@ -29,16 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Global Institution Context Check (Auto-Middleware)
+// Global Institution Context Check (Migrated to MVC Middleware)
 if (isLoggedIn()) {
-    $currentAction = basename($_SERVER['PHP_SELF']);
-    $exemptActions = ['login.php', 'logout.php', 'register.php', 'select_institution.php', 'process_selection.php', 'router.php'];
-    
-    // Se não estiver em uma página de bypass, exige instituição
-    if (!in_array($currentAction, $exemptActions)) {
-        requireInstitution();
-    }
-
     // Atualiza o último acesso do usuário (Control de Presença Online)
     try {
         $db = getDB();
@@ -110,8 +102,8 @@ function loginUser(string $email, string $password): ?array {
     $_SESSION['user_id']    = $user['id'];
     $_SESSION['user_name']  = $user['name'];
     $_SESSION['user_theme'] = $user['theme'];
-    // Limpa instituição anterior (será selecionada em select_institution.php)
-    unset($_SESSION['current_institution_id'], $_SESSION['current_institution_name'], $_SESSION['current_institution_photo']);
+    // Limpa instituição anterior
+    unset($_SESSION['institution_id'], $_SESSION['current_institution_id'], $_SESSION['current_institution_name'], $_SESSION['current_institution_photo']);
 
     return $user;
 }
@@ -176,7 +168,7 @@ function registerUser(array $data): array {
 
 function getCurrentInstitution(): array {
     return [
-        'id'    => $_SESSION['current_institution_id']   ?? null,
+        'id'    => $_SESSION['institution_id']           ?? $_SESSION['current_institution_id']      ?? null,
         'name'  => $_SESSION['current_institution_name'] ?? null,
         'photo' => $_SESSION['current_institution_photo'] ?? null,
     ];
