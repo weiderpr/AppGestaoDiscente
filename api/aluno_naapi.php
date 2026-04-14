@@ -203,6 +203,9 @@ switch ($action) {
             $stDelAnexos = $db->prepare("DELETE FROM alunos_naapi_anexos WHERE aluno_id = ?");
             $stDelAnexos->execute([$alunoId]);
 
+            // Remover ocorrências
+            $db->prepare("DELETE FROM naapi_ocorrencias WHERE aluno_id = ?")->execute([$alunoId]);
+
             // Remover o registro principal do NAAPI
             $stDelMain = $db->prepare("DELETE FROM alunos_naapi WHERE aluno_id = ? AND institution_id = ?");
             $stDelMain->execute([$alunoId, $instId]);
@@ -213,6 +216,88 @@ switch ($action) {
             if ($db->inTransaction()) $db->rollBack();
             http_response_code(500);
             echo json_encode(['error' => 'Erro ao excluir registro: ' . $e->getMessage()]);
+        }
+        break;
+
+    case 'fetch_ocorrencias':
+        hasDbPermission('naapi.index');
+        $alunoId = (int)($_GET['aluno_id'] ?? 0);
+        if (!$alunoId) {
+            echo json_encode(['error' => 'ID inválido.']);
+            exit;
+        }
+
+        try {
+            // Regra de Privacidade: Só vê privado se for o autor ou Administrador
+            $sql = "
+                SELECT o.*, u.name as usuario_nome, u.photo as usuario_photo
+                FROM naapi_ocorrencias o
+                JOIN users u ON o.usuario_id = u.id
+                WHERE o.aluno_id = ? AND o.institution_id = ?
+                AND (o.is_privado = 0 OR o.usuario_id = ? OR ? = 'Administrador')
+                ORDER BY o.data_ocorrencia DESC, o.created_at DESC
+            ";
+            $st = $db->prepare($sql);
+            $st->execute([$alunoId, $instId, $user['id'], $user['profile']]);
+            $ocorrencias = $st->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(['success' => true, 'ocorrencias' => $ocorrencias]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+        break;
+
+    case 'save_ocorrencia':
+        hasDbPermission('naapi.manage');
+        $id = (int)($_POST['id'] ?? 0);
+        $alunoId = (int)($_POST['aluno_id'] ?? 0);
+        $texto = $_POST['texto'] ?? '';
+        $isPrivado = (int)($_POST['is_privado'] ?? 0);
+        $dataOcorrencia = $_POST['data_ocorrencia'] ?? date('Y-m-d');
+
+        if (!$alunoId || empty($texto)) {
+            echo json_encode(['error' => 'Preencha todos os campos obrigatórios.']);
+            exit;
+        }
+
+        try {
+            if ($id > 0) {
+                // Verificar se é o autor ou admin para editar
+                $stCheck = $db->prepare("SELECT usuario_id FROM naapi_ocorrencias WHERE id = ?");
+                $stCheck->execute([$id]);
+                $orig = $stCheck->fetch();
+                if ($orig && $orig['usuario_id'] != $user['id'] && $user['profile'] !== 'Administrador') {
+                    throw new Exception("Você não tem permissão para editar este relato.");
+                }
+
+                $st = $db->prepare("UPDATE naapi_ocorrencias SET texto = ?, is_privado = ?, data_ocorrencia = ? WHERE id = ?");
+                $st->execute([$texto, $isPrivado, $dataOcorrencia, $id]);
+            } else {
+                $st = $db->prepare("INSERT INTO naapi_ocorrencias (aluno_id, institution_id, usuario_id, texto, is_privado, data_ocorrencia) VALUES (?, ?, ?, ?, ?, ?)");
+                $st->execute([$alunoId, $instId, $user['id'], $texto, $isPrivado, $dataOcorrencia]);
+            }
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+        break;
+
+    case 'delete_ocorrencia':
+        hasDbPermission('naapi.manage');
+        $id = (int)($_POST['id'] ?? 0);
+        try {
+            $stCheck = $db->prepare("SELECT usuario_id FROM naapi_ocorrencias WHERE id = ?");
+            $stCheck->execute([$id]);
+            $orig = $stCheck->fetch();
+            if ($orig && $orig['usuario_id'] != $user['id'] && $user['profile'] !== 'Administrador') {
+                throw new Exception("Você não tem permissão para excluir este relato.");
+            }
+            $db->prepare("DELETE FROM naapi_ocorrencias WHERE id = ?")->execute([$id]);
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
         }
         break;
 

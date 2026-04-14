@@ -23,7 +23,7 @@ $institutions = $stmt->fetchAll();
 if (empty($institutions)) {
     $_SESSION['current_institution_id']   = null;
     $_SESSION['current_institution_name'] = null;
-    header('Location: /dashboard.php');
+    header('Location: ' . getHomepage());
     exit;
 }
 
@@ -32,7 +32,7 @@ if (count($institutions) === 1) {
     $_SESSION['current_institution_id']   = $institutions[0]['id'];
     $_SESSION['current_institution_name'] = $institutions[0]['name'];
     $_SESSION['current_institution_photo']= $institutions[0]['photo'];
-    header('Location: /dashboard.php');
+    header('Location: ' . getHomepage());
     exit;
 }
 
@@ -44,9 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['institution_id'])) {
             $_SESSION['current_institution_id']    = $inst['id'];
             $_SESSION['current_institution_name']  = $inst['name'];
             $_SESSION['current_institution_photo'] = $inst['photo'];
-            $dest = $_POST['redirect'] ?? '/dashboard.php';
+            $dest = $_POST['redirect'] ?? getHomepage();
             // Sanitiza destino
-            if (!preg_match('/^\/[a-zA-Z0-9\/\-_.?=&]*$/', $dest)) $dest = '/dashboard.php';
+            if (!preg_match('/^\/[a-zA-Z0-9\/\-_.?=&]*$/', $dest)) $dest = getHomepage();
             header('Location: ' . $dest);
             exit;
         }
@@ -54,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['institution_id'])) {
 }
 
 // Destino após seleção
-$redirect = $_GET['redirect'] ?? '/dashboard.php';
+$redirect = $_GET['redirect'] ?? getHomepage();
 
 $user = getCurrentUser();
 $firstName = explode(' ', $user['name'])[0];

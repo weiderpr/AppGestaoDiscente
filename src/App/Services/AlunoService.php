@@ -270,6 +270,19 @@ class AlunoService extends Service {
                 WHERE ga.turma_id = ? AND ga.aluno_id IS NULL AND gac.is_private = 0 AND ga.deleted_at IS NULL AND gac.texto != '')";
             $params[] = $turmaId;
         }
+
+        $queries[] = "(-- 8. Sanções do aluno
+            SELECT s.id, CONCAT('sanc_', s.id) as unique_id, NULL as parent_unique_id,
+                'Sanção' COLLATE utf8mb4_unicode_ci as categoria, 
+                CONCAT('<b>', st.titulo, '</b><br>', COALESCE(s.observacoes, '')) COLLATE utf8mb4_unicode_ci as texto, 
+                s.created_at as data_registro,
+                u.id as autor_id, u.name COLLATE utf8mb4_unicode_ci as autor_nome, u.photo COLLATE utf8mb4_unicode_ci as autor_foto, u.profile COLLATE utf8mb4_unicode_ci as autor_perfil,
+                s.status COLLATE utf8mb4_unicode_ci as atendimento_status, 0 as is_turma, 0 as is_archived
+            FROM sancao s
+            JOIN sancao_tipo st ON s.sancao_tipo_id = st.id
+            JOIN users u ON s.author_id = u.id
+            WHERE s.aluno_id = ?)";
+        $params[] = $alunoId;
         
         $sql = implode("\nUNION ALL\n", $queries) . "\nORDER BY data_registro DESC";
         

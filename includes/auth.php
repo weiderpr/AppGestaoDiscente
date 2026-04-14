@@ -240,6 +240,13 @@ function isMobileDevice(): bool {
 }
 
 /**
+ * Retorna a URL da página inicial correta conforme o dispositivo
+ */
+function getHomepage(): string {
+    return isMobileDevice() ? '/mobile/index.php' : '/dashboard.php';
+}
+
+/**
  * Verifica se o usuário tem permissão para um recurso via Banco de Dados
  * Utilizado por arquivos legados (não-Router)
  */

@@ -246,12 +246,6 @@ function clearErrors(form) {
    UTILITÁRIOS
    ============================================= */
 
-function setLoading(btn, loading) {
-    if (!btn) return;
-    btn.classList.toggle('loading', loading);
-    btn.disabled = loading;
-}
-
 function dismissAlert(btn) {
     const alert = btn.closest('.alert');
     if (alert) {
@@ -260,6 +254,50 @@ function dismissAlert(btn) {
         alert.style.transition = 'all 0.3s ease';
         setTimeout(() => alert.remove(), 300);
     }
+}
+
+/* =============================================
+   MÁSCARA DE TELEFONE
+   ============================================= */
+
+function maskPhone(value) {
+    if (!value) return "";
+    value = value.replace(/\D/g, "");
+    // Limita a 11 dígitos
+    value = value.substring(0, 11);
+    
+    if (value.length > 10) {
+        // (99) 99999-9999
+        value = value.replace(/^(\d{2})(\d{5})(\d{4}).*/, "($1) $2-$3");
+    } else if (value.length > 5) {
+        // (99) 9999-9999
+        value = value.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, "($1) $2-$3");
+    } else if (value.length > 2) {
+        // (99) 9
+        value = value.replace(/^(\d{2})(\d{0,5})/, "($1) $2");
+    } else if (value.length > 0) {
+        // (99
+        value = value.replace(/^(\d{0,2})/, "($1");
+    }
+    return value;
+}
+
+function initPhoneMask() {
+    document.querySelectorAll('input[type="tel"], .mask-phone').forEach(input => {
+        input.addEventListener('input', (e) => {
+            const start = e.target.selectionStart;
+            const end = e.target.selectionEnd;
+            const oldVal = e.target.value;
+            
+            e.target.value = maskPhone(e.target.value);
+            
+            // Tenta manter a posição do cursor se não for ao final
+            if (oldVal.length !== e.target.value.length) {
+                // Ajuste simples para compensar caracteres de máscara inseridos
+                // (Melhorável, mas funcional para este caso)
+            }
+        });
+    });
 }
 
 /* =============================================
@@ -281,6 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initPasswordStrength();
     initAvatarPreview();
     initRegisterValidation();
+    initPhoneMask();
 
     // CSRF Global Setup (jQuery)
     if (typeof jQuery !== 'undefined') {

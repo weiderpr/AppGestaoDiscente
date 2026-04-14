@@ -8,7 +8,7 @@ require_once __DIR__ . '/includes/RateLimit.php';
 
 // Já logado? Vai pro dashboard
 if (isLoggedIn()) {
-    header('Location: /dashboard.php');
+    header('Location: ' . getHomepage());
     exit;
 }
 
@@ -35,10 +35,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 rate_limit_clear($loginKey);
                 $instCount = countUserInstitutions($user['id']);
                 if ($instCount > 1) {
-                    $defaultDest = $user['profile'] === 'Administrador' ? '/admin/users.php' : '/dashboard.php';
+                    $defaultDest = getHomepage();
                     header('Location: /select_institution.php?redirect=' . urlencode($defaultDest));
                 } else {
-                    $defaultDest = $user['profile'] === 'Administrador' ? '/admin/users.php' : '/dashboard.php';
+                    $defaultDest = getHomepage();
                     header('Location: /select_institution.php?redirect=' . urlencode($defaultDest));
                 }
                 exit;

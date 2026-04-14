@@ -320,11 +320,38 @@ require_once __DIR__ . '/header.php';
     .m-badge-conselho { background: #f3e8ff; color: #6b21a8; }
     .m-badge-geral { background: #fef3c7; color: #92400e; }
     .m-badge-atendimento { background: #dcfce7; color: #14532d; }
+    .m-badge-sancao { background: #fee2e2; color: #991b1b; }
 
     .m-badge-status-demandas { background: #fef3c7; color: #92400e; }
     .m-badge-status-aberto { background: #dbeafe; color: #1e40af; }
     .m-badge-status-em-atendimento { background: #f3e8ff; color: #6b21a8; }
     .m-badge-status-finalizado { background: #dcfce7; color: #14532d; }
+
+    /* Destaque para o card de sanção — Informação Crítica */
+    .m-history-item-sancao {
+        background: linear-gradient(135deg, #fff5f5, #ffffff) !important;
+        border: 2px solid #fca5a5 !important;
+        border-left: 6px solid #ef4444 !important;
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.1) !important;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .m-history-item-sancao::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, transparent 50%, rgba(239, 68, 68, 0.05) 50%);
+        pointer-events: none;
+    }
+
+    .m-history-item-sancao .m-history-body {
+        color: #7f1d1d;
+        font-weight: 500;
+    }
 
     .m-history-body {
         font-size: 0.9375rem;
@@ -747,6 +774,10 @@ require_once __DIR__ . '/header.php';
                     $icon = '📋';
                     $badgeText = $atendStatus;
                 }
+                if ($item['categoria'] === 'Sanção') { 
+                    $badgeClass = 'm-badge-sancao'; 
+                    $icon = '🛑'; 
+                }
                 
                 $isAdmin = ($user['profile'] === 'Administrador');
                 $isAuthor = ($item['autor_id'] == $user['id']);
@@ -765,7 +796,8 @@ require_once __DIR__ . '/header.php';
                 }
                 ?>
                 <div class="m-history-branch">
-                    <div class="m-history-item <?= $levelClass ?>" data-history-id="<?= $item['id'] ?>" data-categoria="<?= $item['categoria'] ?>" data-is-archived="<?= $isArchived ?>">
+                    <?php $sancaoClass = ($item['categoria'] === 'Sanção') ? 'm-history-item-sancao' : ''; ?>
+                    <div class="m-history-item <?= $levelClass ?> <?= $sancaoClass ?>" data-history-id="<?= $item['id'] ?>" data-categoria="<?= $item['categoria'] ?>" data-is-archived="<?= $isArchived ?>">
                         <div class="m-history-header">
                             <div class="m-history-author">
                                 <?php if (!empty($item['autor_foto'])): ?>
