@@ -94,6 +94,20 @@ if ($user['profile'] === 'Administrador') {
         ORDER BY c.name
     ");
     $stCourses->execute([$instId]);
+} else if ($user['profile'] === 'Professor') {
+    // Professor: Apenas cursos onde ele leciona em ao menos uma turma
+    $stCourses = $db->prepare("
+        SELECT DISTINCT c.id, c.name 
+        FROM courses c
+        JOIN turmas t ON t.course_id = c.id
+        JOIN turma_disciplinas td ON td.turma_id = t.id
+        JOIN turma_disciplina_professores tdp ON tdp.turma_disciplina_id = td.id
+        WHERE c.institution_id = ? 
+        AND tdp.professor_id = ?
+        AND t.is_active = 1
+        ORDER BY c.name
+    ");
+    $stCourses->execute([$instId, $user['id']]);
 } else {
     // Coordenador: Apenas cursos que ele coordena e possuem turmas ativas
     $stCourses = $db->prepare("
@@ -148,6 +162,17 @@ $params = [$instId];
 // Coordenador só vê os conselhos dos seus cursos
 if ($user['profile'] === 'Coordenador') {
     $sql .= " AND c.id IN (SELECT course_id FROM course_coordinators WHERE user_id = ?)";
+    $params[] = $user['id'];
+}
+
+// Professor só vê os conselhos das suas turmas
+if ($user['profile'] === 'Professor') {
+    $sql .= " AND cc.turma_id IN (
+        SELECT DISTINCT td.turma_id 
+        FROM turma_disciplinas td 
+        JOIN turma_disciplina_professores tdp ON tdp.turma_disciplina_id = td.id 
+        WHERE tdp.professor_id = ?
+    )";
     $params[] = $user['id'];
 }
 

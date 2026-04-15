@@ -267,6 +267,19 @@ class AtendimentoService extends Service {
     }
 
     /**
+     * Retorna os anexos de um atendimento
+     */
+    public function getAnexos(int $atendimentoId): array {
+        return $this->fetchAll("
+            SELECT a.*, u.name as author_name
+            FROM gestao_atendimentos_anexos a
+            JOIN users u ON a.usuario_id = u.id
+            WHERE a.atendimento_id = ?
+            ORDER BY a.created_at DESC
+        ", [$atendimentoId]);
+    }
+
+    /**
      * Exclui (soft-delete) um atendimento
      */
     public function deleteAtendimento(int $id, int $instId): bool {

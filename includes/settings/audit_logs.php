@@ -4,7 +4,11 @@
  */
 hasDbPermission('audit.view_logs');
 
-$db = getDB();
+require_once __DIR__ . '/../../src/App/Services/AuditService.php';
+
+use App\Services\AuditService;
+
+$auditService = new AuditService();
 $currentInstitutionId = getCurrentInstitution()['id'];
 
 // Filtros - Padrão: HOJE
@@ -14,7 +18,6 @@ $filterUser  = (int)($_GET['user_id'] ?? 0);
 $filterTable = trim($_GET['table_name'] ?? '');
 
 // Se inst_id não estiver na URL, o padrão é a instituição atual.
-// Se estiver na URL e for vazio (isset($_GET['inst_id']) && $_GET['inst_id'] === ''), assume-se "Todas" (0).
 $filterInst = isset($_GET['inst_id']) ? ($_GET['inst_id'] === '' ? 0 : (int)$_GET['inst_id']) : $currentInstitutionId;
 
 // Contagem de filtros ativos (para o badge)
@@ -28,44 +31,21 @@ if ($filterInst != $currentInstitutionId) $activeFiltersCount++;
 // Buscar Usuários para o filtro
 $users = $db->query("SELECT id, name FROM users WHERE is_active = 1 ORDER BY name")->fetchAll();
 
-// Buscar Tabelas únicas que possuem logs
-$tables = $db->query("SELECT DISTINCT table_name FROM audit_logs ORDER BY table_name")->fetchAll(PDO::FETCH_COLUMN);
+// Buscar Tabelas únicas via Service
+$tables = $auditService->getUniqueTables();
 
-// Buscar Instituições (Plant)
+// Buscar Instituições
 $institutions = $db->query("SELECT id, name FROM institutions WHERE is_active = 1 ORDER BY name")->fetchAll();
 
-// Query Principal
-$params = [
-    $dateFrom . ' 00:00:00',
-    $dateTo   . ' 23:59:59'
+// Carga Inicial (Primeiros 20) via Service
+$initialFilters = [
+    'date_from'  => $dateFrom,
+    'date_to'    => $dateTo,
+    'user_id'    => $filterUser,
+    'table_name' => $filterTable,
+    'inst_id'    => $filterInst
 ];
-
-$sql = "SELECT a.*, u.name as user_name, i.name as inst_name 
-        FROM audit_logs a
-        LEFT JOIN users u ON u.id = a.user_id
-        LEFT JOIN institutions i ON i.id = a.institution_id
-        WHERE a.created_at BETWEEN ? AND ?";
-
-if ($filterUser) {
-    $sql .= " AND a.user_id = ?";
-    $params[] = $filterUser;
-}
-if ($filterTable) {
-    $sql .= " AND a.table_name = ?";
-    $params[] = $filterTable;
-}
-if ($filterInst > 0) {
-    // Se selecionou uma instituição específica, mostra apenas dela
-    $sql .= " AND a.institution_id = ?";
-    $params[] = $filterInst;
-}
-// Se $filterInst == 0 (Todas), não adiciona filtro de instituição, mostrando tudo (incluindo NULL)
-
-$sql .= " ORDER BY a.created_at DESC LIMIT 500";
-
-$stmt = $db->prepare($sql);
-$stmt->execute($params);
-$logs = $stmt->fetchAll();
+$logs = $auditService->getLogs($initialFilters, 20, 0);
 
 function formatJson($json, $isNew = false) {
     if (!$json) return '<span class="text-muted">Sem dados</span>';
@@ -167,14 +147,14 @@ function formatJson($json, $isNew = false) {
                         <th style="width:140px;">Metadados</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="audit-tbody">
                     <?php if (empty($logs)): ?>
                         <tr>
                             <td colspan="6" class="audit-empty-td">
                                 <div class="audit-empty-state">
                                     <div class="empty-icon">📭</div>
                                     <h3>Nenhum log encontrado</h3>
-                                    <p>Não há registros de auditoria para os filtros selecionados em <strong><?= date('d/m/Y', strtotime($dateFrom)) ?></strong>.</p>
+                                    <p>Não há registros de auditoria para os filtros selecionados.</p>
                                 </div>
                             </td>
                         </tr>
@@ -232,7 +212,23 @@ function formatJson($json, $isNew = false) {
                     <?php endif; ?>
                 </tbody>
             </table>
+
+            <!-- Carregamento (Infinite Scroll) -->
+            <div id="audit-loader" style="display: none; padding: 2rem; text-align: center; background: var(--bg-surface-2nd); border-top: 1px solid var(--border-color);">
+                <div style="display: inline-flex; align-items: center; gap: 0.75rem; color: var(--text-muted); font-size: 0.8125rem;">
+                    <div style="width: 18px; height: 18px; border: 2px solid var(--border-color); border-top-color: var(--color-primary); border-radius: 50%; animation: audit-spin 0.8s linear infinite;"></div>
+                    <span>Carregando mais registros...</span>
+                </div>
+            </div>
+            
+            <div id="audit-no-more" style="display: none; padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.75rem; background: var(--bg-surface-2nd); border-top: 1px solid var(--border-color);">
+                ✨ Fim dos registros encontrados
+            </div>
         </div>
+
+        <style>
+        @keyframes audit-spin { to { transform: rotate(360deg); } }
+        </style>
     </div>
 </div>
 
@@ -275,13 +271,13 @@ function formatJson($json, $isNew = false) {
 
 /* Tabela */
 .audit-table-wrapper { overflow-x: auto; width: 100%; }
-.audit-table { width: 100%; border-collapse: collapse; min-width: 900px; font-size: 0.8125rem; }
+.audit-table { width: 100%; border-collapse: collapse; min-width: 900px; font-size: 0.7rem; }
 .audit-table th {
     background: var(--bg-surface-2nd);
     color: var(--text-muted);
     font-weight: 700;
     text-transform: uppercase;
-    font-size: 0.65rem;
+    font-size: 0.575rem;
     letter-spacing: 0.1em;
     padding: 0.875rem 1.25rem;
     text-align: left;
@@ -294,19 +290,19 @@ function formatJson($json, $isNew = false) {
 /* Celulas Especificas */
 .audit-td-time { display: flex; flex-direction: column; }
 .time-main { font-weight: 700; color: var(--text-primary); }
-.time-sub { color: var(--text-muted); font-size: 0.7rem; }
+.time-sub { color: var(--text-muted); font-size: 0.6rem; }
 
 .user-name { display: block; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
-.inst-name { font-size: 0.7rem; color: var(--color-primary); background: var(--color-primary-light); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px; }
+.inst-name { font-size: 0.6rem; color: var(--color-primary); background: var(--color-primary-light); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px; }
 
-.audit-badge { padding: 3px 8px; border-radius: 6px; font-size: 0.65rem; font-weight: 800; border: 1px solid transparent; }
+.audit-badge { padding: 3px 8px; border-radius: 6px; font-size: 0.575rem; font-weight: 800; border: 1px solid transparent; }
 .audit-badge-create { background: #ecfdf5; color: #10b981; border-color: #a7f3d0; }
 .audit-badge-update { background: #eff6ff; color: #3b82f6; border-color: #bfdbfe; }
 .audit-badge-delete { background: #fef2f2; color: #ef4444; border-color: #fecaca; }
 .audit-badge-default { background: #f9fafb; color: #6b7280; border-color: #e5e7eb; }
 
-.table-name { display: block; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.7rem; }
-.record-id { color: var(--text-muted); font-size: 0.7rem; }
+.table-name { display: block; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; font-size: 0.6rem; }
+.record-id { color: var(--text-muted); font-size: 0.6rem; }
 
 /* Diffs */
 .diff-container { display: flex; gap: 0.75rem; align-items: stretch; background: var(--bg-surface-2nd); border-radius: var(--radius-md); padding: 0.5rem; border: 1px solid var(--border-color-light, #f1f5f9); }
@@ -362,3 +358,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 </script>
+
+<script src="/assets/js/audit_system.js"></script>

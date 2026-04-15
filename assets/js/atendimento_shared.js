@@ -5,6 +5,7 @@
 // Rastreia a aba atualmente ativa para preservar a posição após recargas do modal
 let currentActiveTab = 'info';
 let currentAtendimentoAlunoId = null;
+let currentAtendimentoId = null; // ID do atendimento atual no modal
 let currentAtendimentoAlunoNome = null;
 let currentAtendimentoAlunoPhoto = null;
 
@@ -102,6 +103,7 @@ function renderResponsaveis(resp, canEdit = true) {
  */
 function populateAtendimentoModal(data, options = {}) {
     const at = data.atendimento;
+    currentAtendimentoId = at.id; // Garante que o ID global está atualizado
     const isRestricted = options.isRestricted || false;
     const preserveTab = options.preserveTab || false;
     

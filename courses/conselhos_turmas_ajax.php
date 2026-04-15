@@ -17,13 +17,26 @@ if (!$inst['id'] || !$courseId) {
     exit;
 }
 
+$params = [$courseId];
+$where = "t.course_id = ? AND t.is_active = 1";
+
+if ($user['profile'] === 'Professor') {
+    $where .= " AND t.id IN (
+        SELECT DISTINCT td.turma_id 
+        FROM turma_disciplinas td 
+        JOIN turma_disciplina_professores tdp ON tdp.turma_disciplina_id = td.id 
+        WHERE tdp.professor_id = ?
+    )";
+    $params[] = $user['id'];
+}
+
 $sql = "SELECT t.id, t.description 
         FROM turmas t 
-        WHERE t.course_id = ? AND t.is_active = 1 
+        WHERE $where
         ORDER BY t.description";
 
 $st = $db->prepare($sql);
-$st->execute([$courseId]);
+$st->execute($params);
 $turmas = $st->fetchAll();
 
 echo json_encode($turmas);

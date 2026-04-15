@@ -235,6 +235,64 @@ try {
             $service->deleteAtendimento((int)$_POST['atendimento_id'], $instId);
             echo json_encode(['success' => true]);
             break;
+            
+        case 'fetch_anexos':
+            $atendimentoId = (int)$_GET['atendimento_id'];
+            $anexos = $service->getAnexos($atendimentoId);
+            echo json_encode(['success' => true, 'anexos' => $anexos]);
+            break;
+
+        case 'upload_anexo':
+            if (empty($_FILES['arquivo']['tmp_name'])) {
+                throw new Exception('Arquivo não enviado.');
+            }
+            
+            $atendimentoId = (int)$_POST['atendimento_id'];
+            $descricao = trim($_POST['descricao'] ?? '');
+            $file = $_FILES['arquivo'];
+            
+            // Segurança: Extensões permitidas
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $allowed = ['pdf', 'jpg', 'jpeg', 'png', 'gif'];
+            if (!in_array($ext, $allowed)) {
+                throw new Exception('Formato de arquivo não permitido. Use PDF ou Imagem.');
+            }
+            
+            // Diretório
+            $destDir = __DIR__ . '/../assets/uploads/atendimentos/';
+            if (!is_dir($destDir)) mkdir($destDir, 0755, true);
+            
+            $fileName = time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+            $destPath = $destDir . $fileName;
+            
+            if (move_uploaded_file($file['tmp_name'], $destPath)) {
+                $service->addAnexo([
+                    'atendimento_id' => $atendimentoId,
+                    'usuario_id' => $user['id'],
+                    'arquivo' => 'assets/uploads/atendimentos/' . $fileName,
+                    'descricao' => $descricao ?: $file['name'],
+                    'extensao' => $ext,
+                    'tamanho' => $file['size']
+                ]);
+                echo json_encode(['success' => true]);
+            } else {
+                throw new Exception('Erro ao mover arquivo para o servidor.');
+            }
+            break;
+
+        case 'delete_anexo':
+            $anexoId = (int)$_POST['anexo_id'];
+            $st = $db->prepare("SELECT arquivo FROM gestao_atendimentos_anexos WHERE id = ?");
+            $st->execute([$anexoId]);
+            $anexo = $st->fetch();
+            
+            if ($anexo) {
+                $filePath = __DIR__ . '/../' . $anexo['arquivo'];
+                if (file_exists($filePath)) @unlink($filePath);
+                $service->deleteAnexo($anexoId);
+            }
+            echo json_encode(['success' => true]);
+            break;
 
         case 'search_users':
             $st = $db->prepare("SELECT u.id, u.name, u.photo, u.profile FROM users u JOIN user_institutions ui ON u.id = ui.user_id WHERE ui.institution_id = ? AND u.is_active = 1 AND u.name LIKE ? LIMIT 10");

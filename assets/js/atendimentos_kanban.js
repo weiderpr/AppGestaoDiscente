@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 let draggedCard = null;
-let currentAtendimentoId = null;
 let currentIsArchived = false;
 let showArchived = false;
 

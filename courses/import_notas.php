@@ -22,6 +22,8 @@ if (!$instId) {
 }
 
 $courseId = (int)($_REQUEST['course_id'] ?? 0);
+$turmaId  = (int)($_REQUEST['turma_id']  ?? 0);
+
 if (!$courseId) {
     header('Location: /courses/index.php');
     exit;
@@ -70,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['import_file']['tmp_
     $db->beginTransaction();
     try {
         // Cache de etapas e disciplinas para performance simples
-        $stEnv = $db->prepare('
+        $sqlEnv = '
             SELECT a.id as aluno_id, t.id as turma_id, e.id as etapa_id, e.nota_maxima
             FROM turmas t
             INNER JOIN etapas e ON e.turma_id = t.id
@@ -79,8 +81,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['import_file']['tmp_
             WHERE t.course_id = ? 
               AND a.matricula = ? 
               AND e.description = ?
-            LIMIT 1
-        ');
+        ';
+        if ($turmaId) {
+            $sqlEnv .= ' AND t.id = ?';
+        }
+        $sqlEnv .= ' LIMIT 1';
+        $stEnv = $db->prepare($sqlEnv);
         
         // Busca disciplina por código OU por descrição/nome
         $stDisc = $db->prepare('
@@ -120,7 +126,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['import_file']['tmp_
             }
 
             // 1. Localizar Contexto (Aluno + Turma + Etapa)
-            $stEnv->execute([$courseId, $matricula, $etapaName]);
+            $paramsEnv = [$courseId, $matricula, $etapaName];
+            if ($turmaId) $paramsEnv[] = $turmaId;
+            $stEnv->execute($paramsEnv);
             $ctx = $stEnv->fetch();
             
             if (!$ctx) {
@@ -181,9 +189,9 @@ require_once __DIR__ . '/../includes/header.php';
             &nbsp;›&nbsp; <?= htmlspecialchars($course['name']) ?>
         </div>
         <h1 class="page-title">📊 Importação de Notas</h1>
-        <p class="page-subtitle">Processamento de arquivo CSV para o curso selecionado.</p>
+        <p class="page-subtitle">Processamento de arquivo CSV para o grupo selecionado.</p>
     </div>
-    <a href="/courses/index.php" class="btn btn-secondary">← Voltar</a>
+    <a href="/courses/turmas.php?course_id=<?= $courseId ?>" class="btn btn-secondary">← Voltar</a>
 </div>
 
 <?php if ($success): ?>
@@ -215,6 +223,7 @@ require_once __DIR__ . '/../includes/header.php';
         <form method="POST" enctype="multipart/form-data">
             <?= csrf_field() ?>
             <input type="hidden" name="course_id" value="<?= $courseId ?>">
+            <input type="hidden" name="turma_id" value="<?= $turmaId ?>">
             
             <div style="padding:1.25rem; border-radius:var(--radius-lg); background:var(--bg-surface-2nd); border:1px dashed var(--border-color); margin-bottom:2rem;">
                 <p style="font-size:0.9375rem; font-weight:700; margin-bottom:0.75rem; color:var(--text-primary); display:flex; align-items:center; gap:0.5rem;">

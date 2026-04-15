@@ -351,6 +351,12 @@ require_once __DIR__ . '/../includes/header.php';
                             <?php endif; ?>
                             <a href="/courses/alunos.php?turma_id=<?= $t['id'] ?>"
                                class="action-btn" title="Visualizar Alunos">👤</a>
+                            <?php if (hasDbPermission('grades.manage', false)): ?>
+                            <button type="button" class="action-btn" title="Importar Notas (CSV)"
+                                    onclick='openImportGradesModal(<?= $courseId ?>, <?= $t['id'] ?>, <?= json_encode($t['description']) ?>)'>
+                                📊
+                            </button>
+                            <?php endif; ?>
                             <?php if (hasDbPermission('courses.manage', false)): ?>
                             <a href="/courses/etapas.php?turma_id=<?= $t['id'] ?>"
                                class="action-btn" title="Lançar Notas/Faltas">📋</a>
@@ -436,11 +442,69 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<!-- Modal: Importar Notas -->
+<div class="modal-backdrop" id="importGradesModal" role="dialog" aria-modal="true">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">📊 Importar Notas — CSV</span>
+            <button class="modal-close" onclick="closeImportGradesModal()">✕</button>
+        </div>
+        <form method="POST" action="/courses/import_notas.php" enctype="multipart/form-data">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="import_grades">
+            <input type="hidden" name="course_id" id="import_grades_course_id">
+            <input type="hidden" name="turma_id" id="import_grades_turma_id">
+            
+            <div class="modal-body">
+                <div style="padding:.625rem .875rem;border-radius:var(--radius-md);background:var(--color-primary-light);color:var(--color-primary);font-size:.875rem;font-weight:500;">
+                    🎓 Turma: <strong id="import_grades_turma_name">...</strong>
+                </div>
+
+                <div style="padding:1rem; border-radius:var(--radius-md); background:var(--bg-surface-2nd); border:1px dashed var(--border-color); font-size:0.8125rem;">
+                    <p style="font-weight:600; margin-bottom:0.4rem; color:var(--text-primary);">📝 Instruções do Arquivo:</p>
+                    <ul style="color:var(--text-muted); padding-left:1.2rem; display:grid; gap:0.25rem;">
+                        <li>Deve ser um arquivo <strong>CSV</strong>.</li>
+                        <li>Colunas: <strong>Etapa, Matrícula, Disciplina, Nota, Faltas</strong>.</li>
+                        <li>Exemplo: <code style="background:var(--bg-surface);padding:2px 4px;border-radius:4px;">1º Bimestre;2024001;MAT-101;8.5;2</code></li>
+                        <li>Somente alunos desta turma serão processados.</li>
+                    </ul>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Arquivo (.csv) <span class="required">*</span></label>
+                    <div class="input-group">
+                        <span class="input-icon">📄</span>
+                        <input type="file" name="import_file" class="form-control" accept=".csv" required style="padding-left:2.75rem;">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeImportGradesModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">🚀 Iniciar Processamento</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 function openModal()  { document.getElementById('turmaModal').classList.add('show'); document.body.style.overflow='hidden'; }
 function closeModal() { document.getElementById('turmaModal').classList.remove('show'); document.body.style.overflow=''; }
+
+function openImportGradesModal(cid, tid, tdesc) {
+    document.getElementById('import_grades_course_id').value = cid;
+    document.getElementById('import_grades_turma_id').value = tid;
+    document.getElementById('import_grades_turma_name').innerText = tdesc;
+    document.getElementById('importGradesModal').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+function closeImportGradesModal() {
+    document.getElementById('importGradesModal').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
 document.getElementById('turmaModal').addEventListener('click', e => { if(e.target===document.getElementById('turmaModal')) closeModal(); });
-document.addEventListener('keydown', e => { if(e.key==='Escape') closeModal(); });
+document.getElementById('importGradesModal').addEventListener('click', e => { if(e.target===document.getElementById('importGradesModal')) closeImportGradesModal(); });
+document.addEventListener('keydown', e => { if(e.key==='Escape') { closeModal(); closeImportGradesModal(); } });
 
 // Toasts para feedback
 <?php if ($success || $error): ?>
