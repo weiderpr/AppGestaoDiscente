@@ -351,7 +351,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <?php endif; ?>
                             <a href="/courses/alunos.php?turma_id=<?= $t['id'] ?>"
                                class="action-btn" title="Visualizar Alunos">👤</a>
-                            <?php if (hasDbPermission('grades.manage', false)): ?>
+                            <?php if (hasDbPermission('grades.import', false)): ?>
                             <button type="button" class="action-btn" title="Importar Notas (CSV)"
                                     onclick='openImportGradesModal(<?= $courseId ?>, <?= $t['id'] ?>, <?= json_encode($t['description']) ?>)'>
                                 📊

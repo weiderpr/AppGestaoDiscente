@@ -5,12 +5,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
-$user = getCurrentUser();
-$allowed = ['Administrador', 'Coordenador'];
-if (!$user || !in_array($user['profile'], $allowed)) {
-    header('Location: /dashboard.php');
-    exit;
-}
+hasDbPermission('grades.import'); // Centralized RBAC check
 
 $db      = getDB();
 $inst    = getCurrentInstitution();

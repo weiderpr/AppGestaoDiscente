@@ -148,6 +148,11 @@ $stats = [
 ];
 
 foreach ($eventos as $ev) {
+    if ($ev['tipo'] === 'aula') {
+        $isWaived = isset($dispensasMap[$ev['turma_id'] . '_' . $ev['disciplina_codigo']]);
+        if ($isWaived) continue;
+    }
+
     $t1 = strtotime($ev['horario_inicio']);
     $t2 = strtotime($ev['horario_fim']);
     $diff = ($t2 - $t1) / 60;
@@ -223,6 +228,11 @@ foreach ($diasLabels as $d => $label) {
     $lastEnd = '08:00:00';
     
     foreach ($eventosDia as $ev) {
+        if ($ev['tipo'] === 'aula') {
+            $isWaived = isset($dispensasMap[$ev['turma_id'] . '_' . $ev['disciplina_codigo']]);
+            if ($isWaived) continue;
+        }
+
         $ini = $ev['horario_inicio'];
         $fim = $ev['horario_fim'];
         

@@ -168,13 +168,35 @@ try {
             $rawId = $_GET['id'] ?? '';
             if (strpos($rawId, 'enc_') === 0) {
                 $encId = (int)str_replace('enc_', '', $rawId);
-                $st = $db->prepare("SELECT e.*, a.nome as aluno_nome, a.matricula, a.photo as aluno_photo, t.description as turma_nome FROM conselho_encaminhamentos e JOIN alunos a ON e.aluno_id = a.id JOIN conselhos_classe c ON e.conselho_id = c.id JOIN turmas t ON c.turma_id = t.id WHERE e.id = ?");
+                $st = $db->prepare("
+                    SELECT e.*, 
+                           a.nome as aluno_nome, a.matricula, a.photo as aluno_photo, 
+                           t.description as turma_nome,
+                           c.descricao as conselho_nome, c.data_hora as conselho_data
+                    FROM conselho_encaminhamentos e 
+                    JOIN alunos a ON e.aluno_id = a.id 
+                    JOIN conselhos_classe c ON e.conselho_id = c.id 
+                    JOIN turmas t ON c.turma_id = t.id 
+                    WHERE e.id = ?
+                ");
                 $st->execute([$encId]);
                 $atend = $st->fetch(PDO::FETCH_ASSOC);
                 echo json_encode(['success' => true, 'atendimento' => $atend, 'responsaveis' => [], 'comentarios' => []]);
             } else {
                 $atendId = (int)$rawId;
-                $st = $db->prepare("SELECT at.*, a.nome as aluno_nome, a.photo as aluno_photo, t.description as turma_nome FROM gestao_atendimentos at LEFT JOIN alunos a ON at.aluno_id = a.id LEFT JOIN turmas t ON at.turma_id = t.id WHERE at.id = ? AND at.institution_id = ?");
+                $st = $db->prepare("
+                    SELECT at.*, 
+                           a.nome as aluno_nome, a.matricula, a.photo as aluno_photo, 
+                           t.description as turma_nome,
+                           ce.texto as encaminhamento_texto, ce.data_expectativa as data_expectativa,
+                           cc.descricao as conselho_nome, cc.data_hora as conselho_data
+                    FROM gestao_atendimentos at 
+                    LEFT JOIN alunos a ON at.aluno_id = a.id 
+                    LEFT JOIN turmas t ON at.turma_id = t.id 
+                    LEFT JOIN conselho_encaminhamentos ce ON at.encaminhamento_id = ce.id
+                    LEFT JOIN conselhos_classe cc ON ce.conselho_id = cc.id
+                    WHERE at.id = ? AND at.institution_id = ?
+                ");
                 $st->execute([$atendId, $instId]);
                 $atend = $st->fetch(PDO::FETCH_ASSOC);
                 

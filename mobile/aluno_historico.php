@@ -90,7 +90,7 @@ $historyTree = buildHistoryTree($history);
 function safeHtml($html) {
     $allowedTags = '<b><strong><i><em><u><s><p><br><br/><br /><ul><ol><li><a><code><blockquote><h1><h2><h3><h4><h5><h6>';
     $text = strip_tags($html, $allowedTags);
-    $text = preg_replace('/([a-záàâãéèêíìîíòôõúùûç])([A-ZÁÀÂÃÉÈÊÍÌÎÍÒÔÕÚÙÛ])/', '$1 $2', $text);
+    $text = preg_replace('/(\p{Ll})(\p{Lu})/u', '$1 $2', $text);
     return nl2br($text);
 }
 
