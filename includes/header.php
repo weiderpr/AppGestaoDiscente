@@ -130,7 +130,8 @@ if (empty($user['photo'])) {
             <?php
             $hasCadastroAccess = hasDbPermission('users.index', false) 
                 || hasDbPermission('institutions.index', false) 
-                || hasDbPermission('subjects.index', false);
+                || hasDbPermission('subjects.index', false)
+                || hasDbPermission('manutencao.ambientes', false);
             ?>
             <?php if ($hasCadastroAccess): ?>
             <div class="nav-dropdown nav-menu-item">
@@ -164,6 +165,15 @@ if (empty($user['photo'])) {
                        role="menuitem">
                         <span class="nav-icon">📖</span>
                         <span>Disciplinas</span>
+                    </a>
+                    <?php endif; ?>
+
+                    <?php if (hasDbPermission('manutencao.ambientes', false)): ?>
+                    <a href="/manutencao/ambientes.php" 
+                       class="nav-dropdown-item <?= strpos($_SERVER['PHP_SELF'], '/manutencao/ambientes.php') !== false ? 'active' : '' ?>" 
+                       role="menuitem">
+                        <span class="nav-icon">🏢</span>
+                        <span>Ambientes</span>
                     </a>
                     <?php endif; ?>
                 </div>
@@ -212,6 +222,15 @@ if (empty($user['photo'])) {
                     <?php endif; ?>
                 </div>
             </div>
+            <?php endif; ?>
+
+            <!-- Manutenção (Top-level) -->
+            <?php if (hasDbPermission('manutencao.index', false)): ?>
+            <a href="/manutencao/index.php"
+               class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/manutencao/index.php') !== false ? 'active' : '' ?>">
+                <span class="nav-icon">🛠️</span>
+                <span class="nav-text">Manutenções</span>
+            </a>
             <?php endif; ?>
 
             <?php if (hasDbPermission('courses.index', false)): ?>

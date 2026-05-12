@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     
     $currentFile = basename($_SERVER['PHP_SELF']);
-    $exemptFiles = ['login.php', 'register.php', 'index.php']; 
+    $exemptFiles = ['login.php', 'register.php', 'index.php', 'relatar_ajax.php']; 
     
     if (!in_array($currentFile, $exemptFiles) && !csrf_verify($token)) {
         http_response_code(403);
