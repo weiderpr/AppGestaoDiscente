@@ -317,7 +317,7 @@ $activeSub = $_GET['sub'] ?? 'backup';
 $allowedSubs = [
     'backup'     => ['backup', 'restore', 'logs'],
     'avaliacoes' => ['dashboard', 'tipos', 'lista', 'create', 'respostas'],
-    'permissoes' => ['manage'],
+    'permissoes' => ['perfil', 'usuario'],
     'audit_logs' => ['index']
 ];
 if (!in_array($activeSub, $allowedSubs[$activeSection] ?? [])) {
@@ -652,7 +652,13 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 <!-- ===== SEÇÃO: PERMISSÕES ===== -->
 <div class="settings-section <?= $activeSection === 'permissoes' ? 'active' : '' ?>">
-    <?php include __DIR__ . '/includes/settings/permissoes.php'; ?>
+    <?php 
+    if ($activeSub === 'usuario') {
+        include __DIR__ . '/includes/settings/per_user_permissions.php';
+    } else {
+        include __DIR__ . '/includes/settings/permissoes.php';
+    }
+    ?>
 </div>
 
 </div><!-- /settings-content -->

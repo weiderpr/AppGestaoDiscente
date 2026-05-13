@@ -209,4 +209,21 @@ class ManutencaoService extends Service {
         }
         return $success;
     }
+
+    /**
+     * Remove uma manutenção (e todos os seus vínculos via FK Cascade)
+     */
+    public function delete(int $id): bool {
+        $old = $this->findById($id);
+        if (!$old) return false;
+
+        $stmt = $this->db->prepare("DELETE FROM manutencoes WHERE id = ?");
+        $success = $stmt->execute([$id]);
+        
+        if ($success) {
+            $this->audit('delete', 'manutencoes', $id, $old);
+        }
+        
+        return $success;
+    }
 }

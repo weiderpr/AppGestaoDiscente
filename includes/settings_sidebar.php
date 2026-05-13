@@ -36,8 +36,11 @@ $navItems = [
         'section'  => 'permissoes',
         'icon'     => '🔐',
         'label'    => 'Permissões',
-        'desc'     => 'Gerenciamento de acesso por perfil',
-        'url'      => '/settings.php?section=permissoes',
+        'desc'     => 'Gerenciamento de acesso por perfil e usuário',
+        'children' => [
+            ['sub' => 'perfil', 'icon' => '👥', 'label' => 'Por Perfil', 'url' => '/settings.php?section=permissoes&sub=perfil'],
+            ['sub' => 'usuario', 'icon' => '👤', 'label' => 'Por Usuário (Outros)', 'url' => '/settings.php?section=permissoes&sub=usuario'],
+        ],
     ],
     [
         'section'  => 'audit_logs',

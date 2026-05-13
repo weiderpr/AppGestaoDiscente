@@ -273,7 +273,7 @@ function hasDbPermission(string $resource, bool $redirect = true): bool {
     require_once __DIR__ . '/../src/App/Services/PermissionService.php';
     
     $permissionService = new \App\Services\PermissionService();
-    $hasAccess = $permissionService->canAccess($user['profile'], $resource);
+    $hasAccess = $permissionService->canAccess($user['profile'], $resource, (int)$user['id']);
 
     if (!$hasAccess && $redirect) {
         if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest') {

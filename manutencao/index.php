@@ -7,6 +7,12 @@ requireLogin();
 
 hasDbPermission('manutencao.index');
 
+$canCreate   = hasDbPermission('manutencao.create', false);
+$canMove     = hasDbPermission('manutencao.move', false);
+$canMaterial = hasDbPermission('manutencao.materials', false);
+$canComment  = hasDbPermission('manutencao.comments', false);
+$canDelete   = hasDbPermission('manutencao.delete', false);
+
 $user = getCurrentUser();
 $inst = getCurrentInstitution();
 $instId = $inst['id'];
@@ -417,13 +423,16 @@ html, body { overflow: hidden !important; height: 100% !important; }
         🛠️ Quadro de Manutenções
     </span>
     <div class="kanban-subheader-actions">
+        <?php if ($canCreate): ?>
         <button class="btn-kanban-new" onclick="openNewManutencaoModal()">
             <span>➕</span> Nova Manutenção
         </button>
+        <?php endif; ?>
     </div>
 </div>
 
 <div class="kanban-board" id="kanbanBoard">
+    <?= csrf_field() ?>
     
     <!-- Coluna: Demandas -->
     <div class="kanban-column" data-status="Demandas" style="border-top: 4px solid var(--text-muted);">
@@ -560,6 +569,7 @@ html, body { overflow: hidden !important; height: 100% !important; }
                             
                             <hr class="mt-md mb-md">
                             
+                            <?php if ($canComment): ?>
                             <div class="comment-form">
                                 <label class="form-label">Adicionar Comentário</label>
                                 <textarea id="newCommentText" class="form-control" rows="3" placeholder="Escreva aqui as observações ou etapas realizadas..."></textarea>
@@ -569,10 +579,16 @@ html, body { overflow: hidden !important; height: 100% !important; }
                                     </button>
                                 </div>
                             </div>
+                            <?php else: ?>
+                            <div class="alert alert-info" style="font-size: 0.8125rem;">
+                                ℹ️ Você tem permissão apenas para visualizar os comentários.
+                            </div>
+                            <?php endif; ?>
                         </div>
 
                         <!-- Conteúdo: Materiais -->
                         <div id="tab-materiais" class="tab-content">
+                            <?php if ($canMaterial): ?>
                             <div class="material-form bg-surface-2nd p-sm rounded-lg mb-md" style="border: 1px solid var(--border-color);">
                                 <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; padding: 0.5rem;">
                                     <div style="flex: 2; min-width: 200px;">
@@ -594,6 +610,11 @@ html, body { overflow: hidden !important; height: 100% !important; }
                                     </div>
                                 </div>
                             </div>
+                            <?php else: ?>
+                            <div class="alert alert-info" style="font-size: 0.8125rem;">
+                                ℹ️ Você tem permissão apenas para visualizar a lista de materiais.
+                            </div>
+                            <?php endif; ?>
 
                             <div id="materialsList" class="materials-container">
                                 <p class="text-muted" style="text-align: center; padding: 2rem;">Carregando materiais...</p>
@@ -607,7 +628,14 @@ html, body { overflow: hidden !important; height: 100% !important; }
                     </div>
 
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer" style="justify-content: space-between;">
+                    <div>
+                        <?php if ($canDelete): ?>
+                        <button type="button" class="btn btn-danger" onclick="deleteMaintenance()">
+                            <span>🗑️</span> Excluir Manutenção
+                        </button>
+                        <?php endif; ?>
+                    </div>
                     <button type="button" class="btn btn-secondary" onclick="closeModal('modalMaintenanceDetails')">Fechar</button>
                 </div>
             </div>
@@ -625,6 +653,7 @@ html, body { overflow: hidden !important; height: 100% !important; }
                     <button type="button" class="modal-close" onclick="closeModal('modalNewManutencao')">✕</button>
                 </div>
                 <form id="formNewManutencao">
+                    <?= csrf_field() ?>
                     <div class="modal-body">
                         <div class="form-group">
                             <label class="form-label">Ambiente <span class="required">*</span></label>
@@ -690,6 +719,15 @@ html, body { overflow: hidden !important; height: 100% !important; }
         </div>
     </div>
 </div>
+
+<!-- Variáveis de Permissão para o JS -->
+<script>
+    const CAN_CREATE_MANUTENCAO = <?= $canCreate ? 'true' : 'false' ?>;
+    const CAN_MOVE_MANUTENCAO   = <?= $canMove ? 'true' : 'false' ?>;
+    const CAN_MATERIAL_MANUTENCAO = <?= $canMaterial ? 'true' : 'false' ?>;
+    const CAN_COMMENT_MANUTENCAO  = <?= $canComment ? 'true' : 'false' ?>;
+    const CAN_DELETE_MANUTENCAO   = <?= $canDelete ? 'true' : 'false' ?>;
+</script>
 
 <script src="/assets/js/manutencao_kanban.js?v=<?= time() ?>"></script>
 

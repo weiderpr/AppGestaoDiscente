@@ -32,6 +32,7 @@ try {
             if (!csrf_verify($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) {
                 throw new Exception('Token CSRF inválido.');
             }
+            hasDbPermission('manutencao.create');
             
             $payload = [
                 'institution_id' => $instId,
@@ -55,6 +56,7 @@ try {
             if (!csrf_verify($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) {
                 throw new Exception('Token CSRF inválido.');
             }
+            hasDbPermission('manutencao.move');
 
             $id = (int)($_POST['id'] ?? 0);
             $status = $_POST['status'] ?? '';
@@ -95,6 +97,7 @@ try {
             if (!csrf_verify($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) {
                 throw new Exception('Token CSRF inválido.');
             }
+            hasDbPermission('manutencao.comments');
             $id = (int)($_POST['id'] ?? 0);
             $comentario = trim($_POST['comentario'] ?? '');
             if (empty($comentario)) throw new Exception('O comentário não pode estar vazio.');
@@ -114,6 +117,7 @@ try {
             if (!csrf_verify($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) {
                 throw new Exception('Token CSRF inválido.');
             }
+            hasDbPermission('manutencao.materials');
             
             $valorStr = $_POST['valor'] ?? '0';
             // Converte "1.234,56" para "1234.56"
@@ -136,11 +140,25 @@ try {
             if (!csrf_verify($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) {
                 throw new Exception('Token CSRF inválido.');
             }
+            hasDbPermission('manutencao.materials');
             $id = (int)($_POST['id'] ?? 0);
             if ($manutencaoService->deleteMaterial($id)) {
                 echo json_encode(['success' => true]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Erro ao remover material.']);
+            }
+            break;
+            
+        case 'delete':
+            if (!csrf_verify($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) {
+                throw new Exception('Token CSRF inválido.');
+            }
+            hasDbPermission('manutencao.delete');
+            $id = (int)($_POST['id'] ?? 0);
+            if ($manutencaoService->delete($id)) {
+                echo json_encode(['success' => true]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Erro ao excluir manutenção.']);
             }
             break;
 

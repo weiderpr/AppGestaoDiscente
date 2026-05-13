@@ -76,7 +76,7 @@ function renderColumn(status, cards) {
 
         const cardEl = document.createElement('div');
         cardEl.className = 'k-card';
-        cardEl.draggable = true;
+        cardEl.draggable = CAN_MOVE_MANUTENCAO;
         cardEl.dataset.id = card.id;
         
         cardEl.onclick = (e) => {
@@ -137,6 +137,10 @@ function handleDragOver(e) {
 
 async function handleDrop(e) {
     e.preventDefault();
+    if (!CAN_MOVE_MANUTENCAO) {
+        Toast.error('Você não tem permissão para movimentar cards.');
+        return;
+    }
     if (!draggedCard) return;
 
     const targetCol = this.closest('.kanban-column');
@@ -426,6 +430,40 @@ async function openMaintenanceDetails(id) {
     }
 }
 
+async function deleteMaintenance() {
+    if (!currentMaintenanceId) return;
+
+    if (!confirm('Tem certeza que deseja excluir esta manutenção permanentemente? Esta ação não pode ser desfeita.')) {
+        return;
+    }
+
+    showLoading();
+    try {
+        const formData = new FormData();
+        formData.append('id', currentMaintenanceId);
+        formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+
+        const res = await fetch('../api/manutencao/manutencoes_ajax.php?action=delete', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const result = await res.json();
+        hideLoading();
+
+        if (result.success) {
+            Toast.success('Manutenção excluída com sucesso!');
+            closeModal('modalMaintenanceDetails');
+            loadBoard(); // Recarrega o quadro
+        } else {
+            Toast.error(result.message || 'Erro ao excluir manutenção.');
+        }
+    } catch (e) {
+        hideLoading();
+        Toast.error('Erro de conexão ao excluir manutenção.');
+    }
+}
+
 function switchMaintenanceTab(tabName, btn) {
     const modal = document.getElementById('modalMaintenanceDetails');
     // Esconder todos os conteúdos de aba
@@ -483,9 +521,11 @@ async function loadMaterials(id) {
                                 <span class="material-label">Valor</span>
                                 <span class="material-value-text">${valorFormatado}</span>
                             </div>
+                            ${CAN_MATERIAL_MANUTENCAO ? `
                             <button type="button" class="btn btn-sm btn-danger" onclick="deleteMaterial(${m.id})" title="Remover">
                                 🗑️
                             </button>
+                            ` : ''}
                         </div>
                     `;
                 });
