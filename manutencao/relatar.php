@@ -87,7 +87,7 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
         /* Header */
         .qr-header {
             background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-            padding: 1.5rem 1.25rem 3.5rem;
+            padding: 1.5rem 1.25rem 5.5rem;
             text-align: center;
             position: relative;
             overflow: hidden;
@@ -349,6 +349,59 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
             color: var(--text-muted);
         }
 
+        /* Photo Capture */
+        .photo-capture-container {
+            margin-bottom: 1.5rem;
+        }
+        .btn-photo {
+            width: 100%;
+            padding: 0.875rem;
+            border-radius: var(--radius-sm);
+            background: var(--surface2);
+            border: 2px dashed var(--border);
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.625rem;
+            transition: all 0.2s ease;
+        }
+        .btn-photo:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+        .photo-preview-wrapper {
+            margin-top: 0.75rem;
+            position: relative;
+            display: none;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .photo-preview {
+            width: 100%;
+            display: block;
+            max-height: 300px;
+            object-fit: cover;
+        }
+        .btn-remove-photo {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            width: 32px;
+            height: 32px;
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
         @media (max-width: 480px) {
             .main-card { border-radius: 16px 16px 0 0; padding: 1.5rem 1.25rem 2.5rem; }
             .form-row { grid-template-columns: 1fr; }
@@ -435,6 +488,19 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                       placeholder="Ex: O problema está no lado esquerdo, próximo à janela..."></textarea>
         </div>
 
+        <!-- Enviar Foto -->
+        <div class="photo-capture-container">
+            <div class="section-label">Evidência fotográfica</div>
+            <input type="file" id="photoInput" name="foto_upload" accept="image/*" capture="environment" style="display:none">
+            <button type="button" class="btn-photo" onclick="document.getElementById('photoInput').click()">
+                📷 <span>Tirar Foto / Enviar Imagem</span>
+            </button>
+            <div id="photoPreviewWrapper" class="photo-preview-wrapper">
+                <img id="photoPreview" class="photo-preview" src="" alt="Preview">
+                <button type="button" class="btn-remove-photo" onclick="removePhoto()">&times;</button>
+            </div>
+        </div>
+
         <!-- Comentário -->
         <div class="form-group">
             <label class="form-label">Comentário <span style="color:var(--text-muted);font-weight:400;">(opcional)</span></label>
@@ -500,6 +566,75 @@ function toggleOutrosField(visible) {
     else field.value = '';
 }
 
+// Lógica de Foto e Compressão
+let compressedBlob = null;
+
+document.getElementById('photoInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+            // Compressão via Canvas
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+
+            // Redimensiona se for muito grande (max 1920px de largura/altura para economizar banda/espaço)
+            const max_size = 1920;
+            if (width > height) {
+                if (width > max_size) {
+                    height *= max_size / width;
+                    width = max_size;
+                }
+            } else {
+                if (height > max_size) {
+                    width *= max_size / height;
+                    height = max_size;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Tenta comprimir com qualidade 0.7
+            let quality = 0.7;
+            canvas.toBlob((blob) => {
+                // Se ainda for > 2MB, reduz qualidade agressivamente
+                if (blob.size > 2 * 1024 * 1024) {
+                    canvas.toBlob((blob2) => {
+                        processBlob(blob2);
+                    }, 'image/jpeg', 0.4);
+                } else {
+                    processBlob(blob);
+                }
+            }, 'image/jpeg', quality);
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+});
+
+function processBlob(blob) {
+    compressedBlob = blob;
+    const url = URL.createObjectURL(blob);
+    const preview = document.getElementById('photoPreview');
+    const wrapper = document.getElementById('photoPreviewWrapper');
+    preview.src = url;
+    wrapper.style.display = 'block';
+}
+
+function removePhoto() {
+    compressedBlob = null;
+    document.getElementById('photoInput').value = '';
+    document.getElementById('photoPreviewWrapper').style.display = 'none';
+    document.getElementById('photoPreview').src = '';
+}
+
 document.getElementById('relatoForm')?.addEventListener('submit', async function(e) {
     e.preventDefault();
 
@@ -534,6 +669,13 @@ document.getElementById('relatoForm')?.addEventListener('submit', async function
 
     try {
         const formData = new FormData(this);
+        
+        // Substitui a foto original pelo blob comprimido se existir
+        if (compressedBlob) {
+            formData.delete('foto_upload');
+            formData.append('foto', compressedBlob, 'manutencao.jpg');
+        }
+
         const res = await fetch(CONFIG_API_PATH + '?action=submit', {
             method: 'POST',
             body: formData

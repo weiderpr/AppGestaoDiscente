@@ -19,8 +19,8 @@ class ManutencaoRelatoService extends Service {
         $this->db->beginTransaction();
         try {
             $sql = "INSERT INTO manutencao_relatos
-                    (ambiente_id, user_id, nome_relator, email_relator, descricao, comentario, outros_detalhes, ip_address)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                    (ambiente_id, user_id, nome_relator, email_relator, descricao, comentario, outros_detalhes, foto, ip_address)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
@@ -31,6 +31,7 @@ class ManutencaoRelatoService extends Service {
                 trim($data['descricao']),
                 $data['comentario'] ?? null,
                 $data['outros_detalhes'] ?? null,
+                $data['foto'] ?? null,
                 $data['ip_address'] ?? null,
             ]);
 
@@ -47,8 +48,8 @@ class ManutencaoRelatoService extends Service {
             }
 
             // Gera automaticamente uma manutenção na coluna "Demandas"
-            $sqlM = "INSERT INTO manutencoes (institution_id, ambiente_id, descricao, outros_detalhes, status, data_manutencao) 
-                     VALUES (?, ?, ?, ?, ?, ?)";
+            $sqlM = "INSERT INTO manutencoes (institution_id, ambiente_id, descricao, outros_detalhes, status, data_manutencao, foto) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?)";
             $stmtM = $this->db->prepare($sqlM);
             $stmtM->execute([
                 (int)$data['institution_id'],
@@ -56,7 +57,8 @@ class ManutencaoRelatoService extends Service {
                 trim($data['descricao']),
                 $data['outros_detalhes'] ?? null,
                 'Demandas',
-                date('Y-m-d H:i:s')
+                date('Y-m-d H:i:s'),
+                $data['foto'] ?? null
             ]);
             $manutencaoId = (int)$this->db->lastInsertId();
 

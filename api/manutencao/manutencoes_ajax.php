@@ -85,6 +85,65 @@ try {
             }
             break;
 
+        case 'list_comments':
+            $id = (int)($_GET['id'] ?? 0);
+            $comments = $manutencaoService->getComments($id);
+            echo json_encode(['success' => true, 'comments' => $comments]);
+            break;
+
+        case 'add_comment':
+            if (!csrf_verify($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) {
+                throw new Exception('Token CSRF inválido.');
+            }
+            $id = (int)($_POST['id'] ?? 0);
+            $comentario = trim($_POST['comentario'] ?? '');
+            if (empty($comentario)) throw new Exception('O comentário não pode estar vazio.');
+            
+            $user = getCurrentUser();
+            $result = $manutencaoService->addComment($id, $user['id'], $comentario);
+            echo json_encode($result);
+            break;
+
+        case 'list_materials':
+            $id = (int)($_GET['id'] ?? 0);
+            $materials = $manutencaoService->getMaterials($id);
+            echo json_encode(['success' => true, 'materials' => $materials]);
+            break;
+
+        case 'add_material':
+            if (!csrf_verify($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) {
+                throw new Exception('Token CSRF inválido.');
+            }
+            
+            $valorStr = $_POST['valor'] ?? '0';
+            // Converte "1.234,56" para "1234.56"
+            $valor = (float)str_replace(['.', ','], ['', '.'], $valorStr);
+
+            $payload = [
+                'manutencao_id' => (int)($_POST['id'] ?? 0),
+                'descricao' => trim($_POST['descricao'] ?? ''),
+                'local_compra' => trim($_POST['local_compra'] ?? ''),
+                'valor' => $valor
+            ];
+
+            if (empty($payload['descricao'])) throw new Exception('A descrição do material é obrigatória.');
+            
+            $result = $manutencaoService->addMaterial($payload);
+            echo json_encode($result);
+            break;
+
+        case 'delete_material':
+            if (!csrf_verify($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) {
+                throw new Exception('Token CSRF inválido.');
+            }
+            $id = (int)($_POST['id'] ?? 0);
+            if ($manutencaoService->deleteMaterial($id)) {
+                echo json_encode(['success' => true]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Erro ao remover material.']);
+            }
+            break;
+
         default:
             echo json_encode(['success' => false, 'message' => 'Ação inválida.']);
             break;

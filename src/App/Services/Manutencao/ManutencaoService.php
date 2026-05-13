@@ -132,4 +132,81 @@ class ManutencaoService extends Service {
         }
         return $row ?: null;
     }
+
+    /**
+     * Retorna os comentários de uma manutenção
+     */
+    public function getComments(int $manutencaoId): array {
+        $sql = "SELECT c.*, u.name as user_name 
+                FROM manutencao_comentarios c
+                INNER JOIN users u ON u.id = c.user_id
+                WHERE c.manutencao_id = ?
+                ORDER BY c.created_at DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$manutencaoId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Adiciona um comentário a uma manutenção
+     */
+    public function addComment(int $manutencaoId, int $userId, string $comentario): array {
+        try {
+            $sql = "INSERT INTO manutencao_comentarios (manutencao_id, user_id, comentario) VALUES (?, ?, ?)";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$manutencaoId, $userId, trim($comentario)]);
+            
+            $id = (int)$this->db->lastInsertId();
+            $this->audit('add_comment', 'manutencao_comentarios', $id, ['manutencao_id' => $manutencaoId, 'comentario' => $comentario]);
+            
+            return ['success' => true, 'id' => $id];
+        } catch (Exception $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Retorna os materiais de uma manutenção
+     */
+    public function getMaterials(int $manutencaoId): array {
+        $sql = "SELECT * FROM manutencao_materiais WHERE manutencao_id = ? ORDER BY created_at DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$manutencaoId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Adiciona um material a uma manutenção
+     */
+    public function addMaterial(array $data): array {
+        try {
+            $sql = "INSERT INTO manutencao_materiais (manutencao_id, descricao, local_compra, valor) VALUES (?, ?, ?, ?)";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([
+                (int)$data['manutencao_id'],
+                trim($data['descricao']),
+                trim($data['local_compra'] ?? ''),
+                (float)($data['valor'] ?? 0)
+            ]);
+            
+            $id = (int)$this->db->lastInsertId();
+            $this->audit('add_material', 'manutencao_materiais', $id, $data);
+            
+            return ['success' => true, 'id' => $id];
+        } catch (Exception $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Remove um material
+     */
+    public function deleteMaterial(int $id): bool {
+        $stmt = $this->db->prepare("DELETE FROM manutencao_materiais WHERE id = ?");
+        $success = $stmt->execute([$id]);
+        if ($success) {
+            $this->audit('delete_material', 'manutencao_materiais', $id);
+        }
+        return $success;
+    }
 }

@@ -69,6 +69,25 @@ try {
                 $payload['email_relator'] = trim($_POST['email_relator'] ?? '') ?: null;
             }
 
+            // Tratamento de Foto
+            $payload['foto'] = null;
+            if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
+                $uploadDir = __DIR__ . '/../../assets/uploads/manutencao/';
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
+
+                $fileTmpPath = $_FILES['foto']['tmp_name'];
+                $fileName = $_FILES['foto']['name'];
+                $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+                
+                // Nome único para o arquivo
+                $newFileName = md5(time() . $fileName) . '.' . $fileExtension;
+                $destPath = $uploadDir . $newFileName;
+
+                if (move_uploaded_file($fileTmpPath, $destPath)) {
+                    $payload['foto'] = 'assets/uploads/manutencao/' . $newFileName;
+                }
+            }
+
             $result = $relatoService->create($payload);
             echo json_encode($result);
             break;

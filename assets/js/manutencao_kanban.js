@@ -8,6 +8,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 let draggedCard = null;
+let currentMaintenanceId = null;
+
+document.addEventListener('input', (e) => {
+    if (e.target.classList.contains('money-mask')) {
+        applyMoneyMask(e.target);
+    }
+});
+
+function applyMoneyMask(input) {
+    let value = input.value.replace(/\D/g, '');
+    value = (value / 100).toFixed(2) + '';
+    value = value.replace(".", ",");
+    value = value.replace(/(\d)(\d{3})(\d{3}),/g, "$1.$2.$3,");
+    value = value.replace(/(\d)(\d{3}),/g, "$1.$2,");
+    input.value = value;
+}
 
 async function loadBoard() {
     showLoading();
@@ -313,6 +329,7 @@ document.getElementById('formNewManutencao').onsubmit = async function(e) {
 
 async function openMaintenanceDetails(id) {
     if (!id) return;
+    currentMaintenanceId = id;
     
     showLoading();
     try {
@@ -383,6 +400,17 @@ async function openMaintenanceDetails(id) {
                 problemasContainer.appendChild(span);
             }
 
+            // Foto de Evidência
+            const photoContainer = document.getElementById('detailPhotoContainer');
+            const photoImg = document.getElementById('detailPhotoImg');
+            if (data.foto) {
+                photoImg.src = '/' + data.foto;
+                photoContainer.style.display = 'block';
+            } else {
+                photoContainer.style.display = 'none';
+                photoImg.src = '';
+            }
+
             // Resetar abas para a primeira
             const firstTabBtn = document.querySelector('#modalMaintenanceDetails .tab-btn');
             switchMaintenanceTab('detalhes', firstTabBtn);
@@ -411,4 +439,218 @@ function switchMaintenanceTab(tabName, btn) {
     
     // Ativar botão selecionado
     if (btn) btn.classList.add('active');
+
+    // Se for a aba de comentários, carrega o feed
+    if (tabName === 'comentarios') {
+        loadComments(currentMaintenanceId);
+    }
+
+    // Se for a aba de materiais, carrega a lista
+    if (tabName === 'materiais') {
+        loadMaterials(currentMaintenanceId);
+    }
+}
+
+async function loadMaterials(id) {
+    const list = document.getElementById('materialsList');
+    const totalEl = document.getElementById('matTotalValue');
+    if (!list) return;
+
+    try {
+        const res = await fetch(`../api/manutencao/manutencoes_ajax.php?action=list_materials&id=${id}`);
+        const data = await res.json();
+
+        if (data.success) {
+            if (data.materials && data.materials.length > 0) {
+                let html = '';
+                let total = 0;
+                data.materials.forEach(m => {
+                    const valor = parseFloat(m.valor);
+                    total += valor;
+                    const valorFormatado = valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    
+                    html += `
+                        <div class="material-item">
+                            <div class="material-info">
+                                <span class="material-label">Material</span>
+                                <strong>${m.descricao}</strong>
+                            </div>
+                            <div class="material-info">
+                                <span class="material-label">Local de Compra</span>
+                                <span>${m.local_compra || '---'}</span>
+                            </div>
+                            <div class="material-info">
+                                <span class="material-label">Valor</span>
+                                <span class="material-value-text">${valorFormatado}</span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="deleteMaterial(${m.id})" title="Remover">
+                                🗑️
+                            </button>
+                        </div>
+                    `;
+                });
+                list.innerHTML = html;
+                totalEl.innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            } else {
+                list.innerHTML = '<p class="text-muted" style="text-align: center; padding: 2rem;">Nenhum material registrado.</p>';
+                totalEl.innerText = 'R$ 0,00';
+            }
+        }
+    } catch (e) {
+        list.innerHTML = '<p style="color:red; text-align:center;">Erro ao carregar materiais.</p>';
+    }
+}
+
+async function submitMaterial() {
+    const descEl = document.getElementById('matDescricao');
+    const localEl = document.getElementById('matLocal');
+    const valorEl = document.getElementById('matValor');
+
+    const descricao = descEl.value.trim();
+    if (!descricao) {
+        Toast.warning('A descrição do material é obrigatória.');
+        return;
+    }
+
+    showLoading();
+    try {
+        const formData = new FormData();
+        formData.append('id', currentMaintenanceId);
+        formData.append('descricao', descricao);
+        formData.append('local_compra', localEl.value.trim());
+        formData.append('valor', valorEl.value);
+        formData.append('csrf_token', window.csrfToken);
+
+        const res = await fetch('../api/manutencao/manutencoes_ajax.php?action=add_material', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const data = await res.json();
+        hideLoading();
+
+        if (data.success) {
+            Toast.success('Material registrado!');
+            descEl.value = '';
+            localEl.value = '';
+            valorEl.value = '';
+            loadMaterials(currentMaintenanceId);
+        } else {
+            Toast.error(data.message || 'Erro ao registrar material.');
+        }
+    } catch (e) {
+        hideLoading();
+        Toast.error('Erro de conexão.');
+    }
+}
+
+async function deleteMaterial(materialId) {
+    if (!confirm('Tem certeza que deseja remover este material?')) return;
+
+    showLoading();
+    try {
+        const formData = new FormData();
+        formData.append('id', materialId);
+        formData.append('csrf_token', window.csrfToken);
+
+        const res = await fetch('../api/manutencao/manutencoes_ajax.php?action=delete_material', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const data = await res.json();
+        hideLoading();
+
+        if (data.success) {
+            Toast.success('Material removido.');
+            loadMaterials(currentMaintenanceId);
+        } else {
+            Toast.error(data.message || 'Erro ao remover material.');
+        }
+    } catch (e) {
+        hideLoading();
+        Toast.error('Erro de conexão.');
+    }
+}
+
+async function loadComments(id) {
+    const feed = document.getElementById('commentsFeed');
+    if (!feed) return;
+
+    try {
+        const res = await fetch(`../api/manutencao/manutencoes_ajax.php?action=list_comments&id=${id}`);
+        const data = await res.json();
+
+        if (data.success) {
+            if (data.comments && data.comments.length > 0) {
+                let html = '';
+                data.comments.forEach(c => {
+                    const date = new Date(c.created_at).toLocaleString();
+                    html += `
+                        <div class="comment-item">
+                            <div class="comment-meta">
+                                <span class="comment-user">👤 ${c.user_name}</span>
+                                <span class="comment-date">${date}</span>
+                            </div>
+                            <div class="comment-text">${c.comentario}</div>
+                        </div>
+                    `;
+                });
+                feed.innerHTML = html;
+            } else {
+                feed.innerHTML = '<p class="text-muted" style="text-align: center; padding: 2rem;">Nenhum comentário registrado ainda.</p>';
+            }
+        } else {
+            feed.innerHTML = `<p style="color:red; text-align:center;">${data.message}</p>`;
+        }
+    } catch (e) {
+        feed.innerHTML = '<p style="color:red; text-align:center;">Erro ao carregar comentários.</p>';
+    }
+}
+
+async function submitComment() {
+    const textEl = document.getElementById('newCommentText');
+    const comment = textEl.value.trim();
+    if (!comment) {
+        Toast.warning('Escreva um comentário primeiro.');
+        return;
+    }
+
+    showLoading();
+    try {
+        const formData = new FormData();
+        formData.append('id', currentMaintenanceId);
+        formData.append('comentario', comment);
+        formData.append('csrf_token', window.csrfToken);
+
+        const res = await fetch('../api/manutencao/manutencoes_ajax.php?action=add_comment', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const data = await res.json();
+        hideLoading();
+
+        if (data.success) {
+            Toast.success('Comentário enviado!');
+            textEl.value = '';
+            loadComments(currentMaintenanceId);
+        } else {
+            Toast.error(data.message || 'Erro ao enviar comentário.');
+        }
+    } catch (e) {
+        hideLoading();
+        Toast.error('Erro de conexão.');
+    }
+}
+
+function openPhotoPreview() {
+    const thumb = document.getElementById('detailPhotoImg');
+    const full = document.getElementById('photoPreviewFull');
+    const downloadBtn = document.getElementById('btnDownloadPhoto');
+    if (thumb && thumb.src) {
+        full.src = thumb.src;
+        if (downloadBtn) downloadBtn.href = thumb.src;
+        openModal('modalPhotoPreview');
+    }
 }

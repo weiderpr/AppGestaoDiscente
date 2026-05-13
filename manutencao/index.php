@@ -308,6 +308,108 @@ html, body { overflow: hidden !important; height: 100% !important; }
 @media (max-width: 1024px) {
     .modal-80 { width: 95% !important; }
 }
+
+/* Photo Thumbnail and Preview */
+.detail-photo-container {
+    margin-top: 1.5rem;
+}
+.detail-photo-wrapper {
+    width: 100%;
+    max-width: 300px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background: var(--bg-surface-2nd);
+}
+.detail-photo-wrapper:hover {
+    transform: scale(1.02);
+    box-shadow: var(--card-shadow-hover);
+}
+.detail-photo-thumb {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    display: block;
+}
+.photo-preview-img {
+    width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+    border-radius: var(--radius-md);
+    background: #000;
+}
+
+/* Comments Feed Styles */
+.comment-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+.comment-item {
+    background: var(--bg-surface-2nd);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 0.875rem;
+}
+.comment-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-muted);
+}
+.comment-user { font-weight: 700; color: var(--color-primary); }
+.comment-text {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+}
+
+/* Materials Table/List Styles */
+.materials-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.material-item {
+    background: var(--bg-surface-2nd);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr 120px 40px;
+    align-items: center;
+    gap: 1rem;
+}
+.material-info { display: flex; flex-direction: column; gap: 2px; }
+.material-label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+.material-value-text { font-weight: 700; color: var(--color-primary); }
+
+.material-total-bar {
+    background: var(--color-primary);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius-lg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+    box-shadow: 0 4px 12px rgba(79,70,229,0.3);
+}
+.material-total-label { font-weight: 600; font-size: 0.9rem; }
+.material-total-value { font-size: 1.25rem; font-weight: 800; }
+
+@media (max-width: 768px) {
+    .material-item { grid-template-columns: 1fr; gap: 0.75rem; }
+    .material-item button { justify-self: flex-end; }
+}
 </style>
 
 <div class="kanban-subheader">
@@ -413,7 +515,7 @@ html, body { overflow: hidden !important; height: 100% !important; }
                             <span class="info-value" id="detailId">---</span>
                         </div>
                         <div class="info-item">
-                            <span class="info-label">Data Prevista</span>
+                            <span class="info-label">Data de Abertura</span>
                             <span class="info-value" id="detailData">---</span>
                         </div>
                     </div>
@@ -441,16 +543,66 @@ html, body { overflow: hidden !important; height: 100% !important; }
                                     <!-- Listagem de problemas -->
                                 </div>
                             </div>
+
+                            <div id="detailPhotoContainer" class="detail-photo-container" style="display:none;">
+                                <label class="form-label">Evidência Fotográfica</label>
+                                <div class="detail-photo-wrapper" onclick="openPhotoPreview()">
+                                    <img id="detailPhotoImg" src="" class="detail-photo-thumb" alt="Evidência">
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Conteúdo: Comentários -->
                         <div id="tab-comentarios" class="tab-content">
-                            <p class="text-muted" style="text-align: center; padding: 2rem;">Módulo de comentários em desenvolvimento...</p>
+                            <div id="commentsFeed" class="comment-feed">
+                                <p class="text-muted" style="text-align: center; padding: 2rem;">Carregando comentários...</p>
+                            </div>
+                            
+                            <hr class="mt-md mb-md">
+                            
+                            <div class="comment-form">
+                                <label class="form-label">Adicionar Comentário</label>
+                                <textarea id="newCommentText" class="form-control" rows="3" placeholder="Escreva aqui as observações ou etapas realizadas..."></textarea>
+                                <div style="display: flex; justify-content: flex-end; margin-top: 0.75rem;">
+                                    <button type="button" class="btn btn-primary" onclick="submitComment()">
+                                        <span>💬</span> Enviar Comentário
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Conteúdo: Materiais -->
                         <div id="tab-materiais" class="tab-content">
-                            <p class="text-muted" style="text-align: center; padding: 2rem;">Módulo de materiais em desenvolvimento...</p>
+                            <div class="material-form bg-surface-2nd p-sm rounded-lg mb-md" style="border: 1px solid var(--border-color);">
+                                <div style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; padding: 0.5rem;">
+                                    <div style="flex: 2; min-width: 200px;">
+                                        <label class="form-label" style="font-size: 0.7rem; margin-bottom: 4px; display: block; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Descrição do Material</label>
+                                        <input type="text" id="matDescricao" class="form-control form-control-sm">
+                                    </div>
+                                    <div style="flex: 1.5; min-width: 150px;">
+                                        <label class="form-label" style="font-size: 0.7rem; margin-bottom: 4px; display: block; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Local de Compra</label>
+                                        <input type="text" id="matLocal" class="form-control form-control-sm">
+                                    </div>
+                                    <div style="width: 130px;">
+                                        <label class="form-label" style="font-size: 0.7rem; margin-bottom: 4px; display: block; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Valor (R$)</label>
+                                        <input type="text" id="matValor" class="form-control form-control-sm money-mask">
+                                    </div>
+                                    <div style="flex-shrink: 0;">
+                                        <button type="button" class="btn btn-primary btn-sm" onclick="submitMaterial()" style="height: 32px; padding: 0 1.25rem; font-weight: 700;">
+                                            ➕ Adicionar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="materialsList" class="materials-container">
+                                <p class="text-muted" style="text-align: center; padding: 2rem;">Carregando materiais...</p>
+                            </div>
+
+                            <div class="material-total-bar">
+                                <span class="material-total-label">Custo Total da Manutenção</span>
+                                <span class="material-total-value" id="matTotalValue">R$ 0,00</span>
+                            </div>
                         </div>
                     </div>
 
@@ -490,7 +642,7 @@ html, body { overflow: hidden !important; height: 100% !important; }
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Data Prevista</label>
+                            <label class="form-label">Data de Abertura</label>
                             <input type="datetime-local" name="data_manutencao" class="form-control" value="<?= date('Y-m-d\TH:i') ?>">
                         </div>
 
@@ -511,6 +663,29 @@ html, body { overflow: hidden !important; height: 100% !important; }
                         <button type="submit" class="btn btn-primary">Criar Solicitação</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Pré-visualização de Foto -->
+<div id="modalPhotoPreview" class="modal-wrapper modal-hide" role="dialog" aria-modal="true" style="z-index: 10000;">
+    <div class="modal-overlay" onclick="closeModal('modalPhotoPreview')">
+        <div class="modal-dialog modal-lg" onclick="event.stopPropagation()">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Visualizar Evidência</h3>
+                    <button type="button" class="modal-close" onclick="closeModal('modalPhotoPreview')">✕</button>
+                </div>
+                <div class="modal-body" style="padding: 1rem; background: var(--bg-page); display: flex; align-items: center; justify-content: center; min-height: 400px;">
+                    <img id="photoPreviewFull" src="" class="photo-preview-img" style="box-shadow: var(--shadow-lg);">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('modalPhotoPreview')">Fechar</button>
+                    <a id="btnDownloadPhoto" href="" download="evidencia_manutencao.jpg" class="btn btn-primary" style="text-decoration: none;">
+                        <span>📥</span> Download
+                    </a>
+                </div>
             </div>
         </div>
     </div>
