@@ -184,7 +184,8 @@ if (empty($user['photo'])) {
             <?php
             $hasAcompanhamentoAccess = hasDbPermission('atendimentos.index', false) 
                 || hasDbPermission('sancoes.index', false)
-                || hasDbPermission('naapi.index', false);
+                || hasDbPermission('naapi.index', false)
+                || hasDbPermission('segundachamada.index', false);
             ?>
             <?php if ($hasAcompanhamentoAccess): ?>
             <div class="nav-dropdown nav-menu-item">
@@ -209,6 +210,15 @@ if (empty($user['photo'])) {
                        role="menuitem">
                         <span class="nav-icon">🧠</span>
                         <span>NAAPI</span>
+                    </a>
+                    <?php endif; ?>
+
+                    <?php if (hasDbPermission('segundachamada.index', false)): ?>
+                    <a href="/segundachamada/index.php" 
+                       class="nav-dropdown-item <?= strpos($_SERVER['PHP_SELF'], '/segundachamada/') !== false ? 'active' : '' ?>" 
+                       role="menuitem">
+                        <span class="nav-icon">📄</span>
+                        <span>Segunda chamada</span>
                     </a>
                     <?php endif; ?>
 
