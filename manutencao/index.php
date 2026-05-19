@@ -8,6 +8,7 @@ requireLogin();
 hasDbPermission('manutencao.index');
 
 $canCreate   = hasDbPermission('manutencao.create', false);
+$canUpdate   = hasDbPermission('manutencao.update', false);
 $canMove     = hasDbPermission('manutencao.move', false);
 $canMaterial = hasDbPermission('manutencao.materials', false);
 $canComment  = hasDbPermission('manutencao.comments', false);
@@ -654,6 +655,7 @@ html, body { overflow: hidden !important; height: 100% !important; }
                 </div>
                 <form id="formNewManutencao">
                     <?= csrf_field() ?>
+                    <input type="hidden" name="id" id="newManutencaoId" value="">
                     <div class="modal-body">
                         <div class="form-group">
                             <label class="form-label">Ambiente <span class="required">*</span></label>
@@ -723,10 +725,12 @@ html, body { overflow: hidden !important; height: 100% !important; }
 <!-- Variáveis de Permissão para o JS -->
 <script>
     const CAN_CREATE_MANUTENCAO = <?= $canCreate ? 'true' : 'false' ?>;
+    const CAN_UPDATE_MANUTENCAO = <?= $canUpdate ? 'true' : 'false' ?>;
     const CAN_MOVE_MANUTENCAO   = <?= $canMove ? 'true' : 'false' ?>;
     const CAN_MATERIAL_MANUTENCAO = <?= $canMaterial ? 'true' : 'false' ?>;
     const CAN_COMMENT_MANUTENCAO  = <?= $canComment ? 'true' : 'false' ?>;
     const CAN_DELETE_MANUTENCAO   = <?= $canDelete ? 'true' : 'false' ?>;
+    window.currentUserId = <?= (int)($user['id'] ?? 0) ?>;
 </script>
 
 <script src="/assets/js/manutencao_kanban.js?v=<?= time() ?>"></script>

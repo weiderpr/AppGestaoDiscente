@@ -359,7 +359,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <?php endif; ?>
                             <?php if (hasDbPermission('courses.manage', false)): ?>
                             <a href="/courses/etapas.php?turma_id=<?= $t['id'] ?>"
-                               class="action-btn" title="Lançar Notas/Faltas">📋</a>
+                               class="action-btn" title="Exibir Etapas">📋</a>
                             <a href="/courses/edit_turma.php?id=<?= $t['id'] ?>&course_id=<?= $courseId ?>"
                                class="action-btn" title="Editar">✏️</a>
                             <button type="button" class="action-btn"

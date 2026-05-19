@@ -8,6 +8,7 @@
 <script src="/assets/js/components/Toast.js"></script>
 <script src="/assets/js/components/Modal.js"></script>
 <script src="/assets/js/components/Loading.js"></script>
+<script src="/assets/js/network_monitor.js?v=<?= time() ?>"></script>
 
 <script>
     // Registro global de vibração para feedback tátil (opcional em dispositivos suportados)

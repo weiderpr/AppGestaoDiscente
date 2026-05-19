@@ -657,7 +657,7 @@ try {
             }
 
             // Atualiza status e encaminhamento no banco
-            if (!$service->updateStatusAndReferral($id, $encaminhamento, $justificativa)) {
+            if (!$service->updateStatusAndReferral($id, $encaminhamento, $justificativa, (int)$user['id'])) {
                 throw new Exception('Erro ao atualizar o encaminhamento no banco de dados.');
             }
 

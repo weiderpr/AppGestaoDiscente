@@ -86,10 +86,10 @@ require_once __DIR__ . '/../includes/header.php';
         </p>
     </div>
     <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
-        <a href="qrcode_print.php" class="btn btn-secondary" target="_blank">
+        <button type="button" class="btn btn-secondary" onclick="openQrCodeModal(0)">
             <span>📄</span>
             <span>Imprimir QR Codes</span>
-        </a>
+        </button>
         <button class="btn btn-primary" onclick="openAmbienteModal()">
             <span class="btn-icon">➕</span>
             <span class="btn-text">Novo Ambiente</span>
@@ -184,7 +184,7 @@ require_once __DIR__ . '/../includes/header.php';
                         </span>
                     </td>
                     <td style="text-align:center;">
-                        <a href="qrcode_print.php?ambiente_id=<?= $a['id'] ?>" target="_blank" class="action-btn" title="Baixar QR Code">📱</a>
+                        <button type="button" class="action-btn" onclick="openQrCodeModal(<?= $a['id'] ?>)" title="Ver / Imprimir QR Code">📱</button>
                     </td>
                     <td>
                         <div style="display:flex;justify-content:center;gap:.5rem;">
@@ -249,6 +249,23 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<!-- Modal: QR Code Print -->
+<div id="qrCodeModal" class="modal-wrapper" role="dialog" aria-modal="true" style="z-index: 1050;">
+    <div class="modal-overlay" onclick="closeQrCodeModal()">
+        <div class="modal-dialog" style="max-width: 90%; width: 980px; height: 90vh; display: flex; flex-direction: column;" onclick="event.stopPropagation()">
+            <div class="modal-content" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; height: 100%;">
+                <div class="modal-header" style="flex-shrink: 0;">
+                    <h3 class="modal-title">Imprimir QR Codes</h3>
+                    <button type="button" class="modal-close" onclick="closeQrCodeModal()">✕</button>
+                </div>
+                <div class="modal-body" style="flex: 1; padding: 0; position: relative; overflow: hidden;">
+                    <iframe id="qrCodeIframe" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 function openModal(id) {
     const m = document.getElementById(id);
@@ -264,6 +281,19 @@ function closeModal(id) {
         m.classList.remove('modal-show');
         m.classList.add('modal-hide');
     }
+}
+
+function openQrCodeModal(ambienteId = 0) {
+    const iframe = document.getElementById('qrCodeIframe');
+    const url = 'qrcode_print.php?iframe=1' + (ambienteId ? '&ambiente_id=' + ambienteId : '');
+    iframe.src = url;
+    openModal('qrCodeModal');
+}
+
+function closeQrCodeModal() {
+    const iframe = document.getElementById('qrCodeIframe');
+    iframe.src = '';
+    closeModal('qrCodeModal');
 }
 
 function openAmbienteModal() {

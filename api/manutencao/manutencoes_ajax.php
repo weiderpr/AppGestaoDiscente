@@ -34,8 +34,10 @@ try {
             }
             hasDbPermission('manutencao.create');
             
+            $user = getCurrentUser();
             $payload = [
                 'institution_id' => $instId,
+                'usuario_id' => $user['id'] ?? null,
                 'ambiente_id' => (int)($_POST['ambiente_id'] ?? 0),
                 'descricao' => $_POST['descricao'] ?? '',
                 'outros_detalhes' => $_POST['outros_detalhes'] ?? '',
@@ -49,6 +51,41 @@ try {
             }
 
             $result = $manutencaoService->create($payload);
+            echo json_encode($result);
+            break;
+
+        case 'update':
+            if (!csrf_verify($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) {
+                throw new Exception('Token CSRF inválido.');
+            }
+            hasDbPermission('manutencao.update');
+            
+            $id = (int)($_POST['id'] ?? 0);
+            $existing = $manutencaoService->findById($id);
+            if (!$existing) {
+                throw new Exception('Manutenção não encontrada.');
+            }
+            if ($existing['status'] === 'Finalizado') {
+                throw new Exception('Esta manutenção já está concluída e não pode ser editada.');
+            }
+            $user = getCurrentUser();
+            if ((int)($existing['usuario_id'] ?? 0) !== (int)$user['id']) {
+                throw new Exception('Você não tem permissão para editar esta manutenção pois não foi o criador.');
+            }
+
+            $payload = [
+                'ambiente_id' => (int)($_POST['ambiente_id'] ?? 0),
+                'descricao' => $_POST['descricao'] ?? '',
+                'outros_detalhes' => $_POST['outros_detalhes'] ?? '',
+                'data_manutencao' => $_POST['data_manutencao'] ?? date('Y-m-d H:i:s'),
+                'problemas' => $_POST['problemas'] ?? []
+            ];
+
+            if (!$payload['ambiente_id'] || empty($payload['descricao'])) {
+                throw new Exception('Ambiente e Descrição são obrigatórios.');
+            }
+
+            $result = $manutencaoService->update($id, $payload);
             echo json_encode($result);
             break;
 

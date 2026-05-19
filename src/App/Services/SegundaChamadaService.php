@@ -17,10 +17,12 @@ class SegundaChamadaService extends Service {
                 a.nome as aluno_nome,
                 a.matricula as aluno_matricula,
                 a.photo as aluno_photo,
-                d.descricao as disciplina_nome
+                d.descricao as disciplina_nome,
+                u.name as encaminhado_por_nome
             FROM segunda_chamada sc
             JOIN alunos a ON sc.aluno_id = a.id
             JOIN disciplinas d ON sc.disciplina_codigo = d.codigo
+            LEFT JOIN users u ON sc.encaminhado_por_usuario_id = u.id
             WHERE sc.institution_id = ?
         ";
         $params = [$institutionId];
@@ -64,11 +66,13 @@ class SegundaChamadaService extends Service {
                 a.nome as aluno_nome, 
                 a.matricula as aluno_matricula,
                 d.descricao as disciplina_nome,
-                ta.turma_id
+                ta.turma_id,
+                u.name as encaminhado_por_nome
             FROM segunda_chamada sc
             JOIN alunos a ON sc.aluno_id = a.id
             JOIN disciplinas d ON sc.disciplina_codigo = d.codigo
             LEFT JOIN turma_alunos ta ON ta.aluno_id = a.id
+            LEFT JOIN users u ON sc.encaminhado_por_usuario_id = u.id
             WHERE sc.id = ?
             ORDER BY ta.created_at DESC
             LIMIT 1
@@ -346,7 +350,7 @@ class SegundaChamadaService extends Service {
     /**
      * Atualiza o encaminhamento e o status da solicitação
      */
-    public function updateStatusAndReferral(int $id, string $encaminhamento, string $justificativa): bool {
+    public function updateStatusAndReferral(int $id, string $encaminhamento, string $justificativa, ?int $usuarioId = null): bool {
         $old = $this->fetchOne("SELECT * FROM segunda_chamada WHERE id = ?", [$id]);
         if (!$old) {
             throw new \Exception("Solicitação não encontrada.");
@@ -362,15 +366,18 @@ class SegundaChamadaService extends Service {
         // Formatamos as observações de status para armazenar o tipo de encaminhamento de forma legível
         $observacoes = trim($justificativa);
         $observacoesCompleta = $encaminhamento . (!empty($observacoes) ? " — " . $observacoes : "");
+        $dataEncaminhamento = date('Y-m-d H:i:s');
 
-        $sql = "UPDATE segunda_chamada SET status = ?, observacoes_status = ? WHERE id = ?";
-        $updated = $this->execute($sql, [$status, $observacoesCompleta, $id]) > 0;
+        $sql = "UPDATE segunda_chamada SET status = ?, observacoes_status = ?, encaminhado_por_usuario_id = ?, data_encaminhamento = ? WHERE id = ?";
+        $updated = $this->execute($sql, [$status, $observacoesCompleta, $usuarioId, $dataEncaminhamento, $id]) > 0;
 
         $this->audit('UPDATE_STATUS', 'segunda_chamada', $id, $old, [
             'status' => $status,
             'encaminhamento' => $encaminhamento,
             'justificativa' => $justificativa,
-            'observacoes_status' => $observacoesCompleta
+            'observacoes_status' => $observacoesCompleta,
+            'encaminhado_por_usuario_id' => $usuarioId,
+            'data_encaminhamento' => $dataEncaminhamento
         ]);
 
         return $updated;
@@ -385,12 +392,130 @@ class SegundaChamadaService extends Service {
             throw new \Exception("Solicitação não encontrada.");
         }
 
-        $sql = "UPDATE segunda_chamada SET status = ?, observacoes_status = ? WHERE id = ?";
+        if ((int)($old['instrumento_aplicado'] ?? 0) === 1) {
+            throw new \Exception("Esta solicitação não pode ser reaberta pois o instrumento avaliativo já foi marcado como aplicado pelo professor.");
+        }
+
+        $sql = "UPDATE segunda_chamada SET status = ?, observacoes_status = ?, encaminhado_por_usuario_id = NULL, data_encaminhamento = NULL WHERE id = ?";
         $updated = $this->execute($sql, ['Pendente', null, $id]) > 0;
 
         $this->audit('REOPEN_STATUS', 'segunda_chamada', $id, $old, [
             'status' => 'Pendente',
-            'observacoes_status' => null
+            'observacoes_status' => null,
+            'encaminhado_por_usuario_id' => null,
+            'data_encaminhamento' => null
+        ]);
+
+        return $updated;
+    }
+
+    /**
+     * Busca solicitações de segunda chamada para disciplinas lecionadas por um professor
+     */
+    public function getRequestsForTeacher(int $teacherUserId, int $institutionId, bool $includeApplied = false): array {
+        $sql = "
+            SELECT DISTINCT
+                sc.*,
+                a.nome as aluno_nome,
+                a.matricula as aluno_matricula,
+                a.photo as aluno_photo,
+                d.descricao as disciplina_nome,
+                t.description as turma_nome,
+                c.name as curso_nome
+            FROM segunda_chamada sc
+            JOIN alunos a ON sc.aluno_id = a.id
+            JOIN disciplinas d ON sc.disciplina_codigo = d.codigo
+            JOIN turma_alunos ta ON ta.aluno_id = a.id
+            JOIN turmas t ON ta.turma_id = t.id
+            JOIN courses c ON t.course_id = c.id
+            JOIN turma_disciplinas td ON td.turma_id = t.id AND td.disciplina_codigo = sc.disciplina_codigo
+            JOIN turma_disciplina_professores tdp ON tdp.turma_disciplina_id = td.id
+            WHERE tdp.professor_id = ?
+              AND sc.institution_id = ?
+              AND sc.status != 'Indeferido'
+        ";
+        
+        if (!$includeApplied) {
+            $sql .= " AND sc.instrumento_aplicado = 0 AND sc.nao_aplicado = 0";
+        }
+        
+        $sql .= " ORDER BY d.descricao ASC, sc.created_at DESC";
+        return $this->fetchAll($sql, [$teacherUserId, $institutionId]);
+    }
+
+    /**
+     * Marca o instrumento avaliativo de uma solicitação como já aplicado
+     */
+    public function markAsApplied(int $id): bool {
+        $old = $this->fetchOne("SELECT * FROM segunda_chamada WHERE id = ?", [$id]);
+        if (!$old) {
+            throw new \Exception("Solicitação não encontrada.");
+        }
+
+        $sql = "UPDATE segunda_chamada SET instrumento_aplicado = 1 WHERE id = ?";
+        $updated = $this->execute($sql, [$id]) > 0;
+
+        $this->audit('APPLY_INSTRUMENT', 'segunda_chamada', $id, $old, [
+            'instrumento_aplicado' => 1
+        ]);
+
+        return $updated;
+    }
+
+    /**
+     * Desfaz a marcação de instrumento aplicado
+     */
+    public function undoMarkAsApplied(int $id): bool {
+        $old = $this->fetchOne("SELECT * FROM segunda_chamada WHERE id = ?", [$id]);
+        if (!$old) {
+            throw new \Exception("Solicitação não encontrada.");
+        }
+
+        $sql = "UPDATE segunda_chamada SET instrumento_aplicado = 0 WHERE id = ?";
+        $updated = $this->execute($sql, [$id]) > 0;
+
+        $this->audit('UNDO_APPLY_INSTRUMENT', 'segunda_chamada', $id, $old, [
+            'instrumento_aplicado' => 0
+        ]);
+
+        return $updated;
+    }
+
+    /**
+     * Marca o instrumento avaliativo como não aplicado
+     */
+    public function markAsNotApplied(int $id, string $justificativa): bool {
+        $old = $this->fetchOne("SELECT * FROM segunda_chamada WHERE id = ?", [$id]);
+        if (!$old) {
+            throw new \Exception("Solicitação não encontrada.");
+        }
+
+        $sql = "UPDATE segunda_chamada SET nao_aplicado = 1, justificativa_nao_aplicacao = ? WHERE id = ?";
+        $updated = $this->execute($sql, [$justificativa, $id]) > 0;
+
+        $this->audit('MARK_NOT_APPLIED', 'segunda_chamada', $id, $old, [
+            'nao_aplicado' => 1,
+            'justificativa_nao_aplicacao' => $justificativa
+        ]);
+
+        return $updated;
+    }
+
+    /**
+     * Desfaz a marcação de não aplicado
+     */
+    public function undoMarkAsNotApplied(int $id): bool {
+        $old = $this->fetchOne("SELECT * FROM segunda_chamada WHERE id = ?", [$id]);
+        if (!$old) {
+            throw new \Exception("Solicitação não encontrada.");
+        }
+
+        $sql = "UPDATE segunda_chamada SET nao_aplicado = 0, justificativa_nao_aplicacao = NULL WHERE id = ?";
+        $updated = $this->execute($sql, [$id]) > 0;
+
+        $this->audit('UNDO_MARK_NOT_APPLIED', 'segunda_chamada', $id, $old, [
+            'nao_aplicado' => 0,
+            'justificativa_nao_aplicacao' => null
         ]);
 
         return $updated;

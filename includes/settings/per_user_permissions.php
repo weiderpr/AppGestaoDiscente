@@ -43,7 +43,7 @@ if (!function_exists('getFriendlyName')) {
             'social' => 'Feed Social', 'naapi' => 'NAAPI', 'dashboard' => 'Dashboard', 'manutencao' => 'Manutenção'
         ];
         $actions = [
-            'index' => 'Geral', 'show' => 'Ver', 'create' => 'Novo', 'update' => 'Edit', 'delete' => 'Excluir', 
+            'index' => 'Geral', 'show' => 'Ver', 'create' => 'Novo', 'update' => 'Alteração', 'delete' => 'Excluir', 
             'manage' => 'Gerir', 'backup' => 'Backup', 'avaliacoes' => 'Avaliações', 'permissoes' => 'Acesso', 
             'schedule' => 'Grade Horária', 'activities' => 'Atividades Extras', 'dispensas' => 'Dispensas', 
             'config' => 'Configurações', 'view_all' => 'Ver Tudo', 'comments' => 'Comentários', 

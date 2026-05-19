@@ -85,7 +85,7 @@ function getFriendlyName($res) {
         'index' => 'Geral',
         'show' => 'Ver',
         'create' => 'Novo',
-        'update' => 'Edit',
+        'update' => 'Alteração',
         'delete' => 'Excluir',
         'manage' => 'Gerir',
         'backup' => 'Backup',

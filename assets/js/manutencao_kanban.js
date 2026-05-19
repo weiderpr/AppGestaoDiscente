@@ -88,10 +88,18 @@ function renderColumn(status, cards) {
             outrosHtml = `<div style="font-size:0.75rem; font-style:italic; color:var(--text-muted); margin-top:0.25rem; border-left:2px solid var(--color-primary); padding-left:0.5rem;">${card.outros_detalhes}</div>`;
         }
 
+        const isCreator = window.currentUserId && parseInt(card.usuario_id) === parseInt(window.currentUserId);
+        const canEdit = typeof CAN_UPDATE_MANUTENCAO !== 'undefined' ? CAN_UPDATE_MANUTENCAO && isCreator : isCreator;
+
         cardEl.innerHTML = `
             <div class="k-card-header">
                 <span class="k-badge k-badge-turma">${card.predio_campus}</span>
-                <span style="font-size:0.7rem; color:var(--text-muted);">#${card.id}</span>
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <span style="font-size:0.7rem; color:var(--text-muted);">#${card.id}</span>
+                    ${canEdit && card.status !== 'Finalizado' ? `
+                        <button type="button" class="card-edit-btn" onclick="event.stopPropagation(); editMaintenanceCard(${card.id})" title="Editar" style="background:none; border:none; cursor:pointer; font-size:0.85rem; padding:0; line-height:1; filter: grayscale(1); transition: filter 0.2s;" onmouseover="this.style.filter='none'" onmouseout="this.style.filter='grayscale(1)'">✏️</button>
+                    ` : ''}
+                </div>
             </div>
             <div class="k-card-title">${card.descricao}</div>
             <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.3rem;">
@@ -225,6 +233,12 @@ function openNewManutencaoModal() {
     const form = document.getElementById('formNewManutencao');
     if (form) form.reset();
     
+    const idInput = document.getElementById('newManutencaoId');
+    if (idInput) idInput.value = '';
+
+    const modalTitle = document.querySelector('#modalNewManutencao .modal-title');
+    if (modalTitle) modalTitle.innerText = 'Nova Solicitação de Manutenção';
+    
     const checklist = document.getElementById('problemasChecklist');
     if (checklist) {
         checklist.innerHTML = '<p style="font-size:0.8rem;color:var(--text-muted);text-align:center;padding:1rem;">Selecione um ambiente primeiro.</p>';
@@ -308,9 +322,12 @@ document.getElementById('formNewManutencao').onsubmit = async function(e) {
     const formData = new FormData(this);
     formData.append('csrf_token', window.csrfToken);
 
+    const id = formData.get('id');
+    const action = id ? 'update' : 'create';
+
     showLoading();
     try {
-        const res = await fetch('../api/manutencao/manutencoes_ajax.php?action=create', {
+        const res = await fetch(`../api/manutencao/manutencoes_ajax.php?action=${action}`, {
             method: 'POST',
             body: formData,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
@@ -319,17 +336,111 @@ document.getElementById('formNewManutencao').onsubmit = async function(e) {
         hideLoading();
 
         if (data.success) {
-            Toast.success('Manutenção criada!');
+            Toast.success(id ? 'Manutenção atualizada!' : 'Manutenção criada!');
             closeModal('modalNewManutencao');
             loadBoard();
         } else {
-            Toast.error(data.message || 'Erro ao criar manutenção.');
+            Toast.error(data.message || 'Erro ao salvar manutenção.');
         }
     } catch (e) {
         hideLoading();
         Toast.error('Erro na requisição.');
     }
 };
+
+async function editMaintenanceCard(id) {
+    if (!id) return;
+    
+    showLoading();
+    try {
+        const res = await fetch(`../api/manutencao/manutencoes_ajax.php?action=get_details&id=${id}`);
+        const result = await res.json();
+        hideLoading();
+        
+        if (result.success) {
+            const data = result.data;
+            
+            const form = document.getElementById('formNewManutencao');
+            if (form) form.reset();
+            
+            document.getElementById('newManutencaoId').value = data.id;
+            
+            const modalTitle = document.querySelector('#modalNewManutencao .modal-title');
+            if (modalTitle) modalTitle.innerText = 'Editar Solicitação de Manutenção';
+            
+            const selectAmbiente = form.querySelector('select[name="ambiente_id"]');
+            if (selectAmbiente) {
+                selectAmbiente.value = data.ambiente_id;
+            }
+            
+            const textareaDescricao = form.querySelector('textarea[name="descricao"]');
+            if (textareaDescricao) {
+                textareaDescricao.value = data.descricao;
+            }
+            
+            const inputData = form.querySelector('input[name="data_manutencao"]');
+            if (inputData && data.data_manutencao) {
+                const dateObj = new Date(data.data_manutencao);
+                const tzOffset = dateObj.getTimezoneOffset() * 60000;
+                const localISOTime = (new Date(dateObj - tzOffset)).toISOString().slice(0, 16);
+                inputData.value = localISOTime;
+            }
+            
+            const container = document.getElementById('problemasChecklist');
+            if (container) {
+                container.innerHTML = '<div style="text-align:center;padding:1rem;"><div class="spinner spinner-sm" style="margin:0 auto;"></div></div>';
+            }
+            
+            const problemsRes = await fetch(`../api/manutencao/manutencoes_ajax.php?action=get_ambiente_problemas&ambiente_id=${data.ambiente_id}`);
+            const problemsData = await problemsRes.json();
+            
+            if (problemsData.success) {
+                let html = '<div class="problemas-grid">';
+                const checkedIds = (data.problemas || []).map(p => parseInt(p.id));
+                
+                if (problemsData.problemas && problemsData.problemas.length > 0) {
+                    problemsData.problemas.forEach(p => {
+                        const isChecked = checkedIds.includes(parseInt(p.id)) ? 'checked' : '';
+                        html += `
+                            <label class="problema-item">
+                                <input type="checkbox" name="problemas[]" value="${p.id}" ${isChecked}>
+                                <span>${p.descricao}</span>
+                            </label>
+                        `;
+                    });
+                }
+                
+                const isOutrosChecked = !!data.outros_detalhes;
+                html += `
+                    <label class="problema-item" style="border-color: var(--color-primary-light);">
+                        <input type="checkbox" id="checkOutros" ${isOutrosChecked ? 'checked' : ''} onchange="toggleOutrosField(this.checked)">
+                        <span style="font-weight:bold;">Outros</span>
+                    </label>
+                `;
+                
+                html += '</div>';
+                container.innerHTML = html;
+                
+                const othersGroup = document.getElementById('groupOutrosDetalhes');
+                const othersTextarea = othersGroup ? othersGroup.querySelector('textarea') : null;
+                if (othersGroup && othersTextarea) {
+                    othersGroup.style.display = isOutrosChecked ? 'block' : 'none';
+                    othersTextarea.value = data.outros_detalhes || '';
+                }
+            } else {
+                container.innerHTML = '<p class="text-muted" style="text-align:center;">Erro ao carregar checklist.</p>';
+            }
+            
+            openModal('modalNewManutencao');
+        } else {
+            Toast.error(result.message || 'Erro ao carregar manutenção.');
+        }
+    } catch (e) {
+        hideLoading();
+        Toast.error('Erro ao buscar manutenção.');
+        console.error(e);
+    }
+}
 
 async function openMaintenanceDetails(id) {
     if (!id) return;

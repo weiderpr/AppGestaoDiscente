@@ -60,11 +60,12 @@ class ManutencaoService extends Service {
     public function create(array $data): array {
         $this->db->beginTransaction();
         try {
-            $sql = "INSERT INTO manutencoes (institution_id, ambiente_id, descricao, outros_detalhes, status, data_manutencao) 
-                    VALUES (?, ?, ?, ?, ?, ?)";
+            $sql = "INSERT INTO manutencoes (institution_id, usuario_id, ambiente_id, descricao, outros_detalhes, status, data_manutencao) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
                 $data['institution_id'],
+                $data['usuario_id'] ?? null,
                 $data['ambiente_id'],
                 $data['descricao'],
                 $data['outros_detalhes'] ?? null,
@@ -225,5 +226,37 @@ class ManutencaoService extends Service {
         }
         
         return $success;
+    }
+
+    /**
+     * Atualiza uma manutenção existente
+     */
+    public function update(int $id, array $data): array {
+        $this->db->beginTransaction();
+        try {
+            $sql = "UPDATE manutencoes 
+                    SET ambiente_id = ?, descricao = ?, outros_detalhes = ?, data_manutencao = ?, updated_at = NOW() 
+                    WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([
+                $data['ambiente_id'],
+                $data['descricao'],
+                $data['outros_detalhes'] ?? null,
+                $data['data_manutencao'] ?? date('Y-m-d H:i:s'),
+                $id
+            ]);
+
+            if (isset($data['problemas'])) {
+                $this->syncProblemas($id, $data['problemas']);
+            }
+
+            $this->audit('update', 'manutencoes', $id, $data);
+            $this->db->commit();
+
+            return ['success' => true, 'message' => 'Manutenção atualizada com sucesso!'];
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
     }
 }

@@ -13,5 +13,6 @@
 <?php if (isset($extraJS)): foreach ($extraJS as $js): ?>
 <script src="<?= $js ?>"></script>
 <?php endforeach; endif; ?>
+<script src="/assets/js/network_monitor.js?v=<?= time() ?>"></script>
 </body>
 </html>

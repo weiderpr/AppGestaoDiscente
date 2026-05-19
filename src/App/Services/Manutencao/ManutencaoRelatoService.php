@@ -48,11 +48,12 @@ class ManutencaoRelatoService extends Service {
             }
 
             // Gera automaticamente uma manutenção na coluna "Demandas"
-            $sqlM = "INSERT INTO manutencoes (institution_id, ambiente_id, descricao, outros_detalhes, status, data_manutencao, foto) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $sqlM = "INSERT INTO manutencoes (institution_id, usuario_id, ambiente_id, descricao, outros_detalhes, status, data_manutencao, foto) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             $stmtM = $this->db->prepare($sqlM);
             $stmtM->execute([
                 (int)$data['institution_id'],
+                $data['user_id'] ?? null,
                 (int)$data['ambiente_id'],
                 trim($data['descricao']),
                 $data['outros_detalhes'] ?? null,

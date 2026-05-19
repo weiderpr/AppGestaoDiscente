@@ -15,6 +15,7 @@ $instId         = $inst['id'];
 $ambienteService = new \App\Services\Manutencao\AmbienteService();
 
 $ambienteId = (int)($_GET['ambiente_id'] ?? 0);
+$isIframe = (int)($_GET['iframe'] ?? 0);
 if ($ambienteId) {
     $amb = $ambienteService->findById($ambienteId);
     $ambientes = $amb ? [$amb] : [];
@@ -269,7 +270,9 @@ $sheets = array_chunk($ambientes, 2);
         <span style="font-size: 0.75rem; color: #fbbf24; font-weight: 600;">💡 Dica: Na tela de impressão, marque "Margens: Nenhuma" e desmarque "Cabeçalhos e Rodapés".</span>
     </div>
     <div class="toolbar-actions">
-        <a href="ambientes.php" class="btn-back">← Voltar</a>
+        <?php if (!$isIframe): ?>
+            <a href="ambientes.php" class="btn-back">← Voltar</a>
+        <?php endif; ?>
         <button type="button" class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
     </div>
 </div>

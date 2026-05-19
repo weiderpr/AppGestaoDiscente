@@ -117,6 +117,21 @@ renderModalStyles();
 .status-badge.status-Deferido { background-color: rgba(16, 185, 129, 0.15); color: #059669; }
 .status-badge.status-Indeferido { background-color: rgba(239, 68, 68, 0.15); color: #dc2626; }
 
+.applied-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    margin-top: 0.35rem;
+}
+
 .section-title {
     font-size: 0.95rem; font-weight: 700; color: var(--text-secondary);
     border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; margin-top: 1.5rem; margin-bottom: 1rem;
@@ -229,9 +244,23 @@ renderModalStyles();
                             <?php endif; ?>
                         </td>
                         <td>
-                            <span class="status-badge status-<?= $r['status'] ?>">
-                                <?= $r['status'] ?>
-                            </span>
+                            <div style="display: flex; flex-direction: column; gap: 0.25rem; align-items: flex-start;">
+                                <span class="status-badge status-<?= $r['status'] ?>">
+                                    <?= $r['status'] ?>
+                                </span>
+                                <?php if (($r['instrumento_aplicado'] ?? 0) == 1): ?>
+                                    <span class="applied-badge" title="O professor já aplicou o instrumento avaliativo">
+                                        ✓ Aplicado
+                                    </span>
+                                <?php elseif (($r['nao_aplicado'] ?? 0) == 1): ?>
+                                    <span class="not-applied-badge" 
+                                          style="cursor: pointer; background: #fee2e2; color: #dc2626; border: 1px solid #f87171; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 2px; margin-top: 2px;" 
+                                          onclick="showNotAppliedJustification('<?= htmlspecialchars(addslashes($r['justificativa_nao_aplicacao'] ?? '')) ?>')" 
+                                          title="Clique para ver a justificativa">
+                                        ✗ Não Aplicado
+                                    </span>
+                                <?php endif; ?>
+                            </div>
                         </td>
                         <td>
                             <div style="display:flex; justify-content:center; gap:.5rem;">
@@ -246,7 +275,7 @@ renderModalStyles();
                                     <?php endif; ?>
                                 <?php else: ?>
                                     <?php if (hasDbPermission('segundachamada.andamento', false)): ?>
-                                    <button class="action-btn" onclick="openReopenModal(<?= $r['id'] ?>, '<?= htmlspecialchars(addslashes($r['aluno_nome'])) ?>', '<?= $r['status'] ?>', '<?= htmlspecialchars(addslashes($r['observacoes_status'] ?? '')) ?>')" title="Ver Parecer / Reabrir">⚖️</button>
+                                    <button class="action-btn" onclick="openReopenModal(<?= $r['id'] ?>, '<?= htmlspecialchars(addslashes($r['aluno_nome'])) ?>', '<?= $r['status'] ?>', '<?= htmlspecialchars(addslashes($r['observacoes_status'] ?? '')) ?>', '<?= htmlspecialchars(addslashes($r['encaminhado_por_nome'] ?? '')) ?>', '<?= htmlspecialchars(addslashes($r['data_encaminhamento'] ?? '')) ?>', <?= (int)$r['instrumento_aplicado'] ?>)" title="Ver Parecer / Reabrir">⚖️</button>
                                     <?php endif; ?>
                                 <?php endif; ?>
                             </div>
@@ -491,14 +520,27 @@ renderModalStyles();
                     <span style="font-size:0.8rem; font-weight:bold; color:var(--text-muted); display:block;">Parecer / Encaminhamento Registrado:</span>
                     <div id="reopen_observacoes" style="font-size:0.9rem; color:var(--text-primary); margin-top:0.25rem; white-space:pre-line; font-style:italic;"></div>
                 </div>
+                <div id="reopen_metadata_container" style="margin-top:0.75rem; font-size:0.8rem; color:var(--text-muted); border-top:1px dashed var(--border-color); padding-top:0.5rem; display:none;">
+                    Encaminhado por <strong id="reopen_user_name" style="color:var(--text-secondary);"></strong> em <span id="reopen_date"></span>
+                </div>
             </div>
 
-            <p style="font-size:0.925rem; color:var(--text-secondary); line-height:1.5; margin-bottom:1rem;">
-                Esta solicitação já possui um encaminhamento final registrado e encontra-se encerrada.
-            </p>
-            <p style="font-size:0.925rem; font-weight:600; color:var(--color-primary); line-height:1.5;">
-                Deseja reabrir esta solicitação para realizar um novo encaminhamento? Ao reabrir, o status voltará a ser <strong>Pendente</strong>.
-            </p>
+            <div id="reopen_actions_container">
+                <p style="font-size:0.925rem; color:var(--text-secondary); line-height:1.5; margin-bottom:1rem;">
+                    Esta solicitação já possui um encaminhamento final registrado e encontra-se encerrada.
+                </p>
+                <p style="font-size:0.925rem; font-weight:600; color:var(--color-primary); line-height:1.5;">
+                    Deseja reabrir esta solicitação para realizar um novo encaminhamento? Ao reabrir, o status voltará a ser <strong>Pendente</strong>.
+                </p>
+            </div>
+            <div id="reopen_applied_container" style="display:none;">
+                <p style="font-size:0.925rem; color:var(--text-secondary); line-height:1.5; margin-bottom:1rem;">
+                    Esta solicitação possui um encaminhamento final registrado e encontra-se encerrada.
+                </p>
+                <p style="font-size:0.925rem; font-weight:600; color:var(--color-danger); line-height:1.5;">
+                    ⚠️ Esta solicitação não pode ser reaberta pois o instrumento avaliativo correspondente já foi aplicado pelo professor.
+                </p>
+            </div>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" onclick="closeModal('reopenModal')">Fechar</button>
@@ -928,7 +970,7 @@ async function saveProgress(e) {
 
 let currentReopenId = null;
 
-function openReopenModal(id, studentName, status, observacoes) {
+function openReopenModal(id, studentName, status, observacoes, userName = '', dateStr = '', instrumentoAplicado = 0) {
     currentReopenId = id;
     document.getElementById('reopen_aluno_name').innerText = studentName;
     document.getElementById('reopen_observacoes').innerText = observacoes ? observacoes : 'Nenhum detalhe registrado.';
@@ -936,6 +978,41 @@ function openReopenModal(id, studentName, status, observacoes) {
     const badge = document.getElementById('reopen_status_badge');
     badge.className = 'status-badge status-' + status;
     badge.innerText = status;
+    
+    const metaContainer = document.getElementById('reopen_metadata_container');
+    if (metaContainer) {
+        if (userName && dateStr) {
+            document.getElementById('reopen_user_name').innerText = userName;
+            let formattedDate = dateStr;
+            try {
+                const parts = dateStr.split(' ');
+                if (parts.length === 2) {
+                    const dateParts = parts[0].split('-');
+                    if (dateParts.length === 3) {
+                        formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]} às ${parts[1].substring(0, 5)}`;
+                    }
+                }
+            } catch (e) {}
+            document.getElementById('reopen_date').innerText = formattedDate;
+            metaContainer.style.display = 'block';
+        } else {
+            metaContainer.style.display = 'none';
+        }
+    }
+    
+    const actionsContainer = document.getElementById('reopen_actions_container');
+    const appliedContainer = document.getElementById('reopen_applied_container');
+    const btnReopen = document.getElementById('btn_reopen_confirm');
+    
+    if (parseInt(instrumentoAplicado) === 1) {
+        if (actionsContainer) actionsContainer.style.display = 'none';
+        if (appliedContainer) appliedContainer.style.display = 'block';
+        if (btnReopen) btnReopen.style.display = 'none';
+    } else {
+        if (actionsContainer) actionsContainer.style.display = 'block';
+        if (appliedContainer) appliedContainer.style.display = 'none';
+        if (btnReopen) btnReopen.style.display = 'inline-block';
+    }
     
     openModal('reopenModal');
 }
@@ -976,6 +1053,14 @@ async function reopenSolicitation() {
         if (typeof hideLoading === 'function') hideLoading();
         Toast.error('Erro de conexão ao reabrir solicitação.');
     }
+}
+
+function showNotAppliedJustification(justification) {
+    if (!justification) {
+        alert("Nenhuma justificativa informada.");
+        return;
+    }
+    alert("Justificativa para não aplicação do instrumento:\n\n" + justification);
 }
 
 function applyStatusFilter(status) {

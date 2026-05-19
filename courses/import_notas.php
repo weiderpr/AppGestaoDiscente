@@ -5,6 +5,8 @@
 require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 
+$user = getCurrentUser();
+
 hasDbPermission('grades.import'); // Centralized RBAC check
 
 $db      = getDB();

@@ -25,6 +25,16 @@ foreach (explode(' ', trim($userName)) as $part) {
     <meta name="csrf-token" content="<?= \CsrfToken::generate() ?>">
     <title><?= $pageTitle ?? 'Início' ?> — Vértice Mobile</title>
     
+    <!-- PWA Settings -->
+    <link rel="manifest" href="/mobile/manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    
+    <!-- iOS support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Vértice">
+    <link rel="apple-touch-icon" href="/assets/images/apple-touch-icon.png">
+    
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,6 +43,10 @@ foreach (explode(' ', trim($userName)) as $part) {
     <link rel="stylesheet" href="/assets/css/variables.css">
     
     <style>
+        *, ::before, ::after {
+            box-sizing: border-box;
+        }
+
         :root {
             --safe-area-top: env(safe-area-inset-top, 0px);
             --safe-area-bottom: env(safe-area-inset-bottom, 0px);
@@ -136,9 +150,9 @@ foreach (explode(' ', trim($userName)) as $part) {
             -webkit-backdrop-filter: blur(20px);
             border-bottom: 1px solid var(--border-color, #e2e8f0);
             display: flex;
-            align-items: center;
+            align-items: flex-end;
             justify-content: space-between;
-            padding: var(--safe-area-top) 1.25rem 0;
+            padding: 0 1.25rem 10px;
             z-index: 2000;
             box-shadow: 0 4px 12px rgba(0,0,0,0.03);
         }
@@ -364,6 +378,125 @@ foreach (explode(' ', trim($userName)) as $part) {
         }
 
         .m-btn:active { transform: scale(0.97); }
+
+        /* PWA Install Banner styling */
+        .pwa-install-banner {
+            position: fixed;
+            bottom: calc(1rem + var(--safe-area-bottom));
+            left: 1rem;
+            right: 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            padding: 1.25rem;
+            box-shadow: var(--shadow-lg);
+            z-index: 4000;
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+            animation: slideUpPWA 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .pwa-install-banner.show {
+            display: flex;
+        }
+
+        @keyframes slideUpPWA {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .pwa-banner-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .pwa-banner-logo {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            object-fit: cover;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .pwa-banner-title-group {
+            flex: 1;
+        }
+
+        .pwa-banner-title {
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--text-primary);
+            margin: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .pwa-banner-desc {
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            margin: 2px 0 0 0;
+            line-height: 1.4;
+        }
+
+        .pwa-banner-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            margin-top: 0.25rem;
+        }
+
+        .pwa-banner-actions button {
+            border-radius: 12px;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.625rem 1.25rem;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.1s;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .pwa-banner-actions button:active {
+            transform: scale(0.97);
+        }
+
+        .pwa-btn-install {
+            background: var(--gradient-brand);
+            color: white;
+            box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25);
+        }
+
+        .pwa-btn-dismiss {
+            background: transparent;
+            color: var(--text-muted);
+        }
+
+        .ios-instructions-text {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .ios-icon-highlight {
+            background: var(--color-primary-light);
+            color: var(--color-primary);
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        [data-theme="dark"] .ios-icon-highlight {
+            background: rgba(79, 70, 229, 0.2);
+            color: #818cf8;
+        }
     </style>
 </head>
 <body>
@@ -407,6 +540,12 @@ foreach (explode(' ', trim($userName)) as $part) {
             <span class="drawer-link-icon">📚</span>
             <span>Cursos Ativos</span>
         </a>
+        <?php if ($profile === 'Professor' || ($user['is_teacher'] ?? 0) == 1): ?>
+        <a href="/mobile/segunda_chamada.php" class="drawer-link <?= $currentPage === 'segunda_chamada' ? 'active' : '' ?>">
+            <span class="drawer-link-icon">📝</span>
+            <span>Segunda Chamada</span>
+        </a>
+        <?php endif; ?>
         <a href="/profile.php" class="drawer-link <?= $currentPage === 'perfil' ? 'active' : '' ?>">
             <span class="drawer-link-icon">👤</span>
             <span>Meu Perfil</span>
@@ -417,6 +556,28 @@ foreach (explode(' ', trim($userName)) as $part) {
         <a href="/logout.php" class="logout-btn-mobile">
             <span>🚪</span> Sair do Sistema
         </a>
+    </div>
+</div>
+
+<!-- Floating PWA Install Banner -->
+<div id="pwaInstallBanner" class="pwa-install-banner">
+    <div class="pwa-banner-header">
+        <img src="/assets/images/icon-192.png" alt="Logo Vértice Acadêmico" class="pwa-banner-logo">
+        <div class="pwa-banner-title-group">
+            <h4 class="pwa-banner-title">Instalar Vértice Acadêmico</h4>
+            <div id="pwaAndroidInstructions">
+                <p class="pwa-banner-desc">Instale o aplicativo na sua tela de início para acesso rápido, melhor performance e suporte offline.</p>
+            </div>
+            <div id="pwaIOSInstructions" style="display: none;">
+                <p class="ios-instructions-text">
+                    Toque no ícone de compartilhamento <span class="ios-icon-highlight"> Compartilhar </span> e selecione <span class="ios-icon-highlight"> Adicionar à Tela de Início </span>.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="pwa-banner-actions">
+        <button id="pwaDismissBtn" class="pwa-btn-dismiss">Agora não</button>
+        <button id="pwaInstallBtn" class="pwa-btn-install">Instalar</button>
     </div>
 </div>
 
@@ -434,4 +595,95 @@ foreach (explode(' ', trim($userName)) as $part) {
 
     menuToggle.onclick = toggleMenu;
     drawerOverlay.onclick = toggleMenu;
+
+    // --- PWA Registration & Auto Install Logic ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/mobile/sw.js')
+                .then(reg => console.log('PWA: Service Worker registrado com escopo:', reg.scope))
+                .catch(err => console.error('PWA: Falha ao registrar Service Worker:', err));
+        });
+    }
+
+    let deferredPrompt;
+    const installBanner = document.getElementById('pwaInstallBanner');
+    const installBtn = document.getElementById('pwaInstallBtn');
+    const dismissBtn = document.getElementById('pwaDismissBtn');
+    const androidInst = document.getElementById('pwaAndroidInstructions');
+    const iosInst = document.getElementById('pwaIOSInstructions');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        // Evita que o prompt padrão apareça imediatamente
+        e.preventDefault();
+        // Salva o evento para ser disparado posteriormente
+        deferredPrompt = e;
+
+        // Verifica se o usuário já dispensou nas últimas 24 horas
+        const lastDismiss = localStorage.getItem('pwa_dismissed_time');
+        const now = Date.now();
+        if (lastDismiss && (now - parseInt(lastDismiss) < 24 * 60 * 60 * 1000)) {
+            return;
+        }
+
+        // Mostra o banner customizado para Android/Chrome
+        showInstallBanner('android');
+    });
+
+    function showInstallBanner(platform) {
+        if (!installBanner) return;
+
+        if (platform === 'ios') {
+            if (androidInst) androidInst.style.display = 'none';
+            if (iosInst) iosInst.style.display = 'block';
+            if (installBtn) installBtn.style.display = 'none'; // iOS has no prompt programmatically
+        } else {
+            if (androidInst) androidInst.style.display = 'block';
+            if (iosInst) iosInst.style.display = 'none';
+            if (installBtn) installBtn.style.display = 'inline-block';
+        }
+
+        installBanner.classList.add('show');
+    }
+
+    if (installBtn) {
+        installBtn.onclick = () => {
+            if (!deferredPrompt) return;
+            // Oculta o banner
+            installBanner.classList.remove('show');
+            // Dispara o prompt de instalação nativo
+            deferredPrompt.prompt();
+            // Analisa a escolha do usuário
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('PWA: Usuário aceitou a instalação.');
+                } else {
+                    console.log('PWA: Usuário recusou a instalação.');
+                }
+                deferredPrompt = null;
+            });
+        };
+    }
+
+    if (dismissBtn) {
+        dismissBtn.onclick = () => {
+            installBanner.classList.remove('show');
+            // Salva no localStorage para não perturbar constantemente
+            localStorage.setItem('pwa_dismissed_time', Date.now().toString());
+        };
+    }
+
+    // --- iOS Detection ---
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+
+    if (isIOS && !isStandalone) {
+        const lastDismiss = localStorage.getItem('pwa_dismissed_time');
+        const now = Date.now();
+        if (!lastDismiss || (now - parseInt(lastDismiss) > 24 * 60 * 60 * 1000)) {
+            // Pequeno delay para melhorar a experiência do usuário
+            setTimeout(() => {
+                showInstallBanner('ios');
+            }, 2000);
+        }
+    }
 </script>
