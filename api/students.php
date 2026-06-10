@@ -26,7 +26,8 @@ if ($action === 'search') {
         // 1. Search Students
         $stAlunos = $db->prepare("
             SELECT a.id, a.nome as name, a.matricula, a.photo as foto,
-                   t.description as subtext, t.id as turma_id, 'aluno' as type
+                   t.description as subtext, t.id as turma_id, 'aluno' as type,
+                   c.name as curso_name
             FROM alunos a
             JOIN turma_alunos ta ON ta.aluno_id = a.id
             JOIN turmas t ON ta.turma_id = t.id

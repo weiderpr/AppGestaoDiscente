@@ -41,6 +41,7 @@ if ($action === 'save') {
     $descricao     = trim($_POST['descricao'] ?? '');
     $data_hora     = trim($_POST['data_hora'] ?? '');
     $local_reuniao = trim($_POST['local_reuniao'] ?? '');
+    $ambiente_id   = !empty($_POST['ambiente_id']) ? (int)$_POST['ambiente_id'] : null;
     $avaliacao_id  = (int)($_POST['avaliacao_id'] ?? 0);
     $etapas        = $_POST['etapas'] ?? [];
 
@@ -51,6 +52,7 @@ if ($action === 'save') {
             'descricao' => $descricao,
             'data_hora' => $data_hora,
             'local_reuniao' => $local_reuniao,
+            'ambiente_id' => $ambiente_id,
             'avaliacao_id' => $avaliacao_id,
             'course_id' => $course_id,
             'turma_id' => $turma_id,
@@ -141,7 +143,7 @@ $sortMap = [
     'turma_name' => 't.description'
 ];
 
-$sql    = "SELECT cc.*, t.description as turma_name, c.name as course_name, c.id as course_id,
+$sql    = "SELECT cc.*, t.description as turma_name, c.name as course_name, c.id as course_id, a.descricao as ambiente_name,
            GROUP_CONCAT(e.id ORDER BY e.id SEPARATOR ',') as etapas_ids,
            GROUP_CONCAT(e.description ORDER BY e.id SEPARATOR '||') as etapas_names,
            (SELECT AVG(rp.nota) FROM respostas_perguntas rp JOIN respostas_avaliacao ra ON rp.resposta_id = ra.id WHERE ra.conselho_id = cc.id) as media_avaliacao,
@@ -151,6 +153,7 @@ $sql    = "SELECT cc.*, t.description as turma_name, c.name as course_name, c.id
            JOIN courses c ON cc.course_id = c.id
            LEFT JOIN conselhos_etapas ce ON cc.id = ce.conselho_id
            LEFT JOIN etapas e ON ce.etapa_id = e.id
+           LEFT JOIN manutencao_ambientes a ON cc.ambiente_id = a.id
            WHERE cc.institution_id = ?";
 
 if (!$canFull) {
@@ -250,6 +253,44 @@ require_once __DIR__ . '/../includes/header.php';
 [data-theme="dark"] .action-btn.danger:hover { background:#450a0a; }
 
 /* Modal styles are now handled by core CSS */
+.autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 4px;
+}
+.autocomplete-dropdown-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.autocomplete-dropdown-item:last-child {
+    border-bottom: none;
+}
+.autocomplete-dropdown-item:hover {
+    background: var(--bg-hover);
+}
+.autocomplete-dropdown-item strong {
+    display: block;
+    color: var(--text-primary);
+}
+.autocomplete-dropdown-item .subtext {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 2px;
+}
 </style>
 
 <!-- Page Header -->
@@ -352,7 +393,7 @@ require_once __DIR__ . '/../includes/header.php';
                         📅 <?= date('d/m/Y H:i', strtotime($c['data_hora'])) ?>
                     </td>
                     <td style="color:var(--text-secondary);">
-                        <?= $c['local_reuniao'] ? '📍 ' . htmlspecialchars($c['local_reuniao']) : '—' ?>
+                        <?= !empty($c['ambiente_name']) ? '📍 ' . htmlspecialchars($c['ambiente_name']) : ($c['local_reuniao'] ? '📍 ' . htmlspecialchars($c['local_reuniao']) : '—') ?>
                     </td>
                     <td style="color:var(--text-secondary);font-size:.8125rem;">
                         <?= !empty($c['etapas_names']) ? htmlspecialchars(str_replace('||', ', ', $c['etapas_names'])) : '—' ?>
@@ -467,13 +508,16 @@ require_once __DIR__ . '/../includes/header.php';
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label class="form-label">Local da Reunião</label>
+                        <div class="form-group" style="position: relative;">
+                            <label class="form-label">Local da Reunião (Ambiente)</label>
                             <div class="input-group">
                                 <span class="input-icon">📍</span>
-                                <input type="text" name="local_reuniao" id="conselho_local" class="form-control"
-                                    placeholder="Ex: Sala II">
+                                <input type="text" id="conselho_ambiente_search" class="form-control"
+                                    placeholder="Comece a digitar para buscar o ambiente..." autocomplete="off">
+                                <input type="hidden" name="ambiente_id" id="conselho_ambiente_id" value="">
+                                <input type="hidden" name="local_reuniao" id="conselho_local" value="">
                             </div>
+                            <div id="conselho_ambiente_dropdown" class="autocomplete-dropdown" style="display: none;"></div>
                         </div>
                     </div>
 
@@ -610,12 +654,16 @@ function openModal(data = null) {
     const dateField = document.getElementById('conselho_data_hora');
     const localField = document.getElementById('conselho_local');
     const avaliacaoField = document.getElementById('conselho_avaliacao_id');
+    const ambienteIdField = document.getElementById('conselho_ambiente_id');
+    const ambienteSearchField = document.getElementById('conselho_ambiente_search');
 
     courseField.value = '';
     turmaField.innerHTML = '<option value="">Selecione...</option>';
     turmaField.disabled = true;
     etapasField.innerHTML = '<option value="">Selecione uma turma...</option>';
     etapasField.disabled = true;
+    ambienteIdField.value = '';
+    ambienteSearchField.value = '';
 
     if (data) {
         title.innerText = '🏠 Editar Conselho de Classe';
@@ -633,7 +681,15 @@ function openModal(data = null) {
                     String(dt.getMinutes()).padStart(2, '0');
             }
         }
-        localField.value = data.local_reuniao || '';
+        if (data.ambiente_id) {
+            ambienteIdField.value = data.ambiente_id;
+            ambienteSearchField.value = data.ambiente_name || '';
+            localField.value = data.ambiente_name || '';
+        } else {
+            ambienteIdField.value = '';
+            ambienteSearchField.value = data.local_reuniao || '';
+            localField.value = data.local_reuniao || '';
+        }
         avaliacaoField.value = data.avaliacao_id || '0';
         
         // Impede que o navegador auto-preencha com data
@@ -729,6 +785,70 @@ function confirmDeleteConselho(id) {
 document.addEventListener('DOMContentLoaded', () => {
     <?php if ($success): ?> Toast.success(<?= json_encode($success) ?>); <?php endif; ?>
     <?php if ($error): ?> Toast.error(<?= json_encode($error) ?>); <?php endif; ?>
+
+    // Autocomplete para Ambientes (Sala da Reunião)
+    const searchInput = document.getElementById('conselho_ambiente_search');
+    const hiddenIdInput = document.getElementById('conselho_ambiente_id');
+    const hiddenLocalInput = document.getElementById('conselho_local');
+    const dropdown = document.getElementById('conselho_ambiente_dropdown');
+
+    if (searchInput) {
+        let debounceTimer;
+
+        searchInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            const query = searchInput.value.trim();
+
+            if (!query) {
+                hiddenIdInput.value = '';
+                hiddenLocalInput.value = '';
+                dropdown.style.display = 'none';
+                return;
+            }
+
+            debounceTimer = setTimeout(() => {
+                fetch(`/api/manutencao/ambientes_ajax.php?action=search&q=${encodeURIComponent(query)}`)
+                    .then(res => res.json())
+                    .then(res => {
+                        if (res.success && res.data.length > 0) {
+                            let html = '';
+                            res.data.forEach(item => {
+                                html += `
+                                    <div class="autocomplete-dropdown-item" data-id="${item.id}" data-desc="${item.descricao}">
+                                        <strong>${item.descricao}</strong>
+                                        <span class="subtext">${item.predio_campus}</span>
+                                    </div>
+                                `;
+                            });
+                            dropdown.innerHTML = html;
+                            dropdown.style.display = 'block';
+                        } else {
+                            dropdown.innerHTML = '<div class="autocomplete-dropdown-item" style="cursor:default;color:var(--text-muted);">Nenhum ambiente encontrado</div>';
+                            dropdown.style.display = 'block';
+                        }
+                    })
+                    .catch(() => {
+                        dropdown.style.display = 'none';
+                    });
+            }, 300);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        dropdown.addEventListener('click', (e) => {
+            const item = e.target.closest('.autocomplete-dropdown-item');
+            if (item && item.dataset.id) {
+                hiddenIdInput.value = item.dataset.id;
+                hiddenLocalInput.value = item.dataset.desc;
+                searchInput.value = item.dataset.desc;
+                dropdown.style.display = 'none';
+            }
+        });
+    }
 });
 </script>
 

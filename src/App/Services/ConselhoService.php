@@ -8,21 +8,23 @@ namespace App\Services;
 class ConselhoService extends Service {
     public function findById(int $id): ?array {
         return $this->fetchOne(
-            'SELECT cc.*, i.name as institution_name, c.name as course_name, t.description as turma_name
+            'SELECT cc.*, i.name as institution_name, c.name as course_name, t.description as turma_name, a.descricao as ambiente_name
              FROM conselhos_classe cc
              INNER JOIN institutions i ON cc.institution_id = i.id
              INNER JOIN courses c ON cc.course_id = c.id
              INNER JOIN turmas t ON cc.turma_id = t.id
+             LEFT JOIN manutencao_ambientes a ON cc.ambiente_id = a.id
              WHERE cc.id = ?',
             [$id]
         );
     }
 
     public function getAll(int $institutionId, int $turmaId = null, int $courseId = null): array {
-        $sql = 'SELECT cc.*, c.name as course_name, t.description as turma_name
+        $sql = 'SELECT cc.*, c.name as course_name, t.description as turma_name, a.descricao as ambiente_name
                 FROM conselhos_classe cc
                 INNER JOIN courses c ON cc.course_id = c.id
                 INNER JOIN turmas t ON cc.turma_id = t.id
+                LEFT JOIN manutencao_ambientes a ON cc.ambiente_id = a.id
                 WHERE cc.institution_id = ?';
         $params = [$institutionId];
 
@@ -42,8 +44,8 @@ class ConselhoService extends Service {
 
     public function create(int $institutionId, int $courseId, int $turmaId, array $data): array {
         $this->db->prepare(
-            'INSERT INTO conselhos_classe (institution_id, course_id, turma_id, descricao, data_hora, local_reuniao, avaliacao_id) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO conselhos_classe (institution_id, course_id, turma_id, descricao, data_hora, local_reuniao, avaliacao_id, ambiente_id) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         )->execute([
             $institutionId,
             $courseId,
@@ -51,7 +53,8 @@ class ConselhoService extends Service {
             $data['descricao'],
             $data['data_hora'],
             $data['local_reuniao'] ?? null,
-            (isset($data['avaliacao_id']) && $data['avaliacao_id'] > 0) ? $data['avaliacao_id'] : null
+            (isset($data['avaliacao_id']) && $data['avaliacao_id'] > 0) ? $data['avaliacao_id'] : null,
+            (isset($data['ambiente_id']) && $data['ambiente_id'] > 0) ? (int)$data['ambiente_id'] : null
         ]);
 
         $conselhoId = $this->lastInsertId();
@@ -99,6 +102,10 @@ class ConselhoService extends Service {
         if (isset($data['avaliacao_id'])) {
             $fields[] = 'avaliacao_id = ?';
             $params[] = $data['avaliacao_id'] > 0 ? $data['avaliacao_id'] : null;
+        }
+        if (isset($data['ambiente_id'])) {
+            $fields[] = 'ambiente_id = ?';
+            $params[] = $data['ambiente_id'] > 0 ? (int)$data['ambiente_id'] : null;
         }
 
         if (empty($fields)) {

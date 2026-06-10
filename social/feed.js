@@ -318,7 +318,7 @@ class SocialFeed {
                     }
                     <div class="search-result-info">
                         <span class="search-result-name">${s.name}</span>
-                        <span class="search-result-desc">${s.subtext || ''} ${s.matricula ? '• ' + s.matricula : ''}</span>
+                        <span class="search-result-desc">${s.subtext || ''} ${s.curso_name ? '• ' + s.curso_name : ''}</span>
                     </div>
                 </div>
             `).join('');

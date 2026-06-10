@@ -64,7 +64,7 @@
 
                             <div id="cdEditorSection">
                                 <div class="form-group" style="margin-bottom: 1rem;">
-                                    <label class="form-label">Informação Pública (Visível para o aluno em relatórios)</label>
+                                    <label class="form-label">Informação Pública</label>
                                     <textarea class="form-control" id="cdDescPublica" rows="3" placeholder="Descreva o que será visível para o aluno..."></textarea>
                                 </div>
 

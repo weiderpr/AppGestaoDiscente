@@ -36,6 +36,12 @@ try {
             }
             break;
 
+        case 'search':
+            $q = trim($_GET['q'] ?? '');
+            $data = $ambienteService->getAll($instId, $q);
+            echo json_encode(['success' => true, 'data' => $data]);
+            break;
+
         case 'create':
             if (!csrf_verify($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) {
                 throw new Exception('Token CSRF inválido.');
