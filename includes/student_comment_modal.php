@@ -52,6 +52,18 @@ if ($canComment):
 .comment-tab-content > div { flex:1; }
 #wordcloud_container canvas { border-radius:var(--radius-md); background:var(--bg-surface-2nd); }
 #wordcloud_canvas { max-width:100%; height:auto; }
+.comment-modal-nav {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+    margin-right: 1rem;
+}
+.comment-nav-btn {
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.75rem !important;
+    height: auto !important;
+}
 </style>
 
 <div class="modal-backdrop" id="commentModal" role="dialog" style="display:none;">
@@ -63,6 +75,10 @@ if ($canComment):
                     <div id="comment_aluno_name" style="font-size:1rem;font-weight:700;color:var(--text-primary);"></div>
                     <div style="font-size:.75rem;color:var(--text-muted);">Análise e Comentários</div>
                 </div>
+            </div>
+            <div class="comment-modal-nav" id="comment_modal_nav">
+                <button type="button" class="btn btn-secondary btn-sm comment-nav-btn" id="btn_comment_prev" onclick="navigateCommentStudent(-1)">◀ Anterior</button>
+                <button type="button" class="btn btn-secondary btn-sm comment-nav-btn" id="btn_comment_next" onclick="navigateCommentStudent(1)">Próximo ▶</button>
             </div>
             <button class="modal-close" onclick="closeModal('commentModal')">✕</button>
         </div>

@@ -15,7 +15,7 @@ $userPhoto = !empty($u['photo']) ? '/' . $u['photo'] : '/assets/img/avatar-place
 <link rel="stylesheet" href="/social/feed.css?v=1.2">
 <script src="/social/feed.js?v=1.5" defer></script>
 <script src="/assets/js/sentiment_system.js" defer></script>
-<script src="/assets/js/student_comments.js?v=2.4" defer></script>
+<script src="/assets/js/student_comments.js?v=2.5" defer></script>
 
 <div class="social-feed-layout">
     <!-- Sidebar Esquerda (Resizable) -->

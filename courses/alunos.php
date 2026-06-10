@@ -583,7 +583,7 @@ renderModalStyles();
                     <td style="text-align:center;">
                         <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
                             <button type="button" class="action-btn" title="Atendimento Profissional" onclick="openAtendimentoModal({aluno_id: <?= $a['id'] ?>, target_name: '<?= addslashes($a['nome']) ?>', aluno_photo: '<?= $a['photo'] ?>', turma_id: <?= $turmaId ?>})">📝</button>
-                            <button type="button" class="action-btn" title="Adicionar Comentário" onclick="openCommentModal(<?= htmlspecialchars(json_encode(['id' => $a['id'], 'nome' => $a['nome'], 'photo' => $a['photo'], 'photo_url' => ($a['photo'] && file_exists(__DIR__.'/../'.$a['photo']) ? '/'.$a['photo'] : null)]), ENT_QUOTES) ?>, <?= $turmaId ?>)">💬</button>
+                            <button type="button" class="action-btn" title="Adicionar Comentário" onclick="openCommentModal(<?= htmlspecialchars(json_encode(['id' => $a['id'], 'nome' => $a['nome'], 'photo' => $a['photo'], 'photo_url' => ($a['photo'] && file_exists(__DIR__.'/../'.$a['photo']) ? '/'.$a['photo'] : null)]), ENT_QUOTES) ?>, <?= $turmaId ?>, listagemAlunos)">💬</button>
                             <button type="button" class="action-btn" title="Histórico Multidisciplinar" onclick="openHistoryModal(<?= $a['id'] ?>)">🕒</button>
                             <button type="button" class="action-btn" title="Grade Horária / Horários" onclick="openScheduleModal(<?= $a['id'] ?>, '<?= addslashes($a['nome']) ?>', '<?= $a['photo'] ?>')">🗓️</button>
                             
@@ -1413,10 +1413,18 @@ function openEditModal(aluno) {
     openModal('editAlunoModal');
 }
 
+const listagemAlunos = <?= json_encode(array_map(function($a) {
+    return [
+        'id' => (int)$a['id'],
+        'nome' => $a['nome'],
+        'photo' => $a['photo'],
+        'photo_url' => ($a['photo'] && file_exists(__DIR__.'/../'.$a['photo']) ? '/'.$a['photo'] : null)
+    ];
+}, $alunos)) ?>;
 
 </script>
 <?php require_once __DIR__ . '/../includes/student_comment_modal.php'; ?>
-<script src="/assets/js/student_comments.js?v=2.3"></script>
+<script src="/assets/js/student_comments.js?v=2.5"></script>
 <?php require_once __DIR__ . '/../includes/atendimento_modal.php'; ?>
 <?php require_once __DIR__ . '/../includes/student_schedule_modal.php'; ?>
 
@@ -1459,7 +1467,7 @@ document.addEventListener('DOMContentLoaded', function() {
         photo: <?= $commentAlunoPhoto ? '\'' . addslashes($commentAlunoPhoto) . '\'' : 'null' ?>,
         photo_url: <?= $commentAlunoPhotoUrl ? '\'' . addslashes($commentAlunoPhotoUrl) . '\'' : 'null' ?>
     };
-    openCommentModal(aluno, <?= $turmaId ?>);
+    openCommentModal(aluno, <?= $turmaId ?>, listagemAlunos);
 });
 </script>
 <?php endif; ?>

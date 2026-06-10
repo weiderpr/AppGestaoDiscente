@@ -1268,7 +1268,7 @@ function openAlunoModal(aluno) {
 }
 </script>
 
-<script src="/assets/js/student_comments.js?v=2.4"></script>
+<script src="/assets/js/student_comments.js?v=2.5"></script>
 <?php require_once __DIR__ . '/../includes/student_comment_modal.php'; ?>
 
 <!-- Componente de Encaminhamentos -->

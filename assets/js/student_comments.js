@@ -5,6 +5,7 @@
 
 let currentCommentAlunoId = null;
 let currentCommentTurmaId = null;
+let currentCommentAlunoList = null;
 
 
 /**
@@ -42,10 +43,12 @@ if (typeof window.closeModal !== 'function') {
  * Open the comment modal for a specific student
  * @param {Object} aluno - { id, nome, photo, photo_url }
  * @param {Number} turmaId - Context turma ID
+ * @param {Array} alunoList - Optional list of students for navigation
  */
-function openCommentModal(aluno, turmaId) {
+function openCommentModal(aluno, turmaId, alunoList = null) {
     currentCommentAlunoId = aluno.id;
     currentCommentTurmaId = turmaId;
+    currentCommentAlunoList = alunoList;
     
     // UI Elements
     const nameEl = document.getElementById('comment_aluno_name');
@@ -54,6 +57,7 @@ function openCommentModal(aluno, turmaId) {
     const textDiv = document.getElementById('comment_text');
     const historyMeu = document.getElementById('comment_history_meu');
     const historyOutros = document.getElementById('comment_history_outros');
+    const navEl = document.getElementById('comment_modal_nav');
     
     if (idInput) idInput.value = aluno.id;
     if (nameEl) nameEl.textContent = aluno.nome;
@@ -84,9 +88,51 @@ function openCommentModal(aluno, turmaId) {
         }
     }
     
+    // Navigation controls
+    if (navEl) {
+        if (currentCommentAlunoList && currentCommentAlunoList.length > 1) {
+            navEl.style.display = 'flex';
+            const currentIndex = currentCommentAlunoList.findIndex(a => a.id === aluno.id);
+            const prevBtn = document.getElementById('btn_comment_prev');
+            const nextBtn = document.getElementById('btn_comment_next');
+            if (prevBtn) prevBtn.disabled = (currentIndex <= 0);
+            if (nextBtn) nextBtn.disabled = (currentIndex === -1 || currentIndex >= currentCommentAlunoList.length - 1);
+        } else {
+            navEl.style.display = 'none';
+        }
+    }
+    
     loadComments(aluno.id, turmaId);
     if (typeof openModal === 'function') openModal('commentModal');
     else document.getElementById('commentModal').classList.add('show');
+}
+
+/**
+ * Navigate to next/previous student inside comment modal
+ * @param {Number} direction - -1 for previous, 1 for next
+ */
+function navigateCommentStudent(direction) {
+    if (!currentCommentAlunoList || currentCommentAlunoList.length <= 1) return;
+    
+    const currentIndex = currentCommentAlunoList.findIndex(a => a.id === currentCommentAlunoId);
+    if (currentIndex === -1) return;
+    
+    const newIndex = currentIndex + direction;
+    if (newIndex < 0 || newIndex >= currentCommentAlunoList.length) return;
+    
+    // Check for unsaved comment
+    const textDiv = document.getElementById('comment_text');
+    if (textDiv) {
+        const conteudo = textDiv.innerHTML.trim();
+        if (conteudo && conteudo !== '<br>') {
+            if (!confirm('Você digitou um comentário que ainda não foi publicado. Deseja mudar de aluno e descartar esse texto?')) {
+                return;
+            }
+        }
+    }
+    
+    const nextAluno = currentCommentAlunoList[newIndex];
+    openCommentModal(nextAluno, currentCommentTurmaId, currentCommentAlunoList);
 }
 
 /**
