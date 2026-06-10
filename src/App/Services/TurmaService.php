@@ -160,9 +160,46 @@ class TurmaService extends Service {
             'SELECT d.*, td.id as turma_disciplina_id
              FROM disciplinas d
              INNER JOIN turma_disciplinas td ON d.codigo = td.disciplina_codigo
-             WHERE td.turma_id = ? AND d.deleted_at IS NULL
+             WHERE td.turma_id = ?
              ORDER BY d.descricao',
             [$turmaId]
+        );
+    }
+
+    public function getTeacherDisciplinesInTurma(int $turmaId, int $teacherId): array {
+        return $this->fetchAll(
+            'SELECT d.codigo, d.descricao
+             FROM turma_disciplina_professores tdp
+             INNER JOIN turma_disciplinas td ON tdp.turma_disciplina_id = td.id
+             INNER JOIN disciplinas d ON td.disciplina_codigo = d.codigo
+             WHERE td.turma_id = ? AND tdp.professor_id = ?',
+            [$turmaId, $teacherId]
+        );
+    }
+
+    public function getTurmaMediaPorDisciplina(int $turmaId, int $etapaId): array {
+        return $this->fetchAll(
+            'SELECT d.codigo, d.descricao, AVG(en.nota) as media_nota
+             FROM turma_disciplinas td
+             INNER JOIN disciplinas d ON td.disciplina_codigo = d.codigo
+             INNER JOIN etapas e ON td.turma_id = e.turma_id
+             LEFT JOIN etapa_notas en ON en.etapa_id = e.id AND en.disciplina_codigo = d.codigo
+             WHERE td.turma_id = ? AND e.id = ?
+             GROUP BY d.codigo, d.descricao
+             ORDER BY d.descricao',
+            [$turmaId, $etapaId]
+        );
+    }
+
+    public function getAlunosNotasPorDisciplinaEtapa(int $turmaId, string $disciplinaCodigo, int $etapaId): array {
+        return $this->fetchAll(
+            'SELECT a.id, a.nome, a.matricula, a.photo, en.nota, en.faltas
+             FROM alunos a
+             INNER JOIN turma_alunos ta ON a.id = ta.aluno_id
+             LEFT JOIN etapa_notas en ON en.aluno_id = a.id AND en.disciplina_codigo = ? AND en.etapa_id = ?
+             WHERE ta.turma_id = ? AND a.deleted_at IS NULL
+             ORDER BY a.nome',
+            [$disciplinaCodigo, $etapaId, $turmaId]
         );
     }
 }

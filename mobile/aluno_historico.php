@@ -6,6 +6,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../src/App/Services/Service.php';
 require_once __DIR__ . '/../src/App/Services/AlunoService.php';
+require_once __DIR__ . '/../src/App/Services/TurmaService.php';
 
 requireLogin();
 
@@ -26,6 +27,9 @@ if (!$alunoId || !$turmaId) {
 
 $db = getDB();
 $alunoService = new \App\Services\AlunoService();
+$turmaService = new \App\Services\TurmaService();
+$teacherDiscs = $turmaService->getTeacherDisciplinesInTurma($turmaId, (int)$user['id']);
+$teacherDiscCodes = array_column($teacherDiscs, 'codigo');
 
 // Contexto da Turma
 $stTurma = $db->prepare("
@@ -165,6 +169,10 @@ require_once __DIR__ . '/header.php';
     /* Back Header */
     .m-back-header {
         margin-bottom: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
     }
     .m-back-btn {
         display: inline-flex;
@@ -179,6 +187,25 @@ require_once __DIR__ . '/header.php';
         border-radius: 14px;
         border: 1px solid var(--border-color);
         box-shadow: var(--shadow-sm);
+    }
+    .m-back-btn-grades {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.875rem;
+        background: var(--bg-surface);
+        padding: 0.625rem 1rem;
+        border-radius: 14px;
+        border: 1px solid var(--border-color);
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.1s;
+    }
+    .m-back-btn-grades:active {
+        transform: scale(0.98);
+        background: var(--bg-surface-2nd);
     }
 
     /* Student Hero */
@@ -702,6 +729,9 @@ require_once __DIR__ . '/header.php';
     <div class="m-back-header">
         <a href="/mobile/alunos.php?turma_id=<?= $turmaId ?>" class="m-back-btn">
             <span>‹</span> Voltar para Turma
+        </a>
+        <a href="/mobile/aluno_notas.php?aluno_id=<?= $alunoId ?>&turma_id=<?= $turmaId ?>" class="m-back-btn-grades">
+            <span>📊</span> Ver Notas
         </a>
     </div>
 
