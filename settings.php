@@ -10,8 +10,15 @@ hasDbPermission('settings.index');
 
 $user = getCurrentUser();
 
-$requestedSection = $_GET['section'] ?? 'avaliacoes';
-if (!hasDbPermission('settings.' . $requestedSection, false)) {
+$requestedSection   = $_GET['section'] ?? 'avaliacoes';
+$isAdmin            = ($user['profile'] ?? '') === 'Administrador';
+
+// 'componentes' é restrito a Administrador e não usa RBAC de tabela
+$sectionAllowed = ($requestedSection === 'componentes')
+    ? $isAdmin
+    : hasDbPermission('settings.' . $requestedSection, false);
+
+if (!$sectionAllowed) {
     // Tenta encontrar a primeira área disponível para este usuário
     $availableSections = ['avaliacoes', 'backup', 'permissoes', 'audit_logs'];
     foreach ($availableSections as $sec) {
@@ -315,10 +322,11 @@ $activeSection = $requestedSection;
 
 $activeSub = $_GET['sub'] ?? 'backup';
 $allowedSubs = [
-    'backup'     => ['backup', 'restore', 'logs'],
-    'avaliacoes' => ['dashboard', 'tipos', 'lista', 'create', 'respostas'],
-    'permissoes' => ['perfil', 'usuario'],
-    'audit_logs' => ['index']
+    'backup'      => ['backup', 'restore', 'logs'],
+    'avaliacoes'  => ['dashboard', 'tipos', 'lista', 'create', 'respostas'],
+    'permissoes'  => ['perfil', 'usuario'],
+    'audit_logs'  => ['index'],
+    'componentes' => ['index'],
 ];
 if (!in_array($activeSub, $allowedSubs[$activeSection] ?? [])) {
     $activeSub = $allowedSubs[$activeSection][0];
@@ -659,6 +667,11 @@ document.addEventListener('DOMContentLoaded', function() {
         include __DIR__ . '/includes/settings/permissoes.php';
     }
     ?>
+</div>
+
+<!-- ===== SEÇÃO: COMPONENTES ===== -->
+<div class="settings-section <?= $activeSection === 'componentes' ? 'active' : '' ?>">
+    <?php include __DIR__ . '/includes/settings/componentes.php'; ?>
 </div>
 
 </div><!-- /settings-content -->

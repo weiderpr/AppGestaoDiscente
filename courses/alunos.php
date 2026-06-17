@@ -1424,7 +1424,7 @@ const listagemAlunos = <?= json_encode(array_map(function($a) {
 
 </script>
 <?php require_once __DIR__ . '/../includes/student_comment_modal.php'; ?>
-<script src="/assets/js/student_comments.js?v=2.5"></script>
+<script src="/assets/js/student_comments.js?v=2.8"></script>
 <?php require_once __DIR__ . '/../includes/atendimento_modal.php'; ?>
 <?php require_once __DIR__ . '/../includes/student_schedule_modal.php'; ?>
 

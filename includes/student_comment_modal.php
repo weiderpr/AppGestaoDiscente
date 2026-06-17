@@ -7,9 +7,14 @@ if (!isset($canComment)) {
     $allowed = ['Administrador', 'Coordenador', 'Professor', 'Pedagogo', 'Assistente Social', 'Psicólogo'];
     $canComment = $user && in_array($user['profile'], $allowed);
 }
+if (!isset($user)) {
+    $user = getCurrentUser();
+}
+$isAdmin = ($user['profile'] ?? '') === 'Administrador';
 
-if ($canComment): 
+if ($canComment):
 ?>
+<script>window.VA_IS_ADMIN = <?= $isAdmin ? 'true' : 'false' ?>;</script>
 
 <style>
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -21,8 +26,8 @@ if ($canComment):
 }
 .modal-backdrop.show { opacity:1; visibility:visible; display:flex !important; }
 .modal { 
-    background:var(--bg-surface); border-radius:var(--radius-lg); 
-    box-shadow:var(--shadow-xl); width:95%; max-width:600px; 
+    background:var(--bg-surface); border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-xl); width:95%; max-width:860px;
     max-height:90vh; display:flex; flex-direction:column; 
     transform:translateY(20px) scale(0.95); transition:all .25s ease; 
 }
@@ -67,7 +72,7 @@ if ($canComment):
 </style>
 
 <div class="modal-backdrop" id="commentModal" role="dialog" style="display:none;">
-    <div class="modal" style="max-width:720px;">
+    <div class="modal">
         <div class="modal-header">
             <div style="display:flex;align-items:center;gap:.75rem;">
                 <div id="comment_aluno_photo" style="width:40px;height:40px;border-radius:50%;background:var(--gradient-brand);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:1rem;"></div>
@@ -100,6 +105,10 @@ if ($canComment):
                 <button class="comment-tab-btn" data-tab="trend" onclick="switchCommentTab('trend')">
                     <span class="comment-tab-icon">📈</span>
                     <span>Tendência</span>
+                </button>
+                <button class="comment-tab-btn" data-tab="ai_report" onclick="switchCommentTab('ai_report')">
+                    <span class="comment-tab-icon">🤖</span>
+                    <span>Análise</span>
                 </button>
             </div>
         </div>
@@ -183,8 +192,35 @@ if ($canComment):
                     </div>
                 </div>
             </div>
+            <!-- Tab: Relatório IA -->
+            <div id="tab-ai_report" class="comment-tab-content" style="display:none;">
+                <div id="ai_report_container" style="flex:1;overflow-y:auto;">
+
+                    <div id="ai_report_loading" style="display:none;text-align:center;color:var(--text-muted);padding:2rem;">
+                        <div style="font-size:2rem;margin-bottom:.5rem;">🤖</div>
+                        <div style="font-size:.875rem;">Consultando análise pedagógica...</div>
+                    </div>
+
+                    <div id="ai_report_content" style="display:none;"></div>
+
+                    <div id="ai_report_empty" style="display:none;text-align:center;color:var(--text-muted);padding:2rem;">
+                        <div style="font-size:3rem;margin-bottom:.75rem;">📝</div>
+                        <div style="font-size:.9375rem;font-weight:600;margin-bottom:.25rem;">Sem dados suficientes</div>
+                        <div style="font-size:.8125rem;">Adicione comentários ou aguarde o lançamento de notas para gerar a análise.</div>
+                    </div>
+
+                    <div id="ai_report_error" style="display:none;text-align:center;padding:2rem;">
+                        <div style="font-size:2.5rem;margin-bottom:.75rem;">⚠️</div>
+                        <div id="ai_report_error_msg" style="font-size:.875rem;color:var(--color-danger);margin-bottom:1rem;"></div>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="loadAIReport(currentCommentAlunoId, currentCommentTurmaId)">
+                            Tentar novamente
+                        </button>
+                    </div>
+
+                </div>
+            </div>
         </div>
-        
+
         <div class="modal-footer" style="padding:1rem 1.5rem;">
             <button type="button" class="btn btn-secondary" onclick="closeModal('commentModal')" style="width:100%;">Fechar Janela</button>
         </div>

@@ -386,9 +386,10 @@ function switchCommentTab(tabName) {
     const target = document.getElementById('tab-' + tabName);
     if (target) target.style.display = 'block';
     
-    if (tabName === 'wordcloud') generateWordCloud(currentCommentAlunoId, currentCommentTurmaId);
-    if (tabName === 'summary') generateSummary(currentCommentAlunoId, currentCommentTurmaId);
-    if (tabName === 'trend') generateTrend(currentCommentAlunoId, currentCommentTurmaId);
+    if (tabName === 'wordcloud')  generateWordCloud(currentCommentAlunoId, currentCommentTurmaId);
+    if (tabName === 'summary')    generateSummary(currentCommentAlunoId, currentCommentTurmaId);
+    if (tabName === 'trend')      generateTrend(currentCommentAlunoId, currentCommentTurmaId);
+    if (tabName === 'ai_report')  loadAIReport(currentCommentAlunoId, currentCommentTurmaId);
 }
 
 // ---- Analysis Generators (simplified call to API) ----
@@ -438,6 +439,350 @@ function escapeHtml(text) {
 // Note: generateWordCloud, generateSummary, and generateTrend logic 
 // are expected to be present or will be added to this file below.
 // I'll include them to make it fully functional.
+
+// =============================================================================
+// Relatório IA — Análise Pedagógica via /api/ai_analysis.php
+// =============================================================================
+
+/**
+ * Carrega a análise de IA para o aluno (usa cache quando disponível).
+ */
+async function loadAIReport(alunoId, turmaId) {
+    const loading = document.getElementById('ai_report_loading');
+    const content = document.getElementById('ai_report_content');
+    const empty   = document.getElementById('ai_report_empty');
+    const error   = document.getElementById('ai_report_error');
+
+    try {
+        if (!loading || !content || !empty || !error) return;
+
+        loading.style.display = 'block';
+        content.style.display = 'none';
+        empty.style.display   = 'none';
+        error.style.display   = 'none';
+
+        const resp = await fetch(
+            `/api/ai_analysis.php?aluno_id=${alunoId}&turma_id=${turmaId}`,
+            { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
+        );
+
+        if (!resp.ok) {
+            throw new Error(`Erro HTTP ${resp.status}`);
+        }
+
+        const data = await resp.json();
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        if (data.status === 'sem_dados') {
+            loading.style.display = 'none';
+            empty.style.display   = 'block';
+            return;
+        }
+
+        renderAIReport(data.analysis);
+        loading.style.display = 'none';
+        content.style.display = 'block';
+
+    } catch (e) {
+        console.error('[loadAIReport]', e);
+        const loadingEl = document.getElementById('ai_report_loading');
+        const errorEl   = document.getElementById('ai_report_error');
+        const msgEl     = document.getElementById('ai_report_error_msg');
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (errorEl)   errorEl.style.display   = 'block';
+        if (msgEl)     msgEl.textContent        = e.message || 'Erro desconhecido ao carregar análise.';
+    }
+}
+
+/**
+ * Força recálculo via IA (POST com CSRF).
+ */
+async function refreshAIReport() {
+    const content = document.getElementById('ai_report_content');
+    const loading = document.getElementById('ai_report_loading');
+    const error   = document.getElementById('ai_report_error');
+
+    if (content) content.style.display = 'none';
+    if (error)   error.style.display   = 'none';
+    if (loading) loading.style.display = 'block';
+
+    try {
+        const formData  = new FormData();
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        formData.append('csrf_token', csrfToken);
+        formData.append('aluno_id', currentCommentAlunoId);
+        formData.append('turma_id', currentCommentTurmaId);
+
+        const resp = await fetch('/api/ai_analysis.php', {
+            method:  'POST',
+            body:    formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+
+        if (!resp.ok) {
+            throw new Error(`Erro HTTP ${resp.status}`);
+        }
+
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+
+        if (data.status === 'sem_dados') {
+            if (loading) loading.style.display = 'none';
+            const empty = document.getElementById('ai_report_empty');
+            if (empty) empty.style.display = 'block';
+            return;
+        }
+
+        renderAIReport(data.analysis);
+        if (loading) loading.style.display = 'none';
+        if (content) content.style.display = 'block';
+
+        if (typeof Toast !== 'undefined') {
+            Toast.show('Análise atualizada com sucesso!', 'success');
+        }
+
+    } catch (e) {
+        console.error('[refreshAIReport]', e);
+        if (loading) loading.style.display = 'none';
+        if (typeof Toast !== 'undefined') {
+            Toast.show(e.message || 'Erro ao atualizar análise', 'danger');
+        } else {
+            if (error) {
+                error.style.display = 'block';
+                const msgEl = document.getElementById('ai_report_error_msg');
+                if (msgEl) msgEl.textContent = e.message;
+            }
+        }
+    }
+}
+
+/**
+ * Renderiza o HTML da análise dentro do container #ai_report_content.
+ */
+function renderAIReport(analysis) {
+    const content = document.getElementById('ai_report_content');
+    if (!content) return;
+
+    const tendColor = {
+        melhorando: 'var(--color-success)',
+        piorando:   'var(--color-danger)',
+        'estável':  'var(--color-warning)',
+        sem_dados:  'var(--text-muted)',
+    };
+    const tendEmoji = {
+        melhorando: '📈', piorando: '📉', 'estável': '➡️', sem_dados: '❓',
+    };
+    const atencaoColor = {
+        normal:    'var(--color-success)',
+        'atenção': 'var(--color-warning)',
+        urgente:   'var(--color-danger)',
+    };
+    const atencaoEmoji = { normal: '✅', 'atenção': '⚠️', urgente: '🚨' };
+
+    const tComp = analysis.tendencia_comportamental || 'sem_dados';
+    const tAcad = analysis.tendencia_academica      || 'sem_dados';
+    const nivel = analysis.nivel_atencao            || 'normal';
+
+    let html = '';
+
+    // Cartões de indicadores (3 colunas)
+    html += `
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1.5rem;">
+            <div style="background:var(--bg-surface-2nd);padding:.875rem;border-radius:var(--radius-md);text-align:center;border-top:3px solid ${tendColor[tComp] || 'var(--border-color)'};">
+                <div style="font-size:1.5rem;">${tendEmoji[tComp] || '❓'}</div>
+                <div style="font-size:.6875rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-top:.25rem;">Comportamento</div>
+                <div style="font-size:.8125rem;font-weight:700;color:${tendColor[tComp] || 'var(--text-muted)'};">${tComp}</div>
+            </div>
+            <div style="background:var(--bg-surface-2nd);padding:.875rem;border-radius:var(--radius-md);text-align:center;border-top:3px solid ${tendColor[tAcad] || 'var(--border-color)'};">
+                <div style="font-size:1.5rem;">${tendEmoji[tAcad] || '❓'}</div>
+                <div style="font-size:.6875rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-top:.25rem;">Desempenho</div>
+                <div style="font-size:.8125rem;font-weight:700;color:${tendColor[tAcad] || 'var(--text-muted)'};">${tAcad}</div>
+            </div>
+            <div style="background:var(--bg-surface-2nd);padding:.875rem;border-radius:var(--radius-md);text-align:center;border-top:3px solid ${atencaoColor[nivel] || 'var(--border-color)'};">
+                <div style="font-size:1.5rem;">${atencaoEmoji[nivel] || '❓'}</div>
+                <div style="font-size:.6875rem;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-top:.25rem;">Atenção</div>
+                <div style="font-size:.8125rem;font-weight:700;color:${atencaoColor[nivel] || 'var(--text-muted)'};">${nivel}</div>
+            </div>
+        </div>
+    `;
+
+    // Resumo
+    if (analysis.resumo) {
+        html += `
+            <div style="background:var(--color-primary-light);border-left:4px solid var(--color-primary);padding:1rem;border-radius:var(--radius-md);margin-bottom:1.25rem;">
+                <div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--color-primary);margin-bottom:.5rem;">Resumo Pedagógico</div>
+                <div style="font-size:.875rem;line-height:1.6;color:var(--text-primary);">${escapeHtml(analysis.resumo)}</div>
+            </div>
+        `;
+    }
+
+    // Dificuldades e pontos fortes
+    const difs  = Array.isArray(analysis.areas_dificuldade) ? analysis.areas_dificuldade : [];
+    const pontos = Array.isArray(analysis.pontos_fortes)    ? analysis.pontos_fortes     : [];
+    if (difs.length > 0 || pontos.length > 0) {
+        html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;">`;
+        if (difs.length > 0) {
+            html += `
+                <div>
+                    <div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:.625rem;">Dificuldades</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:.375rem;">
+                        ${difs.map(a => `<span style="background:rgba(239,68,68,.1);color:var(--color-danger);padding:.2rem .625rem;border-radius:var(--radius-full);font-size:.75rem;font-weight:600;">${escapeHtml(a)}</span>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        if (pontos.length > 0) {
+            html += `
+                <div>
+                    <div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:.625rem;">Pontos Fortes</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:.375rem;">
+                        ${pontos.map(p => `<span style="background:rgba(16,185,129,.1);color:var(--color-success);padding:.2rem .625rem;border-radius:var(--radius-full);font-size:.75rem;font-weight:600;">${escapeHtml(p)}</span>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        html += `</div>`;
+    }
+
+    // Síntese dos comentários
+    if (analysis.comentarios_resumo) {
+        html += `
+            <div style="background:var(--bg-surface-2nd);padding:.875rem;border-radius:var(--radius-md);margin-bottom:1.25rem;border:1px solid var(--border-color);">
+                <div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:.5rem;">Síntese dos Comentários</div>
+                <div style="font-size:.875rem;line-height:1.6;color:var(--text-secondary);">${escapeHtml(analysis.comentarios_resumo)}</div>
+            </div>
+        `;
+    }
+
+    // Evolução descritiva
+    if (analysis.evolucao_descritiva && analysis.evolucao_descritiva !== 'sem_dados') {
+        html += `
+            <div style="background:var(--bg-surface-2nd);padding:.875rem;border-radius:var(--radius-md);margin-bottom:1.25rem;border:1px solid var(--border-color);">
+                <div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:.5rem;">Evolução Acadêmica</div>
+                <div style="font-size:.875rem;line-height:1.6;color:var(--text-secondary);">${escapeHtml(analysis.evolucao_descritiva)}</div>
+            </div>
+        `;
+    }
+
+    // Recomendações
+    const recs = Array.isArray(analysis.recomendacoes) ? analysis.recomendacoes : [];
+    if (recs.length > 0) {
+        html += `
+            <div style="margin-bottom:1.25rem;">
+                <div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:.625rem;">Recomendações</div>
+                <ul style="margin:0;padding-left:1.375rem;display:flex;flex-direction:column;gap:.5rem;">
+                    ${recs.map(r => `<li style="font-size:.875rem;color:var(--text-secondary);line-height:1.5;">${escapeHtml(r)}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+
+    // Rodapé com metadados — visível apenas para Administrador
+    if (window.VA_IS_ADMIN === true) {
+        const geradoEm = analysis._cache?.generated_at
+            ? new Date(analysis._cache.generated_at).toLocaleString('pt-BR')
+            : (analysis.gerado_em ? new Date(analysis.gerado_em).toLocaleString('pt-BR') : '');
+        const provider = escapeHtml(analysis.provider || '');
+
+        html += `
+            <div style="border-top:1px solid var(--border-color);padding-top:.75rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;">
+                <div style="font-size:.6875rem;color:var(--text-muted);">
+                    🤖 Gerado por IA${provider ? ' (' + provider + ')' : ''}${geradoEm ? ' — ' + geradoEm : ''}
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="refreshAIReport()">
+                    🔄 Atualizar análise
+                </button>
+            </div>
+        `;
+    }
+
+    content.innerHTML = html;
+}
+
+// =============================================================================
+// Objeto público: vaAIAnalysis (para uso pelo componente standalone)
+// =============================================================================
+
+const vaAIAnalysis = {
+    /**
+     * Carrega a análise dentro de um widget standalone (renderStudentAIAnalysis).
+     * @param {string} widgetId — ID do elemento .va-ai-analysis-widget
+     */
+    async load(widgetId) {
+        const widget  = document.getElementById(widgetId);
+        if (!widget) return;
+
+        const alunoId = widget.dataset.alunoId;
+        const turmaId = widget.dataset.turmaId;
+
+        const states = {
+            loading: widget.querySelector('.va-ai-loading'),
+            content: widget.querySelector('.va-ai-content'),
+            empty:   widget.querySelector('.va-ai-empty'),
+            error:   widget.querySelector('.va-ai-error'),
+        };
+
+        Object.values(states).forEach(el => { if (el) el.style.display = 'none'; });
+        if (states.loading) states.loading.style.display = 'block';
+
+        try {
+            const resp = await fetch(
+                `/api/ai_analysis.php?aluno_id=${alunoId}&turma_id=${turmaId}`,
+                { headers: { 'X-Requested-With': 'XMLHttpRequest' } }
+            );
+            const data = await resp.json();
+
+            if (data.error) throw new Error(data.error);
+
+            if (data.status === 'sem_dados') {
+                if (states.loading) states.loading.style.display = 'none';
+                if (states.empty)   states.empty.style.display   = 'block';
+                return;
+            }
+
+            if (states.content) {
+                states.content.innerHTML = vaAIAnalysis.renderHtml(data.analysis);
+                states.loading.style.display = 'none';
+                states.content.style.display = 'block';
+            }
+        } catch (e) {
+            console.error('[vaAIAnalysis.load]', e);
+            if (states.loading) states.loading.style.display = 'none';
+            if (states.error) {
+                states.error.style.display = 'block';
+                const msgEl = states.error.querySelector('.va-ai-error-msg');
+                if (msgEl) msgEl.textContent = e.message || 'Erro ao carregar análise.';
+            }
+        }
+    },
+
+    /** Gera o HTML de análise para uso no componente standalone. */
+    renderHtml(analysis) {
+        // Reutiliza a função do modal mas retorna string ao invés de injetar no DOM
+        const tmp = document.createElement('div');
+        tmp.id = '__va_ai_tmp_content';
+        document.body.appendChild(tmp);
+
+        const prev = document.getElementById('ai_report_content');
+        tmp.id = 'ai_report_content';
+        if (prev) prev.id = '__va_ai_bkp';
+
+        renderAIReport(analysis);
+        const result = tmp.innerHTML;
+
+        tmp.remove();
+        if (prev) prev.id = 'ai_report_content';
+
+        return result;
+    },
+};
+
+// =============================================================================
+// Continuação: Word Cloud, Summary, Trend
+// =============================================================================
 
 async function generateWordCloud(alunoId, turmaId) {
     const loading = document.getElementById('wordcloud_loading');

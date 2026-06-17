@@ -49,10 +49,22 @@ $navItems = [
         'desc'     => 'Logs de alterações globais do sistema',
         'url'      => '/settings.php?section=audit_logs',
     ],
+    [
+        'section'    => 'componentes',
+        'icon'       => '🧩',
+        'label'      => 'Componentes',
+        'desc'       => 'Catálogo de componentes e APIs disponíveis',
+        'admin_only' => true,
+        'url'        => '/settings.php?section=componentes',
+    ],
 ];
 
-// Filtrar itens por perfil (dinâmico via RBAC)
-$navItems = array_filter($navItems, function($item) {
+// Filtrar itens por perfil (RBAC ou admin_only para seções restritas)
+$_currentUser = $activeSection !== null ? ($user ?? getCurrentUser()) : [];
+$navItems = array_filter($navItems, function($item) use ($_currentUser) {
+    if (!empty($item['admin_only'])) {
+        return ($_currentUser['profile'] ?? '') === 'Administrador';
+    }
     return hasDbPermission('settings.' . $item['section'], false);
 });
 ?>
