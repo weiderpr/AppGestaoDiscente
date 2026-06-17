@@ -106,6 +106,7 @@ try {
                 'atividade_nome' => trim($_POST['atividade_nome'] ?? ''),
                 'justificativa' => trim($_POST['justificativa'] ?? ''),
                 'data_atividade_perdida' => trim($_POST['data_atividade_perdida'] ?? ''),
+                'data_solicitacao' => trim($_POST['data_solicitacao'] ?? ''),
                 'status' => trim($_POST['status'] ?? 'Pendente'),
                 'observacoes_status' => trim($_POST['observacoes_status'] ?? ''),
                 'institution_id' => $instId,
@@ -295,16 +296,20 @@ try {
                 try {
                     $alunoMeta = $service->getStudentMeta($data['aluno_id']);
 
+                    $alunoNome  = '';
+                    $alunoCurso = '';
+                    $alunoSerie = '';
+                    $fromName   = "Vértice Acadêmico";
+                    $fromEmail  = "noreply@verticeacademico.com.br";
+
                     if ($alunoMeta) {
-                        $alunoNome = $alunoMeta['nome'];
+                        $alunoNome  = $alunoMeta['nome'];
                         $alunoCurso = $alunoMeta['curso'];
                         $alunoSerie = $alunoMeta['serie'];
-                        $turmaId = $alunoMeta['turma_id'];
+                        $turmaId    = $alunoMeta['turma_id'];
 
                         // Resolve o coordenador do curso da turma
                         $coordenador = $service->getCoordenadorByTurma($turmaId);
-                        $fromName = "Vértice Acadêmico";
-                        $fromEmail = "noreply@verticeacademico.com.br";
                         if ($coordenador) {
                             $fromName = $coordenador['name'];
                             $fromEmail = $coordenador['email'];
@@ -407,6 +412,111 @@ try {
                                     @file_put_contents("{$emailDir}/{$filename}", $emailBody);
                                 }
                             }
+                        }
+                    } // if ($alunoMeta)
+
+                    // E-mail de confirmação para o Aluno
+                    $emailAluno = trim($data['email_aluno'] ?? '');
+                    if (!empty($emailAluno) && filter_var($emailAluno, FILTER_VALIDATE_EMAIL)) {
+                        $subjectAluno = "=?UTF-8?B?" . base64_encode("Solicitação de Segunda Chamada Registrada - {$alunoNome}") . "?=";
+                        $dataAtividadeAluno = date('d/m/Y', strtotime($data['data_atividade_perdida']));
+                        $dataSolicitacaoAluno = !empty($data['data_solicitacao'])
+                            ? date('d/m/Y', strtotime($data['data_solicitacao']))
+                            : date('d/m/Y');
+                        $disciplinaNomeAluno = '';
+                        try {
+                            $disciplinaNomeAluno = $service->getDisciplinaName($data['disciplina_codigo']);
+                        } catch (Exception $e) {
+                            $disciplinaNomeAluno = $data['disciplina_codigo'];
+                        }
+
+                        $emailBodyAluno = "
+                        <html>
+                        <head>
+                          <meta charset='UTF-8'>
+                          <title>Solicitação de Segunda Chamada Registrada</title>
+                        </head>
+                        <body style='font-family: Arial, sans-serif; color: #333333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;'>
+                          <div style='background: linear-gradient(135deg, #4f46e5, #3b82f6); color: #ffffff; padding: 20px; border-radius: 6px 6px 0 0; text-align: center;'>
+                            <h2 style='margin: 0; font-size: 20px;'>Vértice Acadêmico</h2>
+                            <p style='margin: 5px 0 0 0; font-size: 14px;'>Acompanhamento de Segunda Chamada</p>
+                          </div>
+
+                          <div style='padding: 20px;'>
+                            <p>Olá, <strong>" . htmlspecialchars($alunoNome) . "</strong>,</p>
+
+                            <p>Sua solicitação de segunda chamada foi <strong>registrada com sucesso</strong> no sistema e está em processamento. Abaixo estão os detalhes do seu pedido:</p>
+
+                            <table style='width: 100%; border-collapse: collapse; margin: 20px 0;'>
+                              <tr style='background-color: #f8fafc;'>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0; font-weight: bold; width: 160px;'>Aluno:</td>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0;'>" . htmlspecialchars($alunoNome) . "</td>
+                              </tr>
+                              <tr>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;'>Curso:</td>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0;'>" . htmlspecialchars($alunoCurso) . "</td>
+                              </tr>
+                              <tr style='background-color: #f8fafc;'>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;'>Série:</td>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0;'>" . htmlspecialchars($alunoSerie) . "</td>
+                              </tr>
+                              <tr>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;'>Disciplina:</td>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0;'>" . htmlspecialchars($disciplinaNomeAluno) . "</td>
+                              </tr>
+                              <tr style='background-color: #f8fafc;'>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;'>Atividade Perdida:</td>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0;'><strong>" . htmlspecialchars($data['atividade_nome']) . "</strong></td>
+                              </tr>
+                              <tr>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;'>Data da Atividade:</td>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0;'>{$dataAtividadeAluno}</td>
+                              </tr>
+                              <tr style='background-color: #f8fafc;'>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;'>Data da Solicitação:</td>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0;'>{$dataSolicitacaoAluno}</td>
+                              </tr>
+                              <tr style='vertical-align: top;'>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;'>Justificativa:</td>
+                                <td style='padding: 10px; border: 1px solid #e2e8f0; font-style: italic;'>\"" . htmlspecialchars($data['justificativa']) . "\"</td>
+                              </tr>
+                            </table>
+
+                            <p style='background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; border-radius: 4px; font-size: 14px;'>
+                              ℹ️ Sua solicitação está <strong>em processamento</strong>. O andamento será dado pelo <strong>colegiado do curso</strong> e você será notificado assim que houver uma decisão. Para mais informações ou acompanhamento, <strong>procure a coordenação do seu curso</strong>.
+                            </p>
+                          </div>
+
+                          <div style='border-top: 1px solid #e2e8f0; padding-top: 15px; text-align: center; font-size: 12px; color: #64748b;'>
+                            Mensagem automática enviada pelo sistema de Gestão Discente Vértice Acadêmico.
+                          </div>
+                        </body>
+                        </html>
+                        ";
+
+                        $headersAluno = [
+                            'MIME-Version' => '1.0',
+                            'Content-type' => 'text/html; charset=UTF-8',
+                            'From' => "=?UTF-8?B?" . base64_encode($fromName) . "?= <" . (defined('SMTP_USER') ? SMTP_USER : $fromEmail) . ">",
+                            'Reply-To' => $fromEmail,
+                            'X-Mailer' => 'PHP/' . phpversion()
+                        ];
+
+                        $sentAluno = false;
+                        try {
+                            $sentAluno = \App\Services\MailService::send($emailAluno, $subjectAluno, $emailBodyAluno, $headersAluno);
+                        } catch (Exception $mailEx) {
+                            $sentAluno = false;
+                        }
+
+                        if (!$sentAluno) {
+                            $emailDir = __DIR__ . '/../assets/uploads/emails';
+                            if (!is_dir($emailDir)) {
+                                @mkdir($emailDir, 0777, true);
+                            }
+                            $safeNomeAluno = preg_replace('/[^a-zA-Z0-9_-]/', '_', $alunoNome);
+                            $filenameAluno = "confirmacao_aluno_{$safeNomeAluno}_" . time() . "_" . uniqid() . ".html";
+                            @file_put_contents("{$emailDir}/{$filenameAluno}", $emailBodyAluno);
                         }
                     }
                 } catch (Exception $mailEx) {
@@ -641,8 +751,11 @@ try {
                 throw new Exception('A justificativa é obrigatória em caso de indeferimento.');
             }
             if ($notifyCustom && !empty($customEmail)) {
-                if (!filter_var($customEmail, FILTER_VALIDATE_EMAIL)) {
-                    throw new Exception('O e-mail informado para outro endereço é inválido.');
+                $customEmails = array_filter(array_map('trim', explode(',', $customEmail)));
+                foreach ($customEmails as $addr) {
+                    if (!filter_var($addr, FILTER_VALIDATE_EMAIL)) {
+                        throw new Exception("O endereço de e-mail \"{$addr}\" é inválido.");
+                    }
                 }
             }
 
@@ -737,11 +850,14 @@ try {
                     }
                 }
                 if ($notifyCustom && !empty($customEmail)) {
-                    $targets['custom'] = [
-                        'email' => $customEmail,
-                        'label' => 'Destinatário Adicional',
-                        'role' => 'Outro'
-                    ];
+                    $customEmails = array_filter(array_map('trim', explode(',', $customEmail)));
+                    foreach ($customEmails as $addr) {
+                        $targets['custom_' . md5($addr)] = [
+                            'email' => $addr,
+                            'label' => 'Destinatário Adicional',
+                            'role' => 'Outro'
+                        ];
+                    }
                 }
 
                 foreach ($targets as $key => $target) {

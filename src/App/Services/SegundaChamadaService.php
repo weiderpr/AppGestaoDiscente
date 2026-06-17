@@ -85,13 +85,13 @@ class SegundaChamadaService extends Service {
      */
     public function add(array $data): int {
         $sql = "
-            INSERT INTO segunda_chamada 
-            (aluno_id, telefone_aluno, email_aluno, nome_responsavel, telefone_responsavel, 
-             disciplina_codigo, atividade_nome, justificativa, anexo_caminho, anexo_nome, anexo_tipo, anexo_tamanho, 
-             data_atividade_perdida, institution_id, usuario_id, status, observacoes_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO segunda_chamada
+            (aluno_id, telefone_aluno, email_aluno, nome_responsavel, telefone_responsavel,
+             disciplina_codigo, atividade_nome, justificativa, anexo_caminho, anexo_nome, anexo_tipo, anexo_tamanho,
+             data_atividade_perdida, data_solicitacao, institution_id, usuario_id, status, observacoes_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ";
-        
+
         $this->execute($sql, [
             (int)$data['aluno_id'],
             trim($data['telefone_aluno']),
@@ -106,6 +106,7 @@ class SegundaChamadaService extends Service {
             $data['anexo_tipo'] ?? null,
             $data['anexo_tamanho'] ?? null,
             $data['data_atividade_perdida'],
+            !empty($data['data_solicitacao']) ? $data['data_solicitacao'] : null,
             (int)$data['institution_id'],
             (int)$data['usuario_id'],
             $data['status'] ?? 'Pendente',
@@ -138,6 +139,7 @@ class SegundaChamadaService extends Service {
                 atividade_nome = ?,
                 justificativa = ?,
                 data_atividade_perdida = ?,
+                data_solicitacao = ?,
                 status = ?,
                 observacoes_status = ?
         ";
@@ -150,6 +152,7 @@ class SegundaChamadaService extends Service {
             trim($data['atividade_nome'] ?? ''),
             trim($data['justificativa']),
             $data['data_atividade_perdida'],
+            !empty($data['data_solicitacao']) ? $data['data_solicitacao'] : null,
             $data['status'] ?? $old['status'],
             $data['observacoes_status'] ?? $old['observacoes_status']
         ];

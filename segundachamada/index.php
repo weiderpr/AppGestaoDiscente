@@ -266,7 +266,7 @@ renderModalStyles();
                             <div style="display:flex; justify-content:center; gap:.5rem;">
                                 <?php if ($r['status'] === 'Pendente'): ?>
                                     <?php if (hasDbPermission('segundachamada.andamento', false)): ?>
-                                    <button class="action-btn" onclick="openProgressModal(<?= $r['id'] ?>, '<?= htmlspecialchars(addslashes($r['aluno_nome'])) ?>')" title="Dar Andamento">⚖️</button>
+                                    <button class="action-btn" onclick="openProgressModal(<?= $r['id'] ?>, '<?= htmlspecialchars(addslashes($r['aluno_nome'])) ?>', '<?= $r['data_solicitacao'] ?? '' ?>', '<?= $r['data_atividade_perdida'] ?>')" title="Dar Andamento">⚖️</button>
                                     <?php endif; ?>
                                     <button class="action-btn" onclick="resendEmail(<?= $r['id'] ?>, '<?= htmlspecialchars(addslashes($r['aluno_nome'])) ?>')" title="Reenviar E-mail de Notificação">✉️</button>
                                     <button class="action-btn" onclick="editSc(<?= $r['id'] ?>)" title="Editar">✏️</button>
@@ -366,6 +366,10 @@ renderModalStyles();
                         <label class="form-label">Data da Atividade Perdida <span class="required">*</span></label>
                         <input type="date" name="data_atividade_perdida" id="field_data_atividade_perdida" class="form-control" required value="<?= date('Y-m-d') ?>">
                     </div>
+                    <div class="form-group">
+                        <label class="form-label">Data da Solicitação <span class="required">*</span></label>
+                        <input type="date" name="data_solicitacao" id="field_data_solicitacao" class="form-control" required value="<?= date('Y-m-d') ?>">
+                    </div>
                 </div>
 
                 <div class="form-group" style="margin-top:0.5rem;">
@@ -453,6 +457,16 @@ renderModalStyles();
                 <div style="background:var(--bg-surface-2nd); padding:0.875rem 1rem; border-radius:8px; margin-bottom:1.25rem; border:1px solid var(--border-color);">
                     <span style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; display:block;">Aluno</span>
                     <strong id="progress_aluno_name" style="font-size:1.05rem; color:var(--text-primary);"></strong>
+                    <div style="display:flex; gap:1.5rem; margin-top:0.625rem; flex-wrap:wrap;">
+                        <div>
+                            <span style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; display:block;">Data da Solicitação</span>
+                            <span id="progress_data_solicitacao" style="font-size:0.875rem; color:var(--text-primary); font-weight:500;">—</span>
+                        </div>
+                        <div>
+                            <span style="font-size:0.7rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; display:block;">Data da Atividade Perdida</span>
+                            <span id="progress_data_atividade" style="font-size:0.875rem; color:var(--text-primary); font-weight:500;">—</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -486,7 +500,10 @@ renderModalStyles();
                         <span>Enviar e-mail de notificação para outro endereço</span>
                     </label>
                     <div id="custom_email_group" class="form-group" style="margin-top:-0.25rem; padding-left:1.5rem; display: block;">
-                        <input type="email" name="custom_email" id="field_custom_email" class="form-control" placeholder="Ex: coordenador.exemplo@escola.com" value="<?= htmlspecialchars($user['segundachamada_custom_email'] ?? '') ?>" style="max-width:360px;" required>
+                        <input type="text" name="custom_email" id="field_custom_email" class="form-control" placeholder="Ex: coord@escola.com, diretor@escola.com" value="<?= htmlspecialchars($user['segundachamada_custom_email'] ?? '') ?>" required>
+                        <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.3rem;">
+                            Para enviar para múltiplos destinatários, separe os endereços por vírgula.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -568,6 +585,7 @@ function openScModal() {
     document.getElementById('anexo_req').style.display = 'none';
     
     document.getElementById('field_data_atividade_perdida').value = '<?= date('Y-m-d') ?>';
+    document.getElementById('field_data_solicitacao').value = '<?= date('Y-m-d') ?>';
     document.getElementById('field_status').value = 'Pendente';
     document.getElementById('field_status_hidden').value = 'Pendente';
     document.getElementById('field_atividade_nome').value = '';
@@ -707,6 +725,7 @@ async function editSc(id) {
             document.getElementById('field_nome_responsavel').value = data.nome_responsavel || '';
             document.getElementById('field_telefone_responsavel').value = data.telefone_responsavel || '';
             document.getElementById('field_data_atividade_perdida').value = data.data_atividade_perdida;
+            document.getElementById('field_data_solicitacao').value = data.data_solicitacao || '';
             document.getElementById('field_atividade_nome').value = data.atividade_nome || '';
             document.getElementById('field_justificativa').value = data.justificativa;
             document.getElementById('field_status').value = data.status;
@@ -887,10 +906,19 @@ async function resendEmail(id, studentName) {
     }
 }
 
-function openProgressModal(id, studentName) {
+function formatDateBR(dateStr) {
+    if (!dateStr) return '—';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+function openProgressModal(id, studentName, dataSolicitacao = '', dataAtividade = '') {
     document.getElementById('progressForm').reset();
     document.getElementById('progress_id').value = id;
     document.getElementById('progress_aluno_name').innerText = studentName;
+    document.getElementById('progress_data_solicitacao').innerText = formatDateBR(dataSolicitacao);
+    document.getElementById('progress_data_atividade').innerText = formatDateBR(dataAtividade);
     toggleJustificativaRequired('');
     
     const checkbox = document.getElementById('field_notify_custom');
@@ -938,7 +966,23 @@ async function saveProgress(e) {
         Toast.error('A justificativa é obrigatória em caso de indeferimento.');
         return;
     }
-    
+
+    const notifyCustom = document.getElementById('field_notify_custom')?.checked;
+    if (notifyCustom) {
+        const emailInput = document.getElementById('field_custom_email').value.trim();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const emails = emailInput.split(',').map(e => e.trim()).filter(e => e.length > 0);
+        if (emails.length === 0) {
+            Toast.error('Informe ao menos um endereço de e-mail.');
+            return;
+        }
+        const invalid = emails.filter(e => !emailRegex.test(e));
+        if (invalid.length > 0) {
+            Toast.error(`E-mail inválido: ${invalid[0]}`);
+            return;
+        }
+    }
+
     const formData = new FormData(document.getElementById('progressForm'));
     formData.append('action', 'progress');
     
