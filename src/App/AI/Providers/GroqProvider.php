@@ -2,7 +2,9 @@
 /**
  * Vértice Acadêmico — Provedor de IA: Groq
  *
- * Tier gratuito: ~6 000 req/dia, modelo Llama 3.3 70B.
+ * Tier gratuito por modelo (TPD = tokens por dia):
+ *   llama-3.3-70b-versatile  → 100 000 TPD
+ *   llama-3.1-8b-instant     → 500 000 TPD  ← bom fallback quando 70B esgota
  * Documentação: https://console.groq.com/docs/openai
  */
 
@@ -10,11 +12,14 @@ namespace App\AI\Providers;
 
 class GroqProvider implements AIProviderInterface
 {
-    private const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-    private const MODEL   = 'llama-3.3-70b-versatile';
-    private const TIMEOUT = 30;
+    private const API_URL       = 'https://api.groq.com/openai/v1/chat/completions';
+    private const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+    private const TIMEOUT       = 30;
 
-    public function __construct(private readonly string $apiKey) {}
+    public function __construct(
+        private readonly string  $apiKey,
+        private readonly ?string $model = null
+    ) {}
 
     public function getName(): string
     {
@@ -24,7 +29,7 @@ class GroqProvider implements AIProviderInterface
     public function call(string $systemPrompt, string $userPrompt): string
     {
         $payload = json_encode([
-            'model'       => self::MODEL,
+            'model'       => $this->model ?? self::DEFAULT_MODEL,
             'messages'    => [
                 ['role' => 'system', 'content' => $systemPrompt],
                 ['role' => 'user',   'content' => $userPrompt],

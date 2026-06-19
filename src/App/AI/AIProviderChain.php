@@ -19,16 +19,18 @@ class AIProviderChain
     private array $providers = [];
 
     /**
-     * @param array $configs Array de ['provider' => 'groq|gemini|openrouter', 'key' => 'string']
+     * @param array $configs Array de ['provider' => 'groq|gemini|openrouter', 'key' => 'string', 'model' => 'string (opcional)']
      */
     public function __construct(array $configs)
     {
         foreach ($configs as $cfg) {
-            $key      = trim($cfg['key'] ?? '');
+            $key   = trim($cfg['key']   ?? '');
+            $model = trim($cfg['model'] ?? '') ?: null;
+
             $provider = match ($cfg['provider'] ?? '') {
-                'groq'       => $key ? new GroqProvider($key)       : null,
-                'gemini'     => $key ? new GeminiProvider($key)     : null,
-                'openrouter' => $key ? new OpenRouterProvider($key) : null,
+                'groq'       => $key ? new GroqProvider($key, $model)       : null,
+                'gemini'     => $key ? new GeminiProvider($key, $model)     : null,
+                'openrouter' => $key ? new OpenRouterProvider($key, $model) : null,
                 default      => null,
             };
 

@@ -71,6 +71,10 @@ class TurmaService extends Service {
             $fields[] = 'is_active = ?';
             $params[] = $data['is_active'] ? 1 : 0;
         }
+        if (array_key_exists('ambiente_id', $data)) {
+            $fields[] = 'ambiente_id = ?';
+            $params[] = !empty($data['ambiente_id']) ? (int)$data['ambiente_id'] : null;
+        }
 
         if (empty($fields)) {
             return ['error' => 'Nenhum campo para atualizar'];

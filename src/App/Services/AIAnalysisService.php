@@ -2,16 +2,18 @@
 /**
  * Vértice Acadêmico — Serviço de Análise Pedagógica via IA
  *
- * Fontes de dados enviadas à IA (sem nome nem matrícula do aluno):
- *  1. Comentários dos professores       (comentarios_professores)
- *  2. Notas por etapa                   (etapa_notas + etapas + disciplinas)
- *  3. Anotações/post-its de conselho    (conselho_registros → conselhos_classe)
- *  4. Encaminhamentos de conselho       (conselho_encaminhamentos → conselhos_classe)
- *  5. Atendimentos profissionais públicos (gestao_atendimentos.descricao_publica)
+ * Fontes de dados enviadas à IA:
+ *  1. Nome do aluno                     (âncora de desambiguação — sem matrícula)
+ *  2. Comentários dos professores       (comentarios_professores)
+ *  3. Notas por etapa                   (etapa_notas + etapas + disciplinas)
+ *  4. Anotações/post-its de conselho    (conselho_registros → conselhos_classe)
+ *  5. Encaminhamentos de conselho       (conselho_encaminhamentos → conselhos_classe)
+ *  6. Atendimentos profissionais públicos (gestao_atendimentos.descricao_publica)
  *
- * Nunca enviado: nome, matrícula, descricao_profissional, comentários privados.
+ * Nunca enviado: matrícula, descricao_profissional, comentários privados.
  *
- * Cache: invalidado quando qualquer um dos cinco contadores muda.
+ * Cache: invalidado quando qualquer um dos cinco contadores muda OU quando
+ *        PROMPT_VERSION é incrementado (ex: atualização do prompt da IA).
  */
 
 namespace App\Services;
@@ -20,6 +22,9 @@ use App\AI\AIProviderChain;
 
 class AIAnalysisService extends Service
 {
+    // Incremente quando o prompt mudar para invalidar todos os caches automaticamente.
+    private const PROMPT_VERSION = 2;
+
     private AIProviderChain $chain;
 
     public function __construct()
@@ -93,7 +98,11 @@ class AIAnalysisService extends Service
             return true;
         }
 
-        return (int) $cached['comment_count']        !== $counts['comments']
+        // prompt_version pode não existir em instalações antes da migração v3.
+        $cachedVersion = isset($cached['prompt_version']) ? (int) $cached['prompt_version'] : 1;
+
+        return $cachedVersion                         !== self::PROMPT_VERSION
+            || (int) $cached['comment_count']        !== $counts['comments']
             || (int) $cached['grade_etapas']          !== $counts['grade_etapas']
             || (int) $cached['registro_count']        !== $counts['registros']
             || (int) $cached['encaminhamento_count']  !== $counts['encaminhamentos']
@@ -114,14 +123,15 @@ class AIAnalysisService extends Service
                 (aluno_id, turma_id,
                  comment_count, grade_etapas, registro_count,
                  encaminhamento_count, atendimento_count,
-                 analysis, provider, generated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                 prompt_version, analysis, provider, generated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
              ON DUPLICATE KEY UPDATE
                 comment_count        = VALUES(comment_count),
                 grade_etapas         = VALUES(grade_etapas),
                 registro_count       = VALUES(registro_count),
                 encaminhamento_count = VALUES(encaminhamento_count),
                 atendimento_count    = VALUES(atendimento_count),
+                prompt_version       = VALUES(prompt_version),
                 analysis             = VALUES(analysis),
                 provider             = VALUES(provider),
                 generated_at         = NOW()',
@@ -129,7 +139,7 @@ class AIAnalysisService extends Service
                 $alunoId, $turmaId,
                 $counts['comments'], $counts['grade_etapas'],
                 $counts['registros'], $counts['encaminhamentos'], $counts['atendimentos'],
-                $json, $provider,
+                self::PROMPT_VERSION, $json, $provider,
             ]
         );
     }
@@ -152,8 +162,14 @@ class AIAnalysisService extends Service
             return null;
         }
 
+        // Nome do aluno: usado apenas como âncora de desambiguação no prompt.
+        // Sem nome, a IA infere identidade pelos nomes mencionados nos comentários
+        // (ex: colega João Vitor), produzindo análise sobre a pessoa errada.
+        $alunoRow  = $this->fetchOne('SELECT nome FROM alunos WHERE id = ?', [$alunoId]);
+        $alunoNome = $alunoRow ? $alunoRow['nome'] : null;
+
         [$systemPrompt, $userPrompt] = $this->buildPrompt(
-            $comments, $grades, $registros, $encaminhamentos, $atendimentos
+            $comments, $grades, $registros, $encaminhamentos, $atendimentos, $alunoNome
         );
 
         $startMs = (int) round(microtime(true) * 1000);
@@ -364,12 +380,26 @@ class AIAnalysisService extends Service
     // -------------------------------------------------------------------------
 
     private function buildPrompt(
-        array $comments,
-        array $grades,
-        array $registros,
-        array $encaminhamentos,
-        array $atendimentos
+        array   $comments,
+        array   $grades,
+        array   $registros,
+        array   $encaminhamentos,
+        array   $atendimentos,
+        ?string $alunoNome = null
     ): array {
+        // Bloco de identidade: informa o nome do aluno analisado para que a IA
+        // não confunda menções a terceiros (colegas, familiares) com o sujeito.
+        $identidadeBloco = $alunoNome
+            ? "ALUNO EM ANÁLISE: {$alunoNome}\n"
+              . "ATENÇÃO: Qualquer outro nome próprio que apareça nos dados abaixo refere-se a "
+              . "OUTRA PESSOA (colega de turma, familiar, etc.), NÃO ao aluno analisado. "
+              . "Toda a análise deve ser feita exclusivamente sobre {$alunoNome}.\n"
+            : "ATENÇÃO: O nome do aluno em análise não foi fornecido. "
+              . "Qualquer nome próprio mencionado nos dados refere-se a OUTRAS PESSOAS "
+              . "(colegas, familiares), NUNCA ao sujeito desta análise. "
+              . "Identifique o gênero do sujeito apenas pelos artigos e pronomes que a ele se referem "
+              . "(ex: 'a aluna', 'ele apresentou', 'ela demonstrou').\n";
+
         $systemPrompt = <<<'PROMPT'
 Você é um assistente especializado em análise pedagógica de alunos do ensino técnico e médio no Brasil.
 
@@ -390,14 +420,15 @@ O JSON deve seguir exatamente esta estrutura:
 }
 
 Instruções específicas:
-- "genero": identifique com base nos pronomes dos textos (ele/dela, aluno/aluna, etc.). Use "não_identificado" quando não for possível.
+- "genero": identifique com base nos artigos e pronomes gramaticais que se referem ao sujeito principal ("a aluna", "ele", "ela"). Nomes próprios de terceiros mencionados nos textos NÃO devem ser usados para inferir gênero. Use "não_identificado" quando não for possível.
 - Utilize o gênero identificado em todos os campos de texto: se "masculino", use "o aluno"; se "feminino", use "a aluna"; se "não_identificado", use "o(a) aluno(a)".
 - "nivel_atencao": considere "urgente" quando houver encaminhamentos pendentes, múltiplos atendimentos profissionais ou padrão de piora consistente; "atenção" para alertas moderados; "normal" para situação estável.
 - Use "sem_dados" quando não houver informação suficiente para um campo.
 - Responda sempre em português do Brasil.
 PROMPT;
 
-        $lines = [];
+        $lines   = [];
+        $lines[] = $identidadeBloco;
 
         // --- Comentários dos professores ---
         $lines[] = '=== COMENTÁRIOS DOS PROFESSORES ===';

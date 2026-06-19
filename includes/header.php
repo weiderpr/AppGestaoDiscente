@@ -196,7 +196,16 @@ if (empty($user['photo'])) {
                 </button>
                 <div class="nav-dropdown-menu" id="acompanhamento-dropdown" role="menu">
                     <?php if (hasDbPermission('atendimentos.index', false)): ?>
-                    <a href="/atendimentos/index.php" 
+                    <a href="/acompanhamento/dashboard_aluno.php"
+                       class="nav-dropdown-item <?= strpos($_SERVER['PHP_SELF'], '/acompanhamento/') !== false ? 'active' : '' ?>"
+                       role="menuitem">
+                        <span class="nav-icon">👤</span>
+                        <span>Dashboard do Aluno</span>
+                    </a>
+                    <?php endif; ?>
+
+                    <?php if (hasDbPermission('atendimentos.index', false)): ?>
+                    <a href="/atendimentos/index.php"
                        class="nav-dropdown-item <?= strpos($_SERVER['PHP_SELF'], '/atendimentos/') !== false ? 'active' : '' ?>" 
                        role="menuitem">
                         <span class="nav-icon">📝</span>
@@ -255,6 +264,30 @@ if (empty($user['photo'])) {
                class="nav-link <?= strpos($_SERVER['PHP_SELF'], '/courses/conselhos') !== false ? 'active' : '' ?>">
                 🏠 Conselhos
             </a>
+            <?php endif; ?>
+
+            <!-- Acadêmico (Dropdown) -->
+            <?php
+            $hasAcademicoAccess = hasDbPermission('somativas.index', false);
+            ?>
+            <?php if ($hasAcademicoAccess): ?>
+            <div class="nav-dropdown nav-menu-item">
+                <button class="nav-link nav-dropdown-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="academico-dropdown">
+                    <span class="nav-icon">🎓</span>
+                    <span class="nav-text">Acadêmico</span>
+                    <span class="nav-arrow">▾</span>
+                </button>
+                <div class="nav-dropdown-menu" id="academico-dropdown" role="menu">
+                    <?php if (hasDbPermission('somativas.index', false)): ?>
+                    <a href="/courses/somativas/index.php"
+                       class="nav-dropdown-item <?= strpos($_SERVER['PHP_SELF'], '/courses/somativas/') !== false ? 'active' : '' ?>"
+                       role="menuitem">
+                        <span class="nav-icon">📋</span>
+                        <span>Horário de Somativas</span>
+                    </a>
+                    <?php endif; ?>
+                </div>
+            </div>
             <?php endif; ?>
         </nav>
 

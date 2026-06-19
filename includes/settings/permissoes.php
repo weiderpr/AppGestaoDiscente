@@ -16,6 +16,7 @@ $categoryMap = [
     'coordinators'   => 'Sistema',
     'courses'        => 'Acadêmico',
     'subjects'       => 'Acadêmico',
+    'somativas'      => 'Acadêmico',
     'students'       => 'Alunos & Notas',
     'grades'         => 'Alunos & Notas',
     'representantes' => 'Alunos & Notas',
@@ -24,6 +25,7 @@ $categoryMap = [
     'survey'         => 'Pedagógico',
     'social'         => 'Acadêmico',
     'naapi'          => 'Pedagógico',
+    'acompanhamento' => 'Pedagógico',
     'dashboard'      => 'Sistema',
     'audit'          => 'Sistema'
 ];
@@ -78,6 +80,7 @@ function getFriendlyName($res) {
         'survey' => 'Pesquisas',
         'social' => 'Feed Social',
         'naapi' => 'NAAPI',
+        'acompanhamento' => 'Dashboard do Aluno',
         'dashboard' => 'Dashboard'
     ];
     

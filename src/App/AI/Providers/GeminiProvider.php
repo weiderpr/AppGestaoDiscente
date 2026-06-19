@@ -2,7 +2,7 @@
 /**
  * Vértice Acadêmico — Provedor de IA: Google Gemini
  *
- * Tier gratuito: 1 500 req/dia, modelo Gemini 1.5 Flash.
+ * Tier gratuito: gemini-2.0-flash-lite (ilimitado para baixo volume).
  * Documentação: https://ai.google.dev/gemini-api/docs
  */
 
@@ -10,10 +10,14 @@ namespace App\AI\Providers;
 
 class GeminiProvider implements AIProviderInterface
 {
-    private const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
-    private const TIMEOUT = 30;
+    private const BASE_URL      = 'https://generativelanguage.googleapis.com/v1beta/models/';
+    private const DEFAULT_MODEL = 'gemini-2.0-flash-lite';
+    private const TIMEOUT       = 30;
 
-    public function __construct(private readonly string $apiKey) {}
+    public function __construct(
+        private readonly string  $apiKey,
+        private readonly ?string $model = null
+    ) {}
 
     public function getName(): string
     {
@@ -35,7 +39,8 @@ class GeminiProvider implements AIProviderInterface
             ],
         ], JSON_UNESCAPED_UNICODE);
 
-        $url = self::API_URL . '?key=' . $this->apiKey;
+        $model = $this->model ?? self::DEFAULT_MODEL;
+        $url   = self::BASE_URL . $model . ':generateContent?key=' . $this->apiKey;
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [

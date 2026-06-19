@@ -37,6 +37,14 @@ if (!$course) { header('Location: /courses/index.php'); exit; }
 $turma = $turmaService->findById($id);
 if (!$turma || $turma['course_id'] != $courseId) { header('Location: /courses/turmas.php?course_id=' . $courseId); exit; }
 
+// Carrega ambiente atual da turma
+$ambienteAtual = null;
+if (!empty($turma['ambiente_id'])) {
+    $stAmb = $db->prepare('SELECT id, descricao, predio_campus FROM manutencao_ambientes WHERE id = ?');
+    $stAmb->execute([$turma['ambiente_id']]);
+    $ambienteAtual = $stAmb->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
 $success = '';
 $error   = '';
 
@@ -45,38 +53,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Token de segurança expirado. Tente novamente.';
     } else {
         $description     = trim($_POST['description']     ?? '');
-    $ano             = (int)($_POST['ano']            ?? date('Y'));
-    $nota_maxima     = (float)str_replace(',', '.', $_POST['nota_maxima']     ?? '10');
-    $media_aprovacao = (float)str_replace(',', '.', $_POST['media_aprovacao'] ?? '6');
+        $ano             = (int)($_POST['ano']            ?? date('Y'));
+        $nota_maxima     = (float)str_replace(',', '.', $_POST['nota_maxima']     ?? '10');
+        $media_aprovacao = (float)str_replace(',', '.', $_POST['media_aprovacao'] ?? '6');
+        $ambiente_id     = !empty($_POST['ambiente_id'])  ? (int)$_POST['ambiente_id'] : null;
 
-    if (strlen($description) < 2) {
-        $error = 'Informe a descrição da turma.';
-    } elseif ($nota_maxima <= 0) {
-        $error = 'A nota máxima deve ser maior que zero.';
-    } elseif ($media_aprovacao < 0 || $media_aprovacao > $nota_maxima) {
-        $error = 'A média para aprovação deve estar entre 0 e a nota máxima.';
-    } else {
-        $st = $db->prepare('SELECT id FROM turmas WHERE description=? AND course_id=? AND id!=? LIMIT 1');
-        $st->execute([$description, $courseId, $id]);
-        if ($st->fetch()) {
-            $error = 'Já existe outra turma com esta descrição neste curso.';
+        if (strlen($description) < 2) {
+            $error = 'Informe a descrição da turma.';
+        } elseif ($nota_maxima <= 0) {
+            $error = 'A nota máxima deve ser maior que zero.';
+        } elseif ($media_aprovacao < 0 || $media_aprovacao > $nota_maxima) {
+            $error = 'A média para aprovação deve estar entre 0 e a nota máxima.';
         } else {
-            $turmaService->update($id, [
-                'description' => $description,
-                'ano' => $ano,
-                'nota_maxima' => $nota_maxima,
-                'media_aprovacao' => $media_aprovacao
-            ]);
-            $success = 'Turma atualizada com sucesso!';
-            $turma = $turmaService->findById($id);
+            $st = $db->prepare('SELECT id FROM turmas WHERE description=? AND course_id=? AND id!=? LIMIT 1');
+            $st->execute([$description, $courseId, $id]);
+            if ($st->fetch()) {
+                $error = 'Já existe outra turma com esta descrição neste curso.';
+            } else {
+                $turmaService->update($id, [
+                    'description'     => $description,
+                    'ano'             => $ano,
+                    'nota_maxima'     => $nota_maxima,
+                    'media_aprovacao' => $media_aprovacao,
+                    'ambiente_id'     => $ambiente_id,
+                ]);
+                $success = 'Turma atualizada com sucesso!';
+                $turma = $turmaService->findById($id);
+
+                // Recarrega ambiente após salvar
+                $ambienteAtual = null;
+                if (!empty($turma['ambiente_id'])) {
+                    $stAmb2 = $db->prepare('SELECT id, descricao, predio_campus FROM manutencao_ambientes WHERE id = ?');
+                    $stAmb2->execute([$turma['ambiente_id']]);
+                    $ambienteAtual = $stAmb2->fetch(PDO::FETCH_ASSOC) ?: null;
+                }
+            }
         }
     }
-}
 }
 
 $pageTitle = 'Editar Turma';
 require_once __DIR__ . '/../includes/header.php';
 ?>
+<style>
+.amb-wrap { position:relative; }
+.amb-drop {
+    position:absolute; top:calc(100% + 4px); left:0; right:0;
+    background:var(--bg-surface); border:1px solid var(--border-color);
+    border-radius:var(--radius-md); box-shadow:0 8px 24px rgba(0,0,0,.12);
+    z-index:400; max-height:220px; overflow-y:auto;
+}
+.amb-item { padding:.625rem .875rem; cursor:pointer; transition:background var(--transition-fast); }
+.amb-item:hover { background:var(--bg-hover); }
+.amb-item-label { font-size:.875rem; font-weight:500; }
+.amb-item-sub   { font-size:.75rem; color:var(--text-muted); }
+.amb-selected {
+    display:flex; align-items:center; gap:.625rem;
+    background:rgba(79,70,229,.07); border:1px solid rgba(79,70,229,.25);
+    border-radius:var(--radius-md); padding:.625rem .875rem;
+}
+.amb-selected-info { flex:1; }
+.amb-selected-name { font-size:.875rem; font-weight:600; }
+.amb-selected-sub  { font-size:.75rem; color:var(--text-muted); }
+</style>
 
 <div class="page-header fade-in" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
     <div>
@@ -149,6 +188,51 @@ require_once __DIR__ . '/../includes/header.php';
                     </div>
                 </div>
 
+                <!-- Ambiente / Sala -->
+                <div class="form-group">
+                    <label class="form-label">Sala / Ambiente</label>
+                    <input type="hidden" id="ambiente_id" name="ambiente_id"
+                           value="<?= htmlspecialchars((string)($turma['ambiente_id'] ?? '')) ?>">
+
+                    <?php if ($ambienteAtual): ?>
+                    <div class="amb-selected" id="amb-selected">
+                        <span style="font-size:1.25rem;">🏫</span>
+                        <div class="amb-selected-info">
+                            <div class="amb-selected-name" id="amb-nome"><?= htmlspecialchars($ambienteAtual['descricao']) ?></div>
+                            <?php if (!empty($ambienteAtual['predio_campus'])): ?>
+                            <div class="amb-selected-sub" id="amb-predio"><?= htmlspecialchars($ambienteAtual['predio_campus']) ?></div>
+                            <?php endif; ?>
+                        </div>
+                        <button type="button" onclick="limparAmbiente()"
+                                class="btn btn-ghost btn-sm" style="color:var(--color-danger);flex-shrink:0;">
+                            ✕ Remover
+                        </button>
+                    </div>
+                    <div class="amb-wrap" id="amb-wrap" hidden>
+                    <?php else: ?>
+                    <div class="amb-selected" id="amb-selected" hidden>
+                        <span style="font-size:1.25rem;">🏫</span>
+                        <div class="amb-selected-info">
+                            <div class="amb-selected-name" id="amb-nome"></div>
+                            <div class="amb-selected-sub" id="amb-predio"></div>
+                        </div>
+                        <button type="button" onclick="limparAmbiente()"
+                                class="btn btn-ghost btn-sm" style="color:var(--color-danger);flex-shrink:0;">
+                            ✕ Remover
+                        </button>
+                    </div>
+                    <div class="amb-wrap" id="amb-wrap">
+                    <?php endif; ?>
+                        <input type="text" id="amb-busca" class="form-control"
+                               autocomplete="off"
+                               placeholder="Buscar sala ou ambiente...">
+                        <div class="amb-drop" id="amb-drop" hidden></div>
+                    </div>
+                    <span class="form-hint" style="font-size:.75rem;color:var(--text-muted);margin-top:.25rem;display:block;">
+                        Sala principal onde as provas desta turma serão aplicadas.
+                    </span>
+                </div>
+
                 <!-- Notas -->
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:.875rem;">
                     <div class="form-group">
@@ -214,5 +298,85 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 
 </div>
+
+<script>
+/* ── Smart Search: Ambiente ──────────────────────────────── */
+(function () {
+    const input  = document.getElementById('amb-busca');
+    const drop   = document.getElementById('amb-drop');
+    const hidden = document.getElementById('ambiente_id');
+    const wrap   = document.getElementById('amb-wrap');
+    const sel    = document.getElementById('amb-selected');
+    const nome   = document.getElementById('amb-nome');
+    const predio = document.getElementById('amb-predio');
+
+    if (!input) return;
+
+    let tmr = null;
+
+    input.addEventListener('input', () => {
+        clearTimeout(tmr);
+        const q = input.value.trim();
+        if (!q) { drop.hidden = true; return; }
+        tmr = setTimeout(() => buscar(q), 220);
+    });
+
+    input.addEventListener('focus', () => {
+        const q = input.value.trim();
+        if (q) buscar(q);
+    });
+
+    document.addEventListener('click', e => {
+        if (!wrap.contains(e.target)) drop.hidden = true;
+    });
+
+    async function buscar(q) {
+        try {
+            const r = await fetch(`/api/somativas/search.php?type=ambiente&q=${encodeURIComponent(q)}`);
+            const d = await r.json();
+            renderDrop(d.results || []);
+        } catch { drop.hidden = true; }
+    }
+
+    function renderDrop(results) {
+        if (!results.length) { drop.hidden = true; return; }
+        drop.innerHTML = results.map(r =>
+            `<div class="amb-item" data-id="${r.id}" data-label="${esc(r.label)}" data-sub="${esc(r.sub || '')}">
+                <div class="amb-item-label">${esc(r.label)}</div>
+                ${r.sub ? `<div class="amb-item-sub">${esc(r.sub)}</div>` : ''}
+             </div>`
+        ).join('');
+        drop.querySelectorAll('.amb-item').forEach(el => {
+            el.addEventListener('click', () => selecionar(el.dataset.id, el.dataset.label, el.dataset.sub));
+        });
+        drop.hidden = false;
+    }
+
+    function selecionar(id, label, sub) {
+        hidden.value = id;
+        nome.textContent = label;
+        predio.textContent = sub || '';
+        predio.hidden = !sub;
+        drop.hidden = true;
+        input.value = '';
+        wrap.hidden = true;
+        sel.hidden  = false;
+    }
+
+    window.limparAmbiente = function () {
+        hidden.value = '';
+        nome.textContent = '';
+        predio.textContent = '';
+        sel.hidden  = true;
+        wrap.hidden = false;
+        input.value = '';
+        input.focus();
+    };
+
+    function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+})();
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
