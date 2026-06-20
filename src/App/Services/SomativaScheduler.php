@@ -661,7 +661,7 @@ class SomativaScheduler extends Service
             $naapiAplicadorId = null;
             if (!empty($data['som']['naapi_ambiente_id'])) {
                 $naapiAplicadorId = $this->chooseNaapiAplicador(
-                    ['date' => $date, 'slot' => $slot], $data['profAvail'], $aplicadorId, $alocacoes
+                    ['date' => $date, 'slot' => $slot], $data['profAvail'], $aplicadorId, $volanteId, $alocacoes
                 );
             }
 
@@ -1620,6 +1620,7 @@ class SomativaScheduler extends Service
         array $bestSlot,
         array $profAvail,
         ?int  $mainAplicadorId,
+        ?int  $volanteId,
         array $alocacoes
     ): ?int {
         $date   = $bestSlot['date'];
@@ -1631,7 +1632,10 @@ class SomativaScheduler extends Service
         foreach ($alocacoes as $aloc) {
             if ($aloc['data_prova'] === $date && (int)$aloc['slot_config_id'] === $slotId) {
                 if (!empty($aloc['naapi_aplicador_id'])) {
-                    return (int)$aloc['naapi_aplicador_id'];
+                    $existingNaapi = (int)$aloc['naapi_aplicador_id'];
+                    if ($existingNaapi !== $mainAplicadorId && $existingNaapi !== $volanteId) {
+                        return $existingNaapi;
+                    }
                 }
             }
         }
@@ -1640,6 +1644,9 @@ class SomativaScheduler extends Service
         $busyProfs = [];
         if ($mainAplicadorId) {
             $busyProfs[] = $mainAplicadorId;
+        }
+        if ($volanteId) {
+            $busyProfs[] = $volanteId;
         }
         foreach ($alocacoes as $aloc) {
             if ($aloc['data_prova'] === $date && (int)$aloc['slot_config_id'] === $slotId) {
@@ -1779,7 +1786,7 @@ class SomativaScheduler extends Service
                 if (!empty($data['som']['naapi_ambiente_id'])) {
                     $naapiAplicadorId = $this->chooseNaapiAplicador(
                         ['date' => $foundDate, 'slot' => $foundSlot],
-                        $data['profAvail'], $aplicadorId, $alocacoes
+                        $data['profAvail'], $aplicadorId, $volanteId, $alocacoes
                     );
                 }
 
