@@ -1,0 +1,1 @@
+"- [x] Adicionar os estilos CSS necessários para abas, carga horária e impressão em `assets/css/somativas.css`\n- [ ] Implementar a lógica JavaScript de controle no modal em `assets/js/somativas_grade.js`"

@@ -1338,7 +1338,7 @@ details[open] .gs-suggestions-list {
     background: #ffffff;
     border: 1px solid #cbd5e1;
     border-radius: 4px;
-    padding: 8mm;
+    padding: 4mm 5mm;
     width: 210mm;          /* A4 retrato */
     min-height: 150mm;
     box-sizing: border-box;
@@ -1582,6 +1582,7 @@ details[open] .gs-suggestions-list {
 
 /* NAAPI compacto: uma única linha com badge + A: nome + sala */
 .pcc-naapi-block {
+    font-size: 0.68rem;
     margin-top: 0.2rem;
     padding-top: 0.2rem;
     border-top: 1px dashed #cbd5e1;
@@ -1900,5 +1901,622 @@ body.font-lg .pcc-naapi-block {
 
 @page {
     size: A4 portrait;
-    margin: 8mm;
+    margin: 5mm;
 }
+
+/* ── Modal de Análise de Professores ───────────────────────── */
+
+.analysis-tab {
+    padding: 0.625rem 1.25rem;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.analysis-tab:hover {
+    color: var(--color-primary);
+}
+
+.analysis-tab.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: 600;
+}
+
+.analysis-tab-panel {
+    animation: fadeIn var(--transition-fast) ease;
+}
+
+.analysis-tab-panel[hidden] {
+    display: none !important;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.analysis-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+}
+
+.analysis-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+    text-align: left;
+}
+
+.analysis-table th,
+.analysis-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.analysis-table th {
+    background: var(--bg-surface-2nd);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.analysis-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.analysis-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+/* Progress workload bar */
+.carga-card {
+    background: var(--bg-surface-2nd);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.carga-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.carga-prof-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
+.carga-total-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.carga-bar-container {
+    height: 8px;
+    background: var(--border-color);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.carga-bar {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
+
+.carga-bar.load-low {
+    background: var(--color-success, #10b981);
+}
+
+.carga-bar.load-medium {
+    background: var(--color-warning, #f59e0b);
+}
+
+.carga-bar.load-high {
+    background: var(--color-danger, #ef4444);
+}
+
+.carga-details {
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.carga-detail-item strong {
+    color: var(--text-secondary);
+}
+
+/* Agenda Card Styles */
+.agenda-prof-section {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: var(--bg-surface);
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.agenda-prof-header {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    border-bottom: 2px solid var(--color-primary-alpha, rgba(79,70,229,0.1));
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.agenda-empty {
+    font-style: italic;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+/* Print CSS Styles for Agendas */
+@media print {
+    body > *:not(#analysis-modal-overlay) {
+        display: none !important;
+    }
+    
+    #analysis-modal-overlay {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        background: transparent !important;
+        z-index: 99999 !important;
+    }
+    
+    #analysis-modal-overlay .slot-modal {
+        box-shadow: none !important;
+        border: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        height: auto !important;
+        max-height: none !important;
+        display: block !important;
+        background: transparent !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    #analysis-modal-overlay .slot-modal-header,
+    #analysis-modal-overlay .analysis-tabs-bar,
+    #analysis-modal-overlay .analysis-tab-panel:not(#tab-agenda),
+    #analysis-modal-overlay #tab-agenda > div:first-child {
+        display: none !important;
+    }
+    
+    #analysis-modal-overlay .slot-modal-body {
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+    
+    #analysis-modal-overlay #tab-agenda {
+        display: block !important;
+    }
+    
+    .agendas-print-wrapper {
+        display: block !important;
+    }
+    
+    .agenda-prof-section {
+        border: 1px solid #000 !important;
+        padding: 1.5cm !important;
+        margin: 0 0 2cm 0 !important;
+        page-break-before: always !important;
+        break-before: page !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid-page !important;
+        background: #fff !important;
+        color: #000 !important;
+        box-shadow: none !important;
+    }
+    
+    .agenda-prof-section:first-child {
+        page-break-before: avoid !important;
+        break-before: avoid !important;
+    }
+    
+    .agenda-prof-header {
+        font-size: 14pt !important;
+        color: #000 !important;
+        border-bottom: 2px solid #000 !important;
+    }
+    
+    .analysis-table-wrap {
+        border: 1px solid #000 !important;
+    }
+    
+    .analysis-table {
+        font-size: 10pt !important;
+    }
+    
+    .analysis-table th {
+        background: #f1f5f9 !important;
+        color: #000 !important;
+        border-bottom: 1px solid #000 !important;
+    }
+    
+    .analysis-table td {
+        border-bottom: 1px solid #e2e8f0 !important;
+        color: #000 !important;
+    }
+}
+
+/* ── Classes Utilitárias de Refatoração de Estilo em Linha ── */
+
+.analysis-modal-lg {
+    max-width: 980px !important;
+    width: 95% !important;
+    max-height: 85vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.flex-shrink-0 {
+    flex-shrink: 0 !important;
+}
+
+.flex-grow-1 {
+    flex-grow: 1 !important;
+}
+
+.flex-1 {
+    flex: 1 !important;
+}
+
+.overflow-hidden {
+    overflow: hidden !important;
+}
+
+.overflow-y-auto {
+    overflow-y: auto !important;
+}
+
+.text-center {
+    text-align: center !important;
+}
+
+.analysis-tabs-bar-flex {
+    display: flex !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    background: var(--bg-surface-2nd) !important;
+    padding: 0.5rem 1rem 0 !important;
+    gap: 0.5rem !important;
+    flex-shrink: 0 !important;
+}
+
+.analysis-modal-body-pad {
+    padding: 1.25rem !important;
+    flex: 1 !important;
+    overflow-y: auto !important;
+}
+
+.tab-desc-muted {
+    color: var(--text-muted) !important;
+    font-size: 0.875rem !important;
+    margin-bottom: 1rem !important;
+}
+
+.tab-desc-muted-lg {
+    color: var(--text-muted) !important;
+    font-size: 0.875rem !important;
+    margin-bottom: 1.25rem !important;
+}
+
+.tab-desc-muted-no-margin {
+    color: var(--text-muted) !important;
+    font-size: 0.875rem !important;
+    margin: 0 !important;
+    flex: 1 !important;
+}
+
+.loading-td {
+    padding: 2rem !important;
+    color: var(--text-muted) !important;
+}
+
+.loading-div-grid {
+    grid-column: 1 / -1 !important;
+    text-align: center !important;
+    padding: 2rem !important;
+    color: var(--text-muted) !important;
+}
+
+.loading-div {
+    text-align: center !important;
+    padding: 2rem !important;
+    color: var(--text-muted) !important;
+}
+
+.spinner-margin {
+    margin: 0 auto 0.5rem !important;
+}
+
+.success-td {
+    padding: 2rem !important;
+    color: var(--text-success) !important;
+    font-weight: 500 !important;
+}
+
+.font-semibold-primary {
+    font-weight: 600 !important;
+    color: var(--text-primary) !important;
+}
+
+.font-semibold-secondary {
+    font-weight: 600 !important;
+    color: var(--text-secondary) !important;
+}
+
+.font-semibold-color-primary {
+    font-weight: 600 !important;
+    color: var(--color-primary) !important;
+}
+
+.font-medium-secondary {
+    font-weight: 500 !important;
+    color: var(--text-secondary) !important;
+}
+
+.font-medium {
+    font-weight: 500 !important;
+}
+
+.text-primary-color {
+    color: var(--color-primary) !important;
+}
+
+.badge-volante {
+    background-color: rgba(16, 185, 129, 0.12) !important;
+    color: #10b981 !important;
+}
+
+.badge-role {
+    font-size: 0.65rem !important;
+}
+
+.agenda-empty-pad {
+    padding: 2rem !important;
+}
+
+.grid-carga {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+    gap: 1rem !important;
+}
+
+.flex-between-center {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 1rem !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+}
+
+.flex-align-center {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+}
+
+.label-agenda-select {
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+}
+
+.select-agenda {
+    width: 220px !important;
+    font-size: 0.875rem !important;
+    padding: 0.25rem 0.5rem !important;
+    height: auto !important;
+}
+
+.flex-between-start {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+    margin-bottom: 1rem !important;
+    flex-wrap: wrap !important;
+}
+
+.th-width-checkbox {
+    width: 40px !important;
+    text-align: center !important;
+}
+
+.cursor-pointer {
+    cursor: pointer !important;
+}
+
+.flex-end-gap {
+    display: flex !important;
+    justify-content: flex-end !important;
+    gap: 0.5rem !important;
+    margin-top: 1.25rem !important;
+    border-top: 1px solid var(--border-color) !important;
+    padding-top: 1rem !important;
+}
+
+.detail-muted {
+    font-size: 0.7rem !important;
+    color: var(--text-muted) !important;
+}
+
+.reason-td {
+    font-size: 0.75rem !important;
+    color: var(--text-secondary) !important;
+    font-style: italic !important;
+}
+
+.th-w-20 {
+    width: 20% !important;
+}
+
+.th-w-15 {
+    width: 15% !important;
+}
+
+.th-w-25 {
+    width: 25% !important;
+}
+
+.align-center-middle {
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+.print-modal-lg {
+    width: 95vw !important;
+    max-width: 1100px !important;
+    height: 90vh !important;
+    max-height: 90vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.iframe-container {
+    flex: 1 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+}
+
+.iframe-print {
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+    display: block !important;
+}
+
+.font-xs-muted {
+    font-size: 0.75rem !important;
+    color: var(--text-muted) !important;
+}
+
+/* ── Aba Inteligência ────────────────────────────────────── */
+
+.intel-info-box {
+    background: var(--bg-surface-2nd, var(--bg-hover));
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.intel-info-header {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-bottom: 0.75rem;
+}
+
+.intel-info-icon {
+    font-size: 1.375rem;
+    line-height: 1;
+}
+
+.intel-info-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.intel-info-desc {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0 0 1rem;
+    line-height: 1.6;
+}
+
+.intel-rules-list {
+    list-style: none;
+    margin: 0 0 1.25rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.intel-rule-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.intel-rule-icon {
+    font-size: 1.125rem;
+    line-height: 1.4;
+    flex-shrink: 0;
+}
+
+.intel-rule-item div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.intel-rule-item strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.intel-rule-item span {
+    color: var(--text-secondary);
+}
+
+.intel-warning-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: var(--radius-md);
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+[data-theme="dark"] .intel-warning-box {
+    background: rgba(245, 158, 11, 0.06);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.intel-action-row {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.intel-result-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 1rem 0 0;
+    margin-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.intel-preview-table td {
+    vertical-align: top;
+}
+

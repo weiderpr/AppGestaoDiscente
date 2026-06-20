@@ -1,0 +1,65 @@
+Created At: 2026-06-20T17:47:24Z
+Completed At: 2026-06-20T17:47:24Z
+File Path: `file:///home/wazuh/Documentos/AppGestaoDiscente/courses/somativas/grade.php`
+Total Lines: 797
+Total Bytes: 44685
+Showing lines 607 to 740
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+607:     </div>
+608: </div>
+609: 
+610: <!-- ════════════════════════════════════════════════════
+611:      MODAL DE ANÁLISE DE PROFESSORES
+612: ════════════════════════════════════════════════════ -->
+613: <div id="analysis-modal-overlay" class="slot-modal-overlay" hidden>
+614:     <div class="slot-modal" role="dialog" aria-modal="true" aria-labelledby="analysis-title" style="max-width:980px; width:95%; max-height:85vh; display:flex; flex-direction:column;">
+615:         
+616:         <!-- Cabeçalho -->
+617:         <div class="slot-modal-header" style="flex-shrink:0;">
+618:             <h2 class="slot-modal-title" id="analysis-title">📊 Análise de Alocação por Professor</h2>
+619:             <button type="button" class="slot-modal-close" id="analysis-close" onclick="closeAnalysisModal()">✕</button>
+620:         </div>
+621:         
+622:         <!-- Abas -->
+623:         <div class="analysis-tabs-bar" style="display:flex; border-bottom:1px solid var(--border-color); background:var(--bg-surface-2nd); padding:0.5rem 1rem 0; gap:0.5rem; flex-shrink:0;">
+624:             <button type="button" class="analysis-tab active" data-tab="tab-desacordos">
+625:                 ⚠️ Horários em Desacordo
+626:             </button>
+627:             <button type="button" class="analysis-tab" data-tab="tab-agenda">
+628:                 📅 Agenda do Professor
+62
+<truncated 5185 bytes>
+:                                     <th>Data / Horário</th>
+709:                                     <th>Papel</th>
+710:                                     <th>De (Carga)</th>
+711:                                     <th>Para (Carga)</th>
+712:                                     <th>Motivo / Regra</th>
+713:                                 </tr>
+714:                             </thead>
+715:                             <tbody id="equalizacao-tbody">
+716:                                 <tr>
+717:                                     <td colspan="7" class="text-center" style="padding:2rem; color:var(--text-muted);">Carregando dados...</td>
+718:                                 </tr>
+719:                             </tbody>
+720:                         </table>
+721:                     </div>
+722:                     <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem; border-top:1px solid var(--border-color); padding-top:1rem;">
+723:                         <button type="button" class="btn btn-ghost btn-sm" onclick="closeAnalysisModal()">Cancelar</button>
+724:                         <button type="submit" class="btn btn-primary btn-sm" id="btn-aplicar-equalizacao" disabled>Aplicar Trocas Selecionadas</button>
+725:                     </div>
+726:                 </form>
+727:             </div>
+728:         </div>
+729:     </div>
+730: </div>
+731: 
+732: <!-- Dados PHP → JS -->
+733: <script>
+734: window.GradeData = {
+735:     somativaId:        <?= $id ?>,
+736:     maxProvas:         <?= (int)$somativa['max_provas_por_dia'] ?>,
+737:     turmas:            <?= json_encode(array_map(function($t) {
+738:                            return [
+739:                                'somativa_turma_id' => (int)$t['somativa_turma_id'],
+740:                                'turma_id'          => (int)$t['turma_id'],
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

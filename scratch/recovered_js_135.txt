@@ -1,0 +1,34 @@
+Created At: 2026-06-20T17:47:59Z
+Completed At: 2026-06-20T17:47:59Z
+File Path: `file:///home/wazuh/Documentos/AppGestaoDiscente/courses/somativas/grade.php`
+Total Lines: 797
+Total Bytes: 44685
+Showing lines 125 to 150
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+125:         </button>
+126:         <?php endif; ?>
+127:         <?php if (hasDbPermission('somativas.update', false)): ?>
+128:         <button type="button" class="btn btn-danger btn-sm" id="btn-limpar-cards">
+129:             🗑 Limpar Cards
+130:         </button>
+131:         <button type="button" class="btn btn-primary btn-sm" id="btn-auto-alocar">
+132:             ⚡ Alocar Automaticamente
+133:         </button>
+134:         <?php endif; ?>
+135:         <button type="button" class="btn btn-secondary btn-sm" id="btn-analisar-professores">
+136:             📊 Analisar Professores
+137:         </button>
+138:         <button type="button" class="btn btn-secondary btn-sm" onclick="openPrintModal()">🖨️ Imprimir</button>
+139:         <a href="edit.php?id=<?= $id ?>" class="btn btn-ghost btn-sm">✏️ Editar</a>
+140:     </div>
+141: </div>
+142: 
+143: <!-- ════════════════════════════════════════════════════
+144:      TABS DE TURMA
+145: ════════════════════════════════════════════════════ -->
+146: <div class="grade-turma-tabs" id="grade-turma-tabs">
+147:     <?php foreach ($turmas as $i => $t): ?>
+148:     <button type="button"
+149:             class="grade-turma-tab <?= $i === 0 ? 'active' : '' ?>"
+150:             data-st-id="<?= $t['somativa_turma_id'] ?>"
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

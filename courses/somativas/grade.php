@@ -124,6 +124,9 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
             💡 Sugestões (<?= count($suggestions) ?>)
         </button>
         <?php endif; ?>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-analisar-professores">
+            📊 Analisar Professores
+        </button>
         <?php if (hasDbPermission('somativas.update', false)): ?>
         <button type="button" class="btn btn-danger btn-sm" id="btn-limpar-cards">
             🗑 Limpar Cards
@@ -604,6 +607,223 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
     </div>
 </div>
 
+<!-- ════════════════════════════════════════════════════
+     MODAL DE ANÁLISE DE PROFESSORES
+════════════════════════════════════════════════════ -->
+<div id="analysis-modal-overlay" class="slot-modal-overlay" hidden>
+    <div class="slot-modal analysis-modal-lg" role="dialog" aria-modal="true"
+         aria-labelledby="analysis-modal-title">
+
+        <!-- Cabeçalho -->
+        <div class="slot-modal-header flex-shrink-0">
+            <h2 class="slot-modal-title" id="analysis-modal-title">📊 Análise de Alocação por Professor</h2>
+            <button type="button" class="slot-modal-close" onclick="closeAnalysisModal()">✕</button>
+        </div>
+
+        <!-- Barra de abas -->
+        <div class="analysis-tabs-bar-flex flex-shrink-0">
+            <button class="analysis-tab active" data-tab="tab-desacordos">⚠️ Horários em Desacordo</button>
+            <button class="analysis-tab" data-tab="tab-agenda">📅 Agenda do Professor</button>
+            <button class="analysis-tab" data-tab="tab-carga">⚡ Carga de Ocupação</button>
+            <button class="analysis-tab" data-tab="tab-equalizacao">💡 Sugestão de Equalização</button>
+            <button class="analysis-tab" data-tab="tab-inteligencia">✨ Inteligência</button>
+        </div>
+
+        <!-- Corpo -->
+        <div class="analysis-modal-body-pad flex-1 overflow-y-auto">
+
+            <!-- ── Aba 1: Horários Fora do Convencional ─── -->
+            <div id="tab-desacordos" class="analysis-tab-panel">
+                <p class="tab-desc-muted">Professores alocados em horários fora do seu horário convencional de aulas.</p>
+                <div class="analysis-table-wrap">
+                    <table class="analysis-table">
+                        <thead>
+                            <tr>
+                                <th>Professor</th>
+                                <th>Data / Dia</th>
+                                <th>Horário</th>
+                                <th>Papel</th>
+                                <th>Turma</th>
+                                <th>Disciplina</th>
+                            </tr>
+                        </thead>
+                        <tbody id="desacordos-tbody">
+                            <tr><td colspan="6" class="loading-td text-center">
+                                <div class="spinner spinner-margin"></div>Carregando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ── Aba 2: Agenda ─────────────────────────── -->
+            <div id="tab-agenda" class="analysis-tab-panel" hidden>
+                <div class="flex-between-center">
+                    <p class="tab-desc-muted-no-margin">Agenda individual de cada professor durante o período somativo.</p>
+                    <div class="flex-align-center">
+                        <label class="label-agenda-select" for="agenda-prof-select">Filtrar:</label>
+                        <select id="agenda-prof-select" class="form-control select-agenda">
+                            <option value="">-- Todos --</option>
+                        </select>
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="printAgendas()">🖨 Imprimir</button>
+                    </div>
+                </div>
+                <div id="agendas-container" class="loading-div">
+                    <div class="spinner spinner-margin"></div>Carregando...
+                </div>
+            </div>
+
+            <!-- ── Aba 3: Carga de Trabalho ──────────────── -->
+            <div id="tab-carga" class="analysis-tab-panel" hidden>
+                <p class="tab-desc-muted-lg">Distribuição de alocações entre os professores (Aplicador, Volante, NAAPI).</p>
+                <div class="grid-carga" id="carga-grid">
+                    <div class="loading-div-grid"><div class="spinner spinner-margin"></div>Carregando...</div>
+                </div>
+            </div>
+
+            <!-- ── Aba 4: Equalização de Carga ──────────── -->
+            <div id="tab-equalizacao" class="analysis-tab-panel" hidden>
+                <div class="flex-between-start">
+                    <p class="tab-desc-muted-no-margin">Sugestões automáticas de trocas para equilibrar a carga de trabalho entre os professores.</p>
+                    <?php if (hasDbPermission('somativas.update', false)): ?>
+                    <form id="equalizacao-form">
+                        <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
+                        <button type="submit" class="btn btn-primary btn-sm" id="btn-aplicar-equalizacao" disabled>
+                            Aplicar Selecionadas
+                        </button>
+                    </form>
+                    <?php endif; ?>
+                </div>
+                <div class="analysis-table-wrap">
+                    <table class="analysis-table">
+                        <thead>
+                            <tr>
+                                <th class="th-width-checkbox">
+                                    <input type="checkbox" id="chk-select-all-swaps" class="cursor-pointer"
+                                           title="Selecionar todas">
+                                </th>
+                                <th>Turma / Disciplina</th>
+                                <th>Data / Horário</th>
+                                <th>Papel</th>
+                                <th>Professor Atual</th>
+                                <th>Sugerido</th>
+                                <th>Motivo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="equalizacao-tbody">
+                            <tr><td colspan="7" class="loading-td text-center">
+                                <div class="spinner spinner-margin"></div>Carregando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ── Aba 5: Inteligência ───────────────────── -->
+            <div id="tab-inteligencia" class="analysis-tab-panel" hidden>
+
+                <!-- Estado inicial: explicação + botão -->
+                <div id="intel-initial">
+                    <div class="intel-info-box">
+                        <div class="intel-info-header">
+                            <span class="intel-info-icon">✨</span>
+                            <h3 class="intel-info-title">Alocação Inteligente de Aplicadores</h3>
+                        </div>
+                        <p class="intel-info-desc">
+                            O sistema analisa todas as provas normais alocadas na grade e distribui automaticamente
+                            os aplicadores e aplicadores NAAPI, seguindo os critérios abaixo:
+                        </p>
+                        <ul class="intel-rules-list">
+                            <li class="intel-rule-item">
+                                <span class="intel-rule-icon">🔒</span>
+                                <div>
+                                    <strong>Volante = sempre o professor da disciplina</strong>
+                                    <span>O professor que leciona a disciplina sendo avaliada é designado como volante da prova, independentemente de qualquer outro critério.</span>
+                                </div>
+                            </li>
+                            <li class="intel-rule-item">
+                                <span class="intel-rule-icon">📅</span>
+                                <div>
+                                    <strong>Aplicador com aulas no horário</strong>
+                                    <span>O sistema prioriza aplicadores que possuem aulas em andamento naquele mesmo horário — garantindo que o professor já esteja presente na instituição.</span>
+                                </div>
+                            </li>
+                            <li class="intel-rule-item">
+                                <span class="intel-rule-icon">🏫</span>
+                                <div>
+                                    <strong>Preferência pelo professor da turma</strong>
+                                    <span>Entre os candidatos com aulas no horário, o sistema prioriza quem leciona para a própria turma sendo avaliada.</span>
+                                </div>
+                            </li>
+                            <li class="intel-rule-item">
+                                <span class="intel-rule-icon">⚖️</span>
+                                <div>
+                                    <strong>Distribuição equalitária</strong>
+                                    <span>O sistema mantém a distribuição a mais equilibrada possível, sempre escolhendo o candidato qualificado com menor carga acumulada.</span>
+                                </div>
+                            </li>
+                            <?php if (!empty($somativa['naapi_ambiente_id'])): ?>
+                            <li class="intel-rule-item">
+                                <span class="intel-rule-icon">♿</span>
+                                <div>
+                                    <strong>Aplicador NAAPI independente</strong>
+                                    <span>Um aplicador exclusivo para a sala NAAPI é designado por meio dos mesmos critérios, sempre diferente do aplicador regular e do volante.</span>
+                                </div>
+                            </li>
+                            <?php endif; ?>
+                        </ul>
+                        <div class="intel-warning-box">
+                            <span>⚠️</span>
+                            <span>Esta operação irá <strong>substituir</strong> os aplicadores e volantes de todas as provas normais da grade. Você poderá revisar a proposta antes de confirmar.</span>
+                        </div>
+                    </div>
+                    <div class="intel-action-row">
+                        <button type="button" class="btn btn-primary" id="btn-processar-inteligente">
+                            ✨ Gerar Proposta de Alocação
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Estado: carregando -->
+                <div id="intel-loading" hidden style="text-align:center;padding:3rem 1rem;">
+                    <div class="spinner" style="margin:0 auto 1rem;"></div>
+                    <p style="color:var(--text-secondary);margin:0;">Analisando horários e calculando alocações ideais...</p>
+                    <p style="color:var(--text-muted);font-size:.8125rem;margin:.5rem 0 0;">Isso pode levar alguns segundos</p>
+                </div>
+
+                <!-- Estado: resultado -->
+                <div id="intel-result" hidden>
+                    <div id="intel-summary" class="autoalocar-summary" style="margin-bottom:1rem;"></div>
+
+                    <div class="analysis-table-wrap">
+                        <table class="analysis-table intel-preview-table">
+                            <thead>
+                                <tr>
+                                    <th>Data / Slot</th>
+                                    <th>Turma / Disciplina</th>
+                                    <th>Volante</th>
+                                    <th>Aplicador</th>
+                                    <?php if (!empty($somativa['naapi_ambiente_id'])): ?>
+                                    <th>Aplic. NAAPI</th>
+                                    <?php endif; ?>
+                                </tr>
+                            </thead>
+                            <tbody id="intel-tbody"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="intel-result-actions">
+                        <button type="button" class="btn btn-ghost" id="btn-intel-reset">← Refazer</button>
+                        <button type="button" class="btn btn-primary" id="btn-intel-confirm">
+                            ✅ Confirmar e Aplicar
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+        </div><!-- /analysis-modal-body-pad -->
+    </div>
+</div>
+
 <!-- Dados PHP → JS -->
 <script>
 window.GradeData = {
@@ -624,6 +844,21 @@ window.GradeData = {
 };
 </script>
 <script src="/assets/js/somativas_grade.js"></script>
+
+<!-- ════════════════════════════════════════════════════
+     MODAL DE IMPRESSÃO
+════════════════════════════════════════════════════ -->
+<div id="print-modal-overlay" class="slot-modal-overlay" hidden>
+    <div class="slot-modal print-modal-lg" role="dialog" aria-modal="true" aria-labelledby="print-modal-title">
+        <div class="slot-modal-header flex-shrink-0">
+            <h2 class="slot-modal-title" id="print-modal-title">Impressão da Grade</h2>
+            <button type="button" class="slot-modal-close" onclick="closePrintModal()">✕</button>
+        </div>
+        <div class="iframe-container">
+            <iframe id="print-modal-iframe" src="" class="iframe-print"></iframe>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>

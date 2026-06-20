@@ -257,6 +257,12 @@ $printFontPt  = match(true) {
 document.addEventListener('DOMContentLoaded', () => {
     const body = document.body;
 
+    // Quando carregado dentro de um modal (iframe), oculta o botão "Voltar"
+    if (window.self !== window.top) {
+        const backBtn = document.querySelector('.grade-back-btn');
+        if (backBtn) backBtn.style.display = 'none';
+    }
+
     document.getElementById('select-font-size').addEventListener('change', e => {
         body.classList.remove('font-sm', 'font-md', 'font-lg');
         body.classList.add(e.target.value);
@@ -315,6 +321,17 @@ window.exportToPDF = async function() {
                     el.style.border       = 'none';
                     el.style.borderRadius = '0';
                     el.style.margin       = '0';
+
+                    // Remove truncamento de nomes (a tela usa nowrap+overflow:hidden
+                    // para economizar espaço; no PDF queremos nomes completos com quebra de linha)
+                    const s = doc.createElement('style');
+                    s.textContent = `
+                        .pcc-prof-row    { overflow: visible !important; }
+                        .pcc-person-name { white-space: normal !important; overflow: visible !important; text-overflow: unset !important; }
+                        .pcc-room        { white-space: normal !important; overflow: visible !important; }
+                        .pcc-naapi-block { overflow: visible !important; }
+                    `;
+                    doc.head.appendChild(s);
                 }
             });
 

@@ -1,0 +1,1 @@
+"- [x] Implementar a lógica JavaScript de controle no modal em `assets/js/somativas_grade.js`\n- [ ] Realizar a revisão final do código"

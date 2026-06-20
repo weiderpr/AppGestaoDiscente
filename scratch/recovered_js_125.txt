@@ -1,0 +1,81 @@
+Created At: 2026-06-20T17:47:49Z
+Completed At: 2026-06-20T17:47:49Z
+File Path: `file:///home/wazuh/Documentos/AppGestaoDiscente/assets/js/somativas_grade.js`
+Total Lines: 1126
+Total Bytes: 50993
+Showing lines 850 to 1100
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+850:                 analysisData = data;
+851:                 renderAnalysis();
+852:             } else {
+853:                 Toast.error(data.message || 'Erro ao carregar dados de análise');
+854:                 closeAnalysisModal();
+855:             }
+856:         } catch (err) {
+857:             Toast.error('Erro de comunicação com o servidor');
+858:             closeAnalysisModal();
+859:         }
+860:     }
+861: 
+862:     function showLoadingState() {
+863:         const loadingHtml = `<tr><td colspan="7" class="text-center" style="padding:2rem; color:var(--text-muted);"><div class="spinner" style="margin:0 auto 0.5rem;"></div>Carregando dados...</td></tr>`;
+864:         const loadingCarga = `<div style="grid-column:1/-1; text-align:center; padding:2rem; color:var(--text-muted);"><div class="spinner" style="margin:0 auto 0.5rem;"></div>Carregando dados...</div>`;
+865:         const loadingAgendas = `<div style="text-align:center; padding:2rem; color:var(--text-muted);"><div class="spinner" style="margin:0 auto 0.5rem;"></div>Carregando dados...</div>`;
+866: 
+867:         const desTbody = document.getElementById('desacordos-tbody');
+868:         if (desTbody) desTbody.innerHTML = loadingHtml.replace('colspan="7"', 'colspan="6"');
+869: 
+870:         const eqTbody = document.getElementById('equalizacao-tbody');
+871:         if (eqTbody) eqTbody.innerHTML = loadingHtml;
+872: 
+873:         const cargaGrid = document.getElementById('carga-grid');
+874:         if (cargaGrid) cargaGrid.innerHTML = loadingCarga;
+875: 
+876:         const agendasCont = document
+<truncated 11861 bytes>
+ </div>
+1057:                 `}
+1058:             </div>
+1059:         `).join('');
+1060:     }
+1061: 
+1062:     window.updateEqualizeButtonState = function () {
+1063:         const anyChecked = document.querySelectorAll('.swap-checkbox:checked').length > 0;
+1064:         const applyBtn = document.getElementById('btn-aplicar-equalizacao');
+1065:         if (applyBtn) applyBtn.disabled = !anyChecked;
+1066:     };
+1067: 
+1068:     window.printAgendas = function () {
+1069:         window.print();
+1070:     };
+1071: 
+1072:     async function applyEqualization() {
+1073:         const applyBtn = document.getElementById('btn-aplicar-equalizacao');
+1074:         if (!applyBtn || applyBtn.disabled) return;
+1075: 
+1076:         const selectedCheckboxes = document.querySelectorAll('.swap-checkbox:checked');
+1077:         if (selectedCheckboxes.length === 0) return;
+1078: 
+1079:         const selectedSwaps = [];
+1080:         selectedCheckboxes.forEach(chk => {
+1081:             const idx = parseInt(chk.dataset.idx);
+1082:             if (analysisData && analysisData.sugestoes[idx]) {
+1083:                 const sugg = analysisData.sugestoes[idx];
+1084:                 selectedSwaps.push({
+1085:                     grade_id:             sugg.grade_id,
+1086:                     role_field:           sugg.role_field,
+1087:                     suggested_teacher_id: sugg.suggested_teacher_id
+1088:                 });
+1089:             }
+1090:         });
+1091: 
+1092:         applyBtn.disabled = true;
+1093:         const originalText = applyBtn.textContent;
+1094:         applyBtn.textContent = 'Aplicando...';
+1095: 
+1096:         try {
+1097:             const fd = new FormData();
+1098:             fd.append('action', 'apply_equalization');
+1099:             fd.append('somativa_id', gd.somativaId);
+1100:             fd.append('csrf_token', CSRF);
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.

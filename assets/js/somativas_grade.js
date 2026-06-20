@@ -22,6 +22,7 @@
         initSlotModal();
         initSmartSearchAll();
         initSuggestionsToggle();
+        initAnalysisModal();
     });
 
     // ──────────────────────────────────────────────────────────
@@ -765,6 +766,509 @@
     function setLoadingSub(msg) {
         const el = document.getElementById('autoalocar-loading-sub');
         if (el) el.textContent = msg;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // Modal de Análise de Professores
+    // ──────────────────────────────────────────────────────────
+    const anOverlay = document.getElementById('analysis-modal-overlay');
+    let analysisData = null;
+
+    function initAnalysisModal() {
+        const btnAnalisar = document.getElementById('btn-analisar-professores');
+        if (btnAnalisar) {
+            btnAnalisar.addEventListener('click', openAnalysisModal);
+        }
+
+        // Eventos de clique nas Abas
+        document.querySelectorAll('.analysis-tab').forEach(tabBtn => {
+            tabBtn.addEventListener('click', () => {
+                const targetTab = tabBtn.dataset.tab;
+                switchAnalysisTab(targetTab);
+            });
+        });
+
+        // Evento de fechar ao clicar no backdrop do modal
+        if (anOverlay) {
+            anOverlay.addEventListener('click', (e) => {
+                if (e.target === anOverlay) closeAnalysisModal();
+            });
+        }
+
+        // Formulário de equalização submit
+        document.getElementById('equalizacao-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await applyEqualization();
+        });
+
+        // Checkbox de selecionar todos
+        document.getElementById('chk-select-all-swaps')?.addEventListener('change', (e) => {
+            const chkAll = e.target;
+            document.querySelectorAll('.swap-checkbox').forEach(chk => {
+                chk.checked = chkAll.checked;
+            });
+            updateEqualizeButtonState();
+        });
+
+        // Aba Inteligência
+        document.getElementById('btn-processar-inteligente')?.addEventListener('click', processIntelligentAllocation);
+        document.getElementById('btn-intel-reset')?.addEventListener('click', resetIntelligentTab);
+        document.getElementById('btn-intel-confirm')?.addEventListener('click', confirmIntelligentAllocation);
+    }
+
+    window.openAnalysisModal = function () {
+        if (!anOverlay) return;
+        anOverlay.hidden = false;
+        loadAnalysisData();
+    };
+
+    window.closeAnalysisModal = function () {
+        if (!anOverlay) return;
+        anOverlay.hidden = true;
+        analysisData = null;
+        resetIntelligentTab();
+    };
+
+    function switchAnalysisTab(tabId) {
+        document.querySelectorAll('.analysis-tab').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tabId);
+        });
+        document.querySelectorAll('.analysis-tab-panel').forEach(panel => {
+            if (panel.id === tabId) {
+                panel.removeAttribute('hidden');
+                panel.classList.add('active');
+            } else {
+                panel.setAttribute('hidden', '');
+                panel.classList.remove('active');
+            }
+        });
+    }
+
+    async function loadAnalysisData() {
+        showLoadingState();
+
+        try {
+            const res = await fetch(`/api/somativas/analise_professores.php?action=load_analysis&somativa_id=${gd.somativaId}`);
+            const data = await res.json();
+
+            if (data.success) {
+                analysisData = data;
+                renderAnalysis();
+            } else {
+                Toast.error(data.message || 'Erro ao carregar dados de análise');
+                closeAnalysisModal();
+            }
+        } catch (err) {
+            Toast.error('Erro de comunicação com o servidor');
+            closeAnalysisModal();
+        }
+    }
+
+    function showLoadingState() {
+        const loadingHtml = `<tr><td colspan="7" class="text-center loading-td"><div class="spinner spinner-margin"></div>Carregando dados...</td></tr>`;
+        const loadingCarga = `<div class="loading-div-grid"><div class="spinner spinner-margin"></div>Carregando dados...</div>`;
+        const loadingAgendas = `<div class="loading-div"><div class="spinner spinner-margin"></div>Carregando dados...</div>`;
+
+        const desTbody = document.getElementById('desacordos-tbody');
+        if (desTbody) desTbody.innerHTML = loadingHtml.replace('colspan="7"', 'colspan="6"');
+
+        const eqTbody = document.getElementById('equalizacao-tbody');
+        if (eqTbody) eqTbody.innerHTML = loadingHtml;
+
+        const cargaGrid = document.getElementById('carga-grid');
+        if (cargaGrid) cargaGrid.innerHTML = loadingCarga;
+
+        const agendasCont = document.getElementById('agendas-container');
+        if (agendasCont) agendasCont.innerHTML = loadingAgendas;
+    }
+
+    function renderAnalysis() {
+        if (!analysisData) return;
+
+        // ── Aba 1: Horários em Desacordo ───────────────────────
+        const conflicts = analysisData.conflitos || [];
+        const desTbody = document.getElementById('desacordos-tbody');
+        if (desTbody) {
+            if (conflicts.length === 0) {
+                desTbody.innerHTML = `<tr><td colspan="6" class="text-center success-td">✅ Nenhum professor alocado fora do horário convencional!</td></tr>`;
+            } else {
+                desTbody.innerHTML = conflicts.map(c => `
+                    <tr>
+                        <td class="font-semibold-primary">${escHtml(c.professor_nome)}</td>
+                        <td>${formatDate(c.data_prova)} (${c.dia_semana_br})</td>
+                        <td><span class="badge badge-neutral">${escHtml(c.slot_label)}</span></td>
+                        <td><span class="badge ${c.papel === 'Aplicador' ? 'badge-warning' : (c.papel === 'Volante' ? 'badge-success badge-volante' : 'badge-neutral')} badge-role">${escHtml(c.papel)}</span></td>
+                        <td>${escHtml(c.turma_desc)}</td>
+                        <td><span class="font-medium">${escHtml(c.disc_nome)}</span></td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        // ── Aba 2: Agenda dos Professores ──────────────────────
+        const agendas = analysisData.agendas || [];
+        const agendasCont = document.getElementById('agendas-container');
+        const profSelect = document.getElementById('agenda-prof-select');
+
+        if (agendasCont && profSelect) {
+            const selectedVal = profSelect.value;
+            profSelect.innerHTML = `<option value="">-- Todos os Professores (${agendas.length}) --</option>` +
+                agendas.map(ag => `<option value="${ag.professor_id}">${escHtml(ag.professor_name)}</option>`).join('');
+            profSelect.value = selectedVal;
+
+            if (agendas.length === 0) {
+                agendasCont.innerHTML = `<p class="agenda-empty text-center agenda-empty-pad">Nenhuma alocação registrada para o período somativo.</p>`;
+            } else {
+                renderAgendaList(agendas, selectedVal);
+
+                profSelect.onchange = () => {
+                    renderAgendaList(agendas, profSelect.value);
+                };
+            }
+        }
+
+        // ── Aba 3: Carga de Trabalho ───────────────────────────
+        const workloads = analysisData.cargas || [];
+        const cargaGrid = document.getElementById('carga-grid');
+        if (cargaGrid) {
+            if (workloads.length === 0) {
+                cargaGrid.innerHTML = `<p class="text-center loading-div-grid">Nenhum professor registrado na instituição.</p>`;
+            } else {
+                const maxVal = Math.max(4, ...workloads.map(w => w.total));
+
+                cargaGrid.innerHTML = workloads.map(w => {
+                    const pct = Math.min(100, Math.round((w.total / maxVal) * 100));
+                    let barClass = 'load-low';
+                    if (w.total >= 5) {
+                        barClass = 'load-high';
+                    } else if (w.total >= 3) {
+                        barClass = 'load-medium';
+                    }
+
+                    return `
+                        <div class="carga-card">
+                            <div class="carga-card-header">
+                                <span class="carga-prof-name">${escHtml(w.professor_name)}</span>
+                                <span class="carga-total-badge">${w.total} aloc.</span>
+                            </div>
+                            <div class="carga-bar-container">
+                                <div class="carga-bar ${barClass}" style="width: ${pct}%;"></div>
+                            </div>
+                            <div class="carga-details">
+                                <span class="carga-detail-item">Aplicador: <strong>${w.aplicador}</strong></span>
+                                <span class="carga-detail-item">Volante: <strong>${w.volante}</strong></span>
+                                <span class="carga-detail-item">NAAPI: <strong>${w.naapi}</strong></span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // ── Aba 4: Equalização de Carga ────────────────────────
+        const suggestions = analysisData.sugestoes || [];
+        const eqTbody = document.getElementById('equalizacao-tbody');
+        const applyBtn = document.getElementById('btn-aplicar-equalizacao');
+
+        if (eqTbody && applyBtn) {
+            const chkAll = document.getElementById('chk-select-all-swaps');
+            if (chkAll) chkAll.checked = false;
+
+            if (suggestions.length === 0) {
+                eqTbody.innerHTML = `<tr><td colspan="7" class="text-center success-td">✨ Distribuição de carga equilibrada! Nenhuma sugestão de troca necessária.</td></tr>`;
+                applyBtn.disabled = true;
+            } else {
+                eqTbody.innerHTML = suggestions.map((s, idx) => `
+                    <tr>
+                        <td class="align-center-middle">
+                            <input type="checkbox" class="swap-checkbox cursor-pointer" data-idx="${idx}" onchange="updateEqualizeButtonState()">
+                        </td>
+                        <td>
+                            <div class="font-semibold-primary">${escHtml(s.turma_desc)}</div>
+                            <div class="font-xs-muted">${escHtml(s.disc_nome)}</div>
+                        </td>
+                        <td>
+                            <div>${formatDate(s.data_prova)} (${s.dia_semana_br})</div>
+                            <div class="font-xs-muted">${escHtml(s.slot_label)}</div>
+                        </td>
+                        <td>
+                            <span class="badge ${s.role_field === 'aplicador_id' ? 'badge-warning' : (s.role_field === 'volante_id' ? 'badge-success badge-volante' : 'badge-neutral')} badge-role">
+                                ${escHtml(s.role_label)}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="font-medium-secondary">${escHtml(s.current_teacher_name)}</div>
+                            <div class="detail-muted">Carga: ${s.current_teacher_load} aloc.</div>
+                        </td>
+                        <td>
+                            <div class="font-semibold-color-primary">${escHtml(s.suggested_teacher_name)}</div>
+                            <div class="detail-muted">Carga: ${s.suggested_teacher_load} aloc.</div>
+                        </td>
+                        <td class="reason-td">
+                            ${escHtml(s.reason)}
+                        </td>
+                    </tr>
+                `).join('');
+                applyBtn.disabled = true;
+            }
+        }
+    }
+
+    function renderAgendaList(agendas, filterProfId) {
+        const agendasCont = document.getElementById('agendas-container');
+        if (!agendasCont) return;
+
+        let filtered = agendas;
+        if (filterProfId) {
+            filtered = agendas.filter(ag => ag.professor_id === parseInt(filterProfId));
+        }
+
+        agendasCont.innerHTML = filtered.map(ag => `
+            <div class="agenda-prof-section" data-prof-id="${ag.professor_id}">
+                <div class="agenda-prof-header">${escHtml(ag.professor_name)}</div>
+                ${ag.agenda.length === 0 ? `
+                    <p class="agenda-empty">Nenhum horário de prova alocado para este professor.</p>
+                ` : `
+                    <div class="analysis-table-wrap">
+                        <table class="analysis-table">
+                            <thead>
+                                <tr>
+                                    <th class="th-w-20">Data / Dia</th>
+                                    <th class="th-w-20">Horário (Slot)</th>
+                                    <th class="th-w-15">Papel</th>
+                                    <th class="th-w-25">Turma</th>
+                                    <th class="th-w-20">Sala / Ambiente</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${ag.agenda.map(a => `
+                                    <tr>
+                                        <td><strong>${formatDate(a.data_prova)}</strong> (${a.dia_semana_br})</td>
+                                        <td><span class="badge badge-neutral">${escHtml(a.slot_label)}</span></td>
+                                        <td><span class="badge ${a.papel === 'Aplicador' ? 'badge-warning' : (a.papel === 'Volante' ? 'badge-success badge-volante' : 'badge-neutral')} badge-role">${escHtml(a.papel)}</span></td>
+                                        <td>
+                                            <div class="font-semibold-primary">${escHtml(a.turma_desc)}</div>
+                                            <div class="font-xs-muted">${escHtml(a.disc_nome)}</div>
+                                        </td>
+                                        <td>🏫 ${escHtml(a.ambiente_desc)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `}
+            </div>
+        `).join('');
+    }
+
+    window.updateEqualizeButtonState = function () {
+        const anyChecked = document.querySelectorAll('.swap-checkbox:checked').length > 0;
+        const applyBtn = document.getElementById('btn-aplicar-equalizacao');
+        if (applyBtn) applyBtn.disabled = !anyChecked;
+    };
+
+    window.printAgendas = function () {
+        window.print();
+    };
+
+    async function applyEqualization() {
+        const applyBtn = document.getElementById('btn-aplicar-equalizacao');
+        if (!applyBtn || applyBtn.disabled) return;
+
+        const selectedCheckboxes = document.querySelectorAll('.swap-checkbox:checked');
+        if (selectedCheckboxes.length === 0) return;
+
+        const selectedSwaps = [];
+        selectedCheckboxes.forEach(chk => {
+            const idx = parseInt(chk.dataset.idx);
+            if (analysisData && analysisData.sugestoes[idx]) {
+                const sugg = analysisData.sugestoes[idx];
+                selectedSwaps.push({
+                    grade_id:             sugg.grade_id,
+                    role_field:           sugg.role_field,
+                    suggested_teacher_id: sugg.suggested_teacher_id
+                });
+            }
+        });
+
+        applyBtn.disabled = true;
+        const originalText = applyBtn.textContent;
+        applyBtn.textContent = 'Aplicando...';
+
+        try {
+            const fd = new FormData();
+            fd.append('action', 'apply_equalization');
+            fd.append('somativa_id', gd.somativaId);
+            fd.append('csrf_token', CSRF);
+            fd.append('swaps', JSON.stringify(selectedSwaps));
+
+            const res = await fetch('/api/somativas/analise_professores.php', { method: 'POST', body: fd });
+            const data = await res.json();
+
+            if (data.success) {
+                Toast.success('Trocas aplicadas com sucesso!');
+                closeAnalysisModal();
+                setTimeout(() => location.reload(), 700);
+            } else {
+                Toast.error(data.message || 'Erro ao aplicar trocas');
+                applyBtn.disabled = false;
+                applyBtn.textContent = originalText;
+            }
+        } catch (err) {
+            Toast.error('Erro de comunicação');
+            applyBtn.disabled = false;
+            applyBtn.textContent = originalText;
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // Aba Inteligência — Alocação Inteligente de Aplicadores
+    // ──────────────────────────────────────────────────────────
+    let intelProposals = [];
+
+    async function processIntelligentAllocation() {
+        const initial = document.getElementById('intel-initial');
+        const loading = document.getElementById('intel-loading');
+        const result  = document.getElementById('intel-result');
+        if (initial) initial.hidden = true;
+        if (loading) loading.hidden = false;
+        if (result)  result.hidden  = true;
+
+        try {
+            const res  = await fetch(`/api/somativas/analise_professores.php?action=preview_intelligent&somativa_id=${gd.somativaId}`);
+            const data = await res.json();
+
+            if (!data.success) {
+                Toast.error(data.message || 'Erro ao gerar proposta de alocação');
+                resetIntelligentTab();
+                return;
+            }
+
+            intelProposals = data.proposals || [];
+            renderIntelligentResult(data);
+
+        } catch (err) {
+            Toast.error('Erro de comunicação com o servidor');
+            resetIntelligentTab();
+        }
+    }
+
+    function resetIntelligentTab() {
+        const initial = document.getElementById('intel-initial');
+        const loading = document.getElementById('intel-loading');
+        const result  = document.getElementById('intel-result');
+        if (initial) initial.hidden = false;
+        if (loading) loading.hidden = true;
+        if (result)  result.hidden  = true;
+        intelProposals = [];
+    }
+
+    function renderIntelligentResult(data) {
+        const proposals  = data.proposals  || [];
+        const stats      = data.stats      || {};
+        const naapiAtivo = data.naapi_ativo;
+        const loadDist   = data.load_dist  || [];
+
+        const summaryEl = document.getElementById('intel-summary');
+        if (summaryEl) {
+            let badges = `
+                <span class="aa-badge aa-badge-ok">✅ ${stats.total || 0} prova${stats.total !== 1 ? 's' : ''} processadas</span>
+                <span class="aa-badge aa-badge-info">👤 ${stats.com_volante || 0} volantes definidos</span>
+                <span class="aa-badge aa-badge-info">📋 ${stats.com_aplicador || 0} aplicadores definidos</span>
+            `;
+            if (naapiAtivo && stats.com_naapi !== null) {
+                badges += `<span class="aa-badge aa-badge-info">♿ ${stats.com_naapi} aplic. NAAPI</span>`;
+            }
+            if (loadDist.length > 0) {
+                badges += `<span class="aa-badge" style="background:var(--bg-surface-2nd);color:var(--text-secondary);">⚖️ máx. ${loadDist[0].load} aloc./professor</span>`;
+            }
+            summaryEl.innerHTML = badges;
+        }
+
+        const tbody = document.getElementById('intel-tbody');
+        if (tbody) {
+            if (proposals.length === 0) {
+                const cols = naapiAtivo ? 5 : 4;
+                tbody.innerHTML = `<tr><td colspan="${cols}" class="text-center" style="padding:2rem;color:var(--text-muted);">Nenhuma prova normal encontrada na grade para alocar.</td></tr>`;
+            } else {
+                tbody.innerHTML = proposals.map(p => {
+                    const volanteHtml = p.volante_nome
+                        ? `<span class="badge badge-role" style="background:rgba(16,185,129,.12);color:#10b981;">Vol.</span> ${escHtml(p.volante_nome)}`
+                        : `<span style="color:var(--text-muted);font-style:italic;">—</span>`;
+
+                    const aplicadorHtml = p.aplicador_nome
+                        ? escHtml(p.aplicador_nome)
+                        : `<span style="color:var(--color-warning,#f59e0b);font-style:italic;">Não encontrado</span>`;
+
+                    const naapiHtml = p.naapi_aplicador_nome
+                        ? escHtml(p.naapi_aplicador_nome)
+                        : `<span style="color:var(--text-muted);font-style:italic;">—</span>`;
+
+                    return `
+                    <tr>
+                        <td>
+                            <strong>${formatDate(p.data_prova)}</strong>
+                            <div style="font-size:.75rem;color:var(--text-muted);">${escHtml(p.slot_label)}</div>
+                        </td>
+                        <td>
+                            <div style="font-weight:600;">${escHtml(p.turma_desc)}</div>
+                            <div style="font-size:.75rem;color:var(--text-muted);">${escHtml(p.disc_nome)}</div>
+                        </td>
+                        <td>${volanteHtml}</td>
+                        <td>${aplicadorHtml}</td>
+                        ${naapiAtivo ? `<td>${naapiHtml}</td>` : ''}
+                    </tr>`;
+                }).join('');
+            }
+        }
+
+        const loading = document.getElementById('intel-loading');
+        const result  = document.getElementById('intel-result');
+        if (loading) loading.hidden = true;
+        if (result)  result.hidden  = false;
+
+        const confirmBtn = document.getElementById('btn-intel-confirm');
+        if (confirmBtn) confirmBtn.disabled = proposals.length === 0;
+    }
+
+    async function confirmIntelligentAllocation() {
+        if (!intelProposals.length) return;
+
+        const n = intelProposals.length;
+
+        Modal.confirm({
+            title:       'Confirmar Alocação Inteligente',
+            message:     `Esta ação irá substituir os aplicadores e volantes de <strong>${n} prova${n !== 1 ? 's' : ''}</strong>. Deseja continuar?`,
+            confirmText: 'Confirmar e Aplicar',
+            confirmClass:'btn-primary',
+            onConfirm: async () => {
+                const btn = document.getElementById('btn-intel-confirm');
+                if (btn) { btn.disabled = true; btn.textContent = 'Aplicando...'; }
+
+                try {
+                    const fd = new FormData();
+                    fd.append('action',      'apply_intelligent');
+                    fd.append('somativa_id', gd.somativaId);
+                    fd.append('csrf_token',  CSRF);
+                    fd.append('proposals',   JSON.stringify(intelProposals));
+
+                    const res  = await fetch('/api/somativas/analise_professores.php', { method: 'POST', body: fd });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        Toast.success(`${data.updated} prova${data.updated !== 1 ? 's' : ''} atualizadas com sucesso!`);
+                        closeAnalysisModal();
+                        setTimeout(() => location.reload(), 800);
+                    } else {
+                        Toast.error(data.message || 'Erro ao aplicar alocação');
+                        if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmar e Aplicar'; }
+                    }
+                } catch (err) {
+                    Toast.error('Erro de comunicação com o servidor');
+                    if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmar e Aplicar'; }
+                }
+            }
+        });
     }
 
 })();
