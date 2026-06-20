@@ -643,12 +643,11 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
                                 <th>Data / Dia</th>
                                 <th>Horário</th>
                                 <th>Papel</th>
-                                <th>Turma</th>
-                                <th>Disciplina</th>
+                                <th>Turmas / Disciplinas</th>
                             </tr>
                         </thead>
                         <tbody id="desacordos-tbody">
-                            <tr><td colspan="6" class="loading-td text-center">
+                            <tr><td colspan="5" class="loading-td text-center">
                                 <div class="spinner spinner-margin"></div>Carregando...</td></tr>
                         </tbody>
                     </table>
@@ -843,7 +842,7 @@ window.GradeData = {
     naapiTempoExtra:   <?= (int)($somativa['naapi_tempo_extra_min'] ?? 60) ?>,
 };
 </script>
-<script src="/assets/js/somativas_grade.js"></script>
+<script src="/assets/js/somativas_grade.js?v=<?= time() ?>"></script>
 
 <!-- ════════════════════════════════════════════════════
      MODAL DE IMPRESSÃO

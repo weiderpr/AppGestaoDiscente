@@ -261,6 +261,8 @@
                 aplicadorNome: existingCard.dataset.aplicadorNome || '',
                 volanteId:   existingCard.dataset.volanteId   || '',
                 volanteNome: existingCard.dataset.volanteNome || '',
+                naapiAplicadorId:   existingCard.dataset.naapiAplicadorId   || '',
+                naapiAplicadorNome: existingCard.dataset.naapiAplicadorNome || '',
                 ambienteId:  existingCard.dataset.ambienteId  || '',
                 ambienteNome: existingCard.dataset.ambienteNome || '',
                 obs:         existingCard.dataset.obs         || '',
@@ -543,10 +545,21 @@
 
         if (hiddenInput) hiddenInput.value = id;
         if (selectedDiv) {
-            selectedDiv.innerHTML = `
-                <span>✓ ${escHtml(label)}</span>
-                <button type="button" class="clear-selection" onclick="clearField('${fieldId}')">✕</button>
-            `;
+            selectedDiv.textContent = '';
+
+            const span = document.createElement('span');
+            span.textContent = `✓ ${label}`;
+            selectedDiv.appendChild(span);
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'clear-selection';
+            btn.textContent = '✕';
+            btn.addEventListener('click', () => {
+                window.clearField(fieldId);
+            });
+            selectedDiv.appendChild(btn);
+
             selectedDiv.hidden = false;
         }
     }
@@ -557,6 +570,12 @@
         const selectedDiv = document.getElementById(`selected-${key}`);
         if (hiddenInput) hiddenInput.value = '';
         if (selectedDiv) selectedDiv.hidden = true;
+
+        const container = document.getElementById(`search-${key}`);
+        if (container) {
+            const input = container.querySelector('.smart-search-input');
+            if (input) input.value = '';
+        }
     };
 
     function suggestProfessor(profId, discNome) {
@@ -870,7 +889,7 @@
         const loadingAgendas = `<div class="loading-div"><div class="spinner spinner-margin"></div>Carregando dados...</div>`;
 
         const desTbody = document.getElementById('desacordos-tbody');
-        if (desTbody) desTbody.innerHTML = loadingHtml.replace('colspan="7"', 'colspan="6"');
+        if (desTbody) desTbody.innerHTML = loadingHtml.replace('colspan="7"', 'colspan="5"');
 
         const eqTbody = document.getElementById('equalizacao-tbody');
         if (eqTbody) eqTbody.innerHTML = loadingHtml;
@@ -890,18 +909,36 @@
         const desTbody = document.getElementById('desacordos-tbody');
         if (desTbody) {
             if (conflicts.length === 0) {
-                desTbody.innerHTML = `<tr><td colspan="6" class="text-center success-td">✅ Nenhum professor alocado fora do horário convencional!</td></tr>`;
+                desTbody.innerHTML = `<tr><td colspan="5" class="text-center success-td">✅ Nenhum professor alocado fora do horário convencional!</td></tr>`;
             } else {
-                desTbody.innerHTML = conflicts.map(c => `
-                    <tr>
-                        <td class="font-semibold-primary">${escHtml(c.professor_nome)}</td>
-                        <td>${formatDate(c.data_prova)} (${c.dia_semana_br})</td>
-                        <td><span class="badge badge-neutral">${escHtml(c.slot_label)}</span></td>
-                        <td><span class="badge ${c.papel === 'Aplicador' ? 'badge-warning' : (c.papel === 'Volante' ? 'badge-success badge-volante' : 'badge-neutral')} badge-role">${escHtml(c.papel)}</span></td>
-                        <td>${escHtml(c.turma_desc)}</td>
-                        <td><span class="font-medium">${escHtml(c.disc_nome)}</span></td>
-                    </tr>
-                `).join('');
+                desTbody.innerHTML = conflicts.map(c => {
+                    const tagsHtml = (c.turmas_disciplinas || []).map(td => `
+                        <span class="conflict-tag">
+                            <strong>${escHtml(td.turma_desc)}</strong> &middot; ${escHtml(td.disc_name)}
+                        </span>
+                    `).join('');
+
+                    let roleBadgeClass = 'badge-neutral';
+                    if (c.papel.includes('Aplicador') && !c.papel.includes('Volante')) {
+                        roleBadgeClass = 'badge-warning';
+                    } else if (c.papel.includes('Volante') && !c.papel.includes('Aplicador')) {
+                        roleBadgeClass = 'badge-success badge-volante';
+                    }
+
+                    return `
+                        <tr>
+                            <td class="font-semibold-primary">${escHtml(c.professor_nome)}</td>
+                            <td>${formatDate(c.data_prova)} (${c.dia_semana_br})</td>
+                            <td><span class="badge badge-neutral">${escHtml(c.slot_label)}</span></td>
+                            <td><span class="badge ${roleBadgeClass} badge-role">${escHtml(c.papel)}</span></td>
+                            <td>
+                                <div class="conflict-tags-list">
+                                    ${tagsHtml}
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
             }
         }
 
@@ -1068,7 +1105,139 @@
     };
 
     window.printAgendas = function () {
-        window.print();
+        const container = document.getElementById('agendas-container');
+        if (!container) return;
+
+        if (container.querySelector('.spinner')) {
+            Toast.warning("Aguarde o carregamento dos dados para imprimir.");
+            return;
+        }
+
+        const htmlContent = container.innerHTML;
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            Toast.error("Não foi possível abrir a janela de impressão. Verifique se o bloqueador de pop-ups está ativado.");
+            return;
+        }
+
+        printWindow.document.write(`
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Agenda de Provas por Professor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #fff;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        .agenda-prof-section {
+            page-break-before: always;
+            break-before: page;
+            margin-bottom: 2cm;
+        }
+        .agenda-prof-section:first-child {
+            page-break-before: avoid;
+            break-before: avoid;
+        }
+        .agenda-prof-header {
+            font-size: 16pt;
+            font-weight: 700;
+            color: #0f172a;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 8px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .analysis-table-wrap {
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .analysis-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10pt;
+            text-align: left;
+        }
+        .analysis-table th,
+        .analysis-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .analysis-table th {
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 8.5pt;
+            letter-spacing: 0.05em;
+        }
+        .analysis-table td {
+            color: #334155;
+            vertical-align: middle;
+        }
+        .analysis-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .analysis-table tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+        .badge {
+            font-size: 7.5pt;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            white-space: nowrap;
+            display: inline-block;
+        }
+        .badge-neutral { background: #f1f5f9; color: #475569; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-success { background: #d1fae5; color: #065f46; }
+        .badge-volante { background: #d1fae5; color: #065f46; }
+        
+        .font-semibold-primary {
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .font-xs-muted {
+            font-size: 8.5pt;
+            color: #64748b;
+        }
+        .agenda-empty {
+            font-style: italic;
+            color: #64748b;
+            font-size: 10pt;
+        }
+        @page {
+            size: A4 portrait;
+            margin: 1.5cm;
+        }
+    </style>
+</head>
+<body>
+    ${htmlContent}
+    <script>
+        window.onload = function() {
+            window.print();
+            setTimeout(function() { window.close(); }, 500);
+        };
+    </script>
+</body>
+</html>
+        `);
+        printWindow.document.close();
     };
 
     async function applyEqualization() {

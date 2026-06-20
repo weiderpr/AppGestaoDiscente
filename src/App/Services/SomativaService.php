@@ -1392,10 +1392,11 @@ class SomativaService extends Service {
             ];
         }
 
-        $conflicts = [];
+        $groupedConflicts = [];
         foreach ($allocs as $aloc) {
             $pid = (int)$aloc['professor_id'];
             $date = $aloc['data_prova'];
+            $slotId = (int)$aloc['slot_config_id'];
             $dow = (int)date('N', strtotime($date));
             $start = $aloc['horario_inicio'];
             $end = $aloc['horario_fim'];
@@ -1411,18 +1412,50 @@ class SomativaService extends Service {
             }
 
             if (!$hasRegularClass) {
-                $conflicts[] = [
-                    'grade_id'       => (int)$aloc['grade_id'],
-                    'data_prova'     => $date,
-                    'dia_semana_br'  => ['', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][$dow],
-                    'slot_label'     => $aloc['slot_label'] ?: substr($start, 0, 5) . '–' . substr($end, 0, 5),
-                    'turma_desc'     => $aloc['turma_desc'],
-                    'disc_nome'      => $aloc['disc_nome'] ?: 'Segunda Chamada',
-                    'professor_id'   => $pid,
-                    'professor_nome' => $aloc['professor_nome'],
-                    'papel'          => $aloc['papel']
+                $key = $pid . '_' . $date . '_' . $slotId;
+                if (!isset($groupedConflicts[$key])) {
+                    $groupedConflicts[$key] = [
+                        'grade_id'       => (int)$aloc['grade_id'],
+                        'data_prova'     => $date,
+                        'dia_semana_br'  => ['', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][$dow],
+                        'slot_config_id' => $slotId,
+                        'slot_label'     => $aloc['slot_label'] ?: substr($start, 0, 5) . '–' . substr($end, 0, 5),
+                        'professor_id'   => $pid,
+                        'professor_name' => $aloc['professor_nome'],
+                        'papeis'         => [],
+                        'turmas_disciplinas' => []
+                    ];
+                }
+                $groupedConflicts[$key]['papeis'][] = $aloc['papel'];
+                $groupedConflicts[$key]['turmas_disciplinas'][] = [
+                    'turma_desc' => $aloc['turma_desc'],
+                    'disc_name'  => $aloc['disc_nome'] ?: 'Segunda Chamada'
                 ];
             }
+        }
+
+        $conflicts = [];
+        foreach ($groupedConflicts as $c) {
+            $uniquePapeis = array_unique($c['papeis']);
+            
+            // Deduplicate same class / subject combinations
+            $uniqueTD = [];
+            foreach ($c['turmas_disciplinas'] as $td) {
+                $tdKey = $td['turma_desc'] . ' - ' . $td['disc_name'];
+                $uniqueTD[$tdKey] = $td;
+            }
+
+            $conflicts[] = [
+                'grade_id'           => $c['grade_id'],
+                'data_prova'         => $c['data_prova'],
+                'dia_semana_br'      => $c['dia_semana_br'],
+                'slot_config_id'     => $c['slot_config_id'],
+                'slot_label'         => $c['slot_label'],
+                'professor_id'       => $c['professor_id'],
+                'professor_name'     => $c['professor_name'],
+                'papel'              => implode(', ', $uniquePapeis),
+                'turmas_disciplinas' => array_values($uniqueTD)
+            ];
         }
 
         // Ordena por data, slot, nome do professor
@@ -1433,7 +1466,7 @@ class SomativaService extends Service {
             if (($a['slot_config_id'] ?? 0) !== ($b['slot_config_id'] ?? 0)) {
                 return ($a['slot_config_id'] ?? 0) - ($b['slot_config_id'] ?? 0);
             }
-            return strcmp($a['professor_nome'], $b['professor_nome']);
+            return strcmp($a['professor_name'], $b['professor_name']);
         });
 
         return $conflicts;
@@ -1942,6 +1975,8 @@ class SomativaService extends Service {
 
         // Ocupação por slot: slotKey → [profId => true]
         $slotOccupancy = [];
+        // Aplicador NAAPI definido por slot: slotKey → profId
+        $slotNaapiApplicators = [];
 
         $proposals = [];
 
@@ -2040,47 +2075,54 @@ class SomativaService extends Service {
             $naapiName = null;
 
             if ($naapiAtivo) {
-                $naCandidates = [];
-                foreach ($teacherMap as $pid => $pname) {
-                    if (isset($slotOccupancy[$slotKey][$pid])) continue;
+                if (isset($slotNaapiApplicators[$slotKey])) {
+                    $naapiId   = $slotNaapiApplicators[$slotKey];
+                    $naapiName = $teacherMap[$naapiId];
+                    $slotOccupancy[$slotKey][$naapiId] = true;
+                } else {
+                    $naCandidates = [];
+                    foreach ($teacherMap as $pid => $pname) {
+                        if (isset($slotOccupancy[$slotKey][$pid])) continue;
 
-                    $thisTurma = false;
-                    $anyTurma  = false;
+                        $thisTurma = false;
+                        $anyTurma  = false;
 
-                    if (isset($byProfDay[$pid][$dow])) {
-                        foreach ($byProfDay[$pid][$dow] as $cls) {
-                            if ($cls['inicio'] < $slotEnd && $cls['fim'] > $slotStart) {
-                                $anyTurma = true;
-                                if ($cls['turma_id'] === $turmaId) {
-                                    $thisTurma = true;
+                        if (isset($byProfDay[$pid][$dow])) {
+                            foreach ($byProfDay[$pid][$dow] as $cls) {
+                                if ($cls['inicio'] < $slotEnd && $cls['fim'] > $slotStart) {
+                                    $anyTurma = true;
+                                    if ($cls['turma_id'] === $turmaId) {
+                                        $thisTurma = true;
+                                    }
                                 }
                             }
                         }
+
+                        $naCandidates[$pid] = [
+                            'turma_match' => $thisTurma,
+                            'any_class'   => $anyTurma,
+                            'load'        => $runningLoad[$pid] ?? 0,
+                        ];
                     }
 
-                    $naCandidates[$pid] = [
-                        'turma_match' => $thisTurma,
-                        'any_class'   => $anyTurma,
-                        'load'        => $runningLoad[$pid] ?? 0,
-                    ];
-                }
+                    uasort($naCandidates, function ($x, $y) {
+                        if ($x['turma_match'] !== $y['turma_match']) {
+                            return $y['turma_match'] <=> $x['turma_match'];
+                        }
+                        if ($x['any_class'] !== $y['any_class']) {
+                            return $y['any_class'] <=> $x['any_class'];
+                        }
+                        return $x['load'] <=> $y['load'];
+                    });
 
-                uasort($naCandidates, function ($x, $y) {
-                    if ($x['turma_match'] !== $y['turma_match']) {
-                        return $y['turma_match'] <=> $x['turma_match'];
+                    if (!empty($naCandidates)) {
+                        $bestNaapi     = (int)array_key_first($naCandidates);
+                        $naapiId       = $bestNaapi;
+                        $naapiName     = $teacherMap[$bestNaapi];
+                        $slotOccupancy[$slotKey][$bestNaapi] = true;
+                        $runningLoad[$bestNaapi] = ($runningLoad[$bestNaapi] ?? 0) + 1;
+                        $slotNaapiApplicators[$slotKey] = $bestNaapi;
                     }
-                    if ($x['any_class'] !== $y['any_class']) {
-                        return $y['any_class'] <=> $x['any_class'];
-                    }
-                    return $x['load'] <=> $y['load'];
-                });
-
-                if (!empty($naCandidates)) {
-                    $bestNaapi     = (int)array_key_first($naCandidates);
-                    $naapiId       = $bestNaapi;
-                    $naapiName     = $teacherMap[$bestNaapi];
-                    $slotOccupancy[$slotKey][$bestNaapi] = true;
-                    $runningLoad[$bestNaapi] = ($runningLoad[$bestNaapi] ?? 0) + 1;
                 }
             }
 

@@ -408,9 +408,21 @@ class SomativaScheduler extends Service
         // ── Fase 0: pré-alocação de grupos Hard/Todos por professor ──────────
         $preAllocated = [];
         if (!empty($hardProfAll)) {
+            $context = [
+                'hardConstrainedHorario' => $hardConstrainedHorario,
+                'hardConstrainedDia'     => $hardConstrainedDia,
+                'discTurmas'             => $discTurmas,
+                'hardProfDisc'           => $hardProfDisc,
+                'profDiscTurmas'         => $profDiscTurmas,
+                'hardGrupos'             => $hardGrupos,
+                'discInHardGrupo'        => $discInHardGrupo,
+                'sdIdLookup'             => $sdIdLookup,
+                'evitarConflitoProf'     => $evitarConflitoProf,
+            ];
             $preAllocated = $this->preAllocateHardProfAll(
                 $data, $restricoes, $hardProfAll, $profAllStIds, $datesNormais,
-                $alocacoes, $ocupados, $countDia, $discNoDia, $codEmData
+                $alocacoes, $ocupados, $countDia, $discNoDia, $codEmData,
+                $context
             );
         }
 
@@ -1515,9 +1527,10 @@ class SomativaScheduler extends Service
         $slotId = (int)$slot['id'];
         $dow  = (int)(new \DateTime($date))->format('N');
 
-        // Encontra quem já está alocado como aplicador ou volante neste slot
+        // Encontra quem já está alocado como aplicador, volante ou aplicador NAAPI neste slot
         $busyAplicadores = [];
         $busyVolantes = [];
+        $busyNaapi = [];
         foreach ($alocacoes as $aloc) {
             if ($aloc['data_prova'] === $date && (int)$aloc['slot_config_id'] === $slotId) {
                 if ($aloc['aplicador_id']) {
@@ -1525,6 +1538,9 @@ class SomativaScheduler extends Service
                 }
                 if ($aloc['volante_id']) {
                     $busyVolantes[] = (int)$aloc['volante_id'];
+                }
+                if (!empty($aloc['naapi_aplicador_id'])) {
+                    $busyNaapi[] = (int)$aloc['naapi_aplicador_id'];
                 }
             }
         }
@@ -1558,9 +1574,9 @@ class SomativaScheduler extends Service
         if ($sameDiscAloc !== null && !empty($sameDiscAloc['volante_id'])) {
             $volante = (int)$sameDiscAloc['volante_id'];
         } else {
-            // Tenta escolher um professor da disciplina que não esteja ocupado como aplicador em outro lugar
+            // Tenta escolher um professor da disciplina que não esteja ocupado como aplicador em outro lugar ou no NAAPI
             foreach ($disciplineProfs as $pid) {
-                if (!in_array($pid, $busyAplicadores)) {
+                if (!in_array($pid, $busyAplicadores) && !in_array($pid, $busyNaapi)) {
                     $volante = $pid;
                     break;
                 }
@@ -1569,16 +1585,20 @@ class SomativaScheduler extends Service
 
         // 4. Escolher o Aplicador
         $aplicador = null;
-        // Candidato preferencial: o professor regular agendado da turma (desde que não seja o volante e não esteja ocupado)
+        // Candidato preferencial: o professor regular agendado da turma (desde que não seja o volante e não esteja ocupado ou no NAAPI)
         if ($scheduledTeacher !== null 
             && $scheduledTeacher !== $volante 
             && !in_array($scheduledTeacher, $busyAplicadores) 
-            && !in_array($scheduledTeacher, $busyVolantes)) {
+            && !in_array($scheduledTeacher, $busyVolantes)
+            && !in_array($scheduledTeacher, $busyNaapi)) {
             $aplicador = $scheduledTeacher;
         } else {
-            // Fallback: tenta pegar outro professor da disciplina que não seja o volante e não esteja ocupado
+            // Fallback: tenta pegar outro professor da disciplina que não seja o volante e não esteja ocupado ou no NAAPI
             foreach ($disciplineProfs as $pid) {
-                if ($pid !== $volante && !in_array($pid, $busyAplicadores) && !in_array($pid, $busyVolantes)) {
+                if ($pid !== $volante 
+                    && !in_array($pid, $busyAplicadores) 
+                    && !in_array($pid, $busyVolantes)
+                    && !in_array($pid, $busyNaapi)) {
                     $aplicador = $pid;
                     break;
                 }
@@ -1592,7 +1612,8 @@ class SomativaScheduler extends Service
      * Escolhe o professor aplicador NAAPI para um slot.
      *
      * Regra: professor disponível no horário (tem aula neste dia da semana),
-     * diferente do aplicador principal já escalado.
+     * diferente de aplicadores/volantes já escalados para este slot.
+     * Reutiliza o aplicador NAAPI se já houver um definido para o mesmo slot.
      * Retorna null se não for possível encontrar alguém disponível.
      */
     private function chooseNaapiAplicador(
@@ -1606,20 +1627,34 @@ class SomativaScheduler extends Service
         $slotId = (int)$slot['id'];
         $dow    = (int)(new \DateTime($date))->format('N');
 
-        // Professores já escalados como aplicador NAAPI neste slot
-        $busyNaapi = [];
+        // 1. Verifica se já existe um aplicador NAAPI definido para este dia e horário
         foreach ($alocacoes as $aloc) {
             if ($aloc['data_prova'] === $date && (int)$aloc['slot_config_id'] === $slotId) {
                 if (!empty($aloc['naapi_aplicador_id'])) {
-                    $busyNaapi[] = (int)$aloc['naapi_aplicador_id'];
+                    return (int)$aloc['naapi_aplicador_id'];
+                }
+            }
+        }
+
+        // 2. Caso contrário, busca um novo aplicador disponível
+        $busyProfs = [];
+        if ($mainAplicadorId) {
+            $busyProfs[] = $mainAplicadorId;
+        }
+        foreach ($alocacoes as $aloc) {
+            if ($aloc['data_prova'] === $date && (int)$aloc['slot_config_id'] === $slotId) {
+                if ($aloc['aplicador_id']) {
+                    $busyProfs[] = (int)$aloc['aplicador_id'];
+                }
+                if ($aloc['volante_id']) {
+                    $busyProfs[] = (int)$aloc['volante_id'];
                 }
             }
         }
 
         // Itera professores disponíveis neste horário
         foreach ($profAvail[$dow] ?? [] as $profId => $slots) {
-            if ($profId === $mainAplicadorId) continue;
-            if (in_array($profId, $busyNaapi, true)) continue;
+            if (in_array($profId, $busyProfs, true)) continue;
 
             foreach ($slots as [$ini, $fim]) {
                 if ($ini < $slot['horario_fim'] && $fim > $slot['horario_inicio']) {
@@ -1654,7 +1689,8 @@ class SomativaScheduler extends Service
         array  &$ocupados,
         array  &$countDia,
         array  &$discNoDia,
-        array  &$codEmData
+        array  &$codEmData,
+        array  $context
     ): array {
         $preAllocated = [];
         $maxPorDia    = (int)$data['som']['max_provas_por_dia'];
@@ -1692,12 +1728,6 @@ class SomativaScheduler extends Service
             $foundDate = null;
             $foundSlot = null;
             foreach ($datesNormais as $date) {
-                $dateBlocked = false;
-                foreach ($restricoes['bloquear_data'] as $r) {
-                    if (($r['data'] ?? '') === $date) { $dateBlocked = true; break; }
-                }
-                if ($dateBlocked) continue;
-
                 foreach ($data['slots'] as $slot) {
                     $slotId  = (int)$slot['id'];
                     $canUse  = true;
@@ -1707,12 +1737,18 @@ class SomativaScheduler extends Service
                         if (!empty($ocupados[$sId][$date][$slotId])) { $canUse = false; break; }
                         if (($countDia[$sId][$date] ?? 0) >= $maxPorDia) { $canUse = false; break; }
 
-                        $discProfIds = array_filter(explode(',', $item['disc']['professor_ids'] ?? ''));
-                        foreach ($discProfIds as $dpid) {
-                            foreach ($restricoes['professor_indisponivel'] as $r) {
-                                if ((int)($r['professor_id'] ?? 0) !== (int)$dpid) continue;
-                                if (in_array($date, $r['datas'] ?? [])) { $canUse = false; break 3; }
-                            }
+                        [$blocked, $blockReason] = $this->checkHardBlocks(
+                            $date, $slot, $item['disc'], $restricoes, $alocacoes, $sId,
+                            $context['hardConstrainedHorario'], $context['hardConstrainedDia'],
+                            $ocupados, $countDia, $context['discTurmas'], $data['slots'], $maxPorDia,
+                            $context['hardProfDisc'], $context['profDiscTurmas'],
+                            $context['hardGrupos'], $context['discInHardGrupo'], $context['sdIdLookup'],
+                            $hardProfAll, $profAllStIds,
+                            $context['evitarConflitoProf']
+                        );
+                        if ($blocked) {
+                            $canUse = false;
+                            break;
                         }
                     }
                     if (!$canUse) continue;
@@ -1772,7 +1808,7 @@ class SomativaScheduler extends Service
                 $ocupados[$sId][$foundDate][$slotId]     = true;
                 $countDia[$sId][$foundDate]              = ($countDia[$sId][$foundDate] ?? 0) + 1;
                 $discNoDia[$sId][$foundDate][]            = $cod;
-                $codEmData[$foundDate][$cod]              = true;
+                $codEmData[$foundDate][$cod]              = ($codEmData[$foundDate][$cod] ?? 0) + 1;
                 $preAllocated[$sdId]                      = true;
             }
         }
