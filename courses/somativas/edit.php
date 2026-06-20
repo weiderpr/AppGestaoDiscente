@@ -321,6 +321,15 @@ require_once __DIR__ . '/../../includes/header.php';
                         <span class="form-hint">Se não definida, o sistema considera que não há dia específico para segunda chamada.</span>
                     </div>
 
+                    <!-- Evitar Conflito de Aplicador (Professor) -->
+                    <div class="form-group" style="grid-column: 1 / -1; margin-top: 0.5rem; margin-bottom: 0.5rem;">
+                        <label class="form-label" style="display:flex; align-items:center; gap:0.625rem; cursor:pointer; font-weight:600;">
+                            <input type="checkbox" name="evitar_conflito_professor" value="1" <?= !empty($somativa['evitar_conflito_professor']) ? 'checked' : '' ?> style="width:18px; height:18px; cursor:pointer;">
+                            <span>Evitar conflito de aplicação simultânea para o mesmo professor</span>
+                        </label>
+                        <span class="form-hint" style="margin-left: 28px; display:block;">Se marcado, impede que um mesmo professor seja escalado como aplicador principal em provas de turmas diferentes no mesmo dia e horário (bloqueio absoluto). Deixe desmarcado se a instituição permitir que o professor supervisione provas simultâneas (o que facilita o agendamento).</span>
+                    </div>
+
                     <?php if ($isEdit): ?>
                     <!-- Status -->
                     <div class="form-group">
@@ -1023,6 +1032,7 @@ const DISC_TURMA_OPTIONS = <?= json_encode((static function() use ($somativa): a
                 'sdId'       => (int)$d['id'],
                 'discCod'    => $d['disciplina_codigo'],
                 'discNome'   => $d['disc_nome'] ?? $d['disciplina_codigo'],
+                'professores'=> $d['professores'] ?? '',
                 'stId'       => (int)$t['somativa_turma_id'],
                 'turmaLabel' => $t['course_name'] . ' — ' . $t['turma_desc'],
             ];
@@ -1030,6 +1040,133 @@ const DISC_TURMA_OPTIONS = <?= json_encode((static function() use ($somativa): a
     }
     return $opts;
 })(), JSON_UNESCAPED_UNICODE) ?>;
+
+let selectedEvitarKeys = [];
+let selectedGrupoKeys = [];
+
+const getEvitarOptions = () => {
+    const seen = new Set();
+    const options = [];
+    for (const o of DISC_TURMA_OPTIONS) {
+        const key = o.discCod + '|' + (o.professores || '');
+        if (!seen.has(key)) {
+            seen.add(key);
+            options.push({
+                discCod: o.discCod,
+                discNome: o.discNome,
+                professores: o.professores
+            });
+        }
+    }
+    return options;
+};
+
+const getGrupoOptions = () => {
+    const groups = {};
+    for (const o of DISC_TURMA_OPTIONS) {
+        const key = o.discCod + '|' + (o.professores || '');
+        if (!groups[key]) {
+            groups[key] = {
+                discCod: o.discCod,
+                discNome: o.discNome,
+                professores: o.professores,
+                sdIds: []
+            };
+        }
+        groups[key].sdIds.push(o.sdId);
+    }
+    return Object.values(groups);
+};
+
+window.updateEvitarTags = function() {
+    const tagsContainer = document.getElementById('evitar-tags-container');
+    const hiddenContainer = document.getElementById('evitar-hidden-inputs');
+    if (!tagsContainer || !hiddenContainer) return;
+    
+    if (selectedEvitarKeys.length === 0) {
+        tagsContainer.innerHTML = '<span class="disc-empty">Nenhuma disciplina selecionada</span>';
+        hiddenContainer.innerHTML = '';
+        return;
+    }
+    
+    tagsContainer.innerHTML = selectedEvitarKeys.map(key => {
+        const o = getEvitarOptions().find(item => (item.discCod + '|' + (item.professores || '')) === key);
+        if (!o) return '';
+        const profInfo = o.professores ? ` (Prof: ${o.professores})` : '';
+        const safeKey = key.replace(/'/g, "\\'");
+        return `
+            <span class="disc-tag">
+                <span class="disc-tag-code">${esc(o.discCod)}</span>
+                <span>${esc(o.discNome)}${esc(profInfo)}</span>
+                <button type="button" class="disc-tag-remove" onclick="removeEvitarKey('${esc(safeKey)}')" title="Remover">×</button>
+            </span>
+        `;
+    }).join('');
+    
+    const uniqueCodes = [...new Set(selectedEvitarKeys.map(k => k.split('|')[0]))];
+    hiddenContainer.innerHTML = uniqueCodes.map(cod => `
+        <input type="hidden" name="param_disciplinas[]" value="${esc(cod)}">
+    `).join('');
+};
+
+window.removeEvitarKey = function(key) {
+    selectedEvitarKeys = selectedEvitarKeys.filter(item => item !== key);
+    updateEvitarTags();
+};
+
+window.updateGrupoTags = function() {
+    const tagsContainer = document.getElementById('grupo-tags-container');
+    const hiddenContainer = document.getElementById('grupo-hidden-inputs');
+    if (!tagsContainer || !hiddenContainer) return;
+    
+    if (selectedGrupoKeys.length === 0) {
+        tagsContainer.innerHTML = '<span class="disc-empty">Nenhuma disciplina selecionada</span>';
+        hiddenContainer.innerHTML = '';
+        return;
+    }
+    
+    tagsContainer.innerHTML = selectedGrupoKeys.map(key => {
+        const o = getGrupoOptions().find(item => (item.discCod + '|' + (item.professores || '')) === key);
+        if (!o) return '';
+        const profInfo = o.professores ? ` (Prof: ${o.professores})` : '';
+        const safeKey = key.replace(/'/g, "\\'");
+        return `
+            <span class="disc-tag">
+                <span class="disc-tag-code">${esc(o.discCod)}</span>
+                <span>${esc(o.discNome)}${esc(profInfo)}</span>
+                <button type="button" class="disc-tag-remove" onclick="removeGrupoKey('${esc(safeKey)}')" title="Remover">×</button>
+            </span>
+        `;
+    }).join('');
+    
+    const allSdIds = [];
+    for (const key of selectedGrupoKeys) {
+        const o = getGrupoOptions().find(item => (item.discCod + '|' + (item.professores || '')) === key);
+        if (o) {
+            allSdIds.push(...o.sdIds);
+        }
+    }
+    hiddenContainer.innerHTML = allSdIds.map(sdId => `
+        <input type="hidden" name="param_pares[]" value="${sdId}">
+    `).join('');
+
+    // Aviso: detecta múltiplas disciplinas do mesmo grupo na mesma turma (restrição impossível)
+    const warnEl = document.getElementById('grupo-warn-mesma-turma');
+    if (warnEl) {
+        const stIdCounts = {};
+        for (const sdId of allSdIds) {
+            const opt = DISC_TURMA_OPTIONS.find(o => o.sdId === sdId);
+            if (opt) { stIdCounts[opt.stId] = (stIdCounts[opt.stId] || 0) + 1; }
+        }
+        const hasConflict = Object.values(stIdCounts).some(c => c > 1);
+        warnEl.hidden = !hasConflict;
+    }
+};
+
+window.removeGrupoKey = function(key) {
+    selectedGrupoKeys = selectedGrupoKeys.filter(item => item !== key);
+    updateGrupoTags();
+};
 
 function renderRestricaoParams(params = {}) {
     const cat       = document.getElementById('r-categoria').value;
@@ -1054,20 +1191,21 @@ function renderRestricaoParams(params = {}) {
             <input type="text" name="param_motivo" class="form-control" value="${esc(params.motivo || '')}" placeholder="Ex.: Feriado Nacional">
         </div>`;
     } else if (cat === 'evitar_mesmo_dia') {
-        const selectedDiscs = params.disciplinas || [];
-        const options = Object.entries(DISCS_SOMATIVA)
-            .map(([cod, nome]) => {
-                const selected = selectedDiscs.includes(cod) ? 'selected' : '';
-                return `<option value="${esc(cod)}" ${selected}>${esc(cod)} — ${esc(nome)}</option>`;
-            })
-            .join('');
+        if (params && params.disciplinas) {
+            selectedEvitarKeys = getEvitarOptions()
+                .filter(o => params.disciplinas.includes(o.discCod))
+                .map(o => o.discCod + '|' + (o.professores || ''));
+        }
         html = `
         <div class="form-group" style="grid-column:1/-1">
             <label class="form-label">Disciplinas a separar<span class="label-req">*</span></label>
-            <select name="param_disciplinas[]" class="form-control" multiple size="5" required>
-                ${options}
-            </select>
-            <span class="form-hint">Segure Ctrl/Cmd para selecionar múltiplas. Mínimo 2 disciplinas.</span>
+            <div class="smart-wrap" id="evitar-search-wrap">
+                <input type="text" id="evitar-search-input" class="form-control smart-input" autocomplete="off" placeholder="Digite o código ou nome da disciplina...">
+                <div class="smart-drop" id="evitar-search-drop" hidden></div>
+            </div>
+            <div class="disc-tags" id="evitar-tags-container" style="margin-top: 0.75rem;"></div>
+            <div id="evitar-hidden-inputs"></div>
+            <span class="form-hint">Mínimo 2 disciplinas.</span>
         </div>`;
     } else if (cat === 'mesmo_dia_turmas') {
         const selectedCod = params.disciplina_codigo || '';
@@ -1283,20 +1421,30 @@ function renderRestricaoParams(params = {}) {
             <span class="form-hint">Aplica a restrição somente à turma selecionada.</span>
         </div>`;
     } else if (cat === 'mesmo_dia_horario_grupo') {
-        const selectedSdIds = (params.pares || []).map(p => Number(p.somativa_disciplina_id));
-
-        const options = DISC_TURMA_OPTIONS.map(o => {
-            const sel = selectedSdIds.includes(o.sdId) ? 'selected' : '';
-            return `<option value="${esc(String(o.sdId))}" ${sel}>${esc(o.discNome)} — ${esc(o.turmaLabel)}</option>`;
-        }).join('');
-
+        if (params && params.pares) {
+            const sdIds = params.pares.map(p => Number(p.somativa_disciplina_id));
+            const keys = new Set();
+            for (const id of sdIds) {
+                const o = DISC_TURMA_OPTIONS.find(item => item.sdId === id);
+                if (o) {
+                    keys.add(o.discCod + '|' + (o.professores || ''));
+                }
+            }
+            selectedGrupoKeys = Array.from(keys);
+        }
         html = `
         <div class="form-group" style="grid-column:1/-1">
             <label class="form-label">Disciplinas do grupo<span class="label-req">*</span></label>
-            <select name="param_pares[]" class="form-control" multiple size="6" required>
-                ${options || '<option disabled>Nenhuma disciplina cadastrada nesta somativa</option>'}
-            </select>
-            <span class="form-hint">Segure Ctrl/Cmd para selecionar múltiplas. Mínimo 2. Podem ser de turmas diferentes.</span>
+            <div class="smart-wrap" id="grupo-search-wrap">
+                <input type="text" id="grupo-search-input" class="form-control smart-input" autocomplete="off" placeholder="Digite a disciplina ou turma...">
+                <div class="smart-drop" id="grupo-search-drop" hidden></div>
+            </div>
+            <div class="disc-tags" id="grupo-tags-container" style="margin-top: 0.75rem;"></div>
+            <div id="grupo-hidden-inputs"></div>
+            <div id="grupo-warn-mesma-turma" hidden style="margin-top:0.5rem;padding:0.5rem 0.75rem;border-radius:6px;background:#fff3cd;border:1px solid #ffc107;color:#856404;font-size:0.85rem;">
+                ⚠️ <strong>Atenção:</strong> O grupo contém mais de uma disciplina da mesma turma. Como uma turma não pode ter duas provas no mesmo horário, a restrição será impossível de cumprir. Crie <strong>restrições separadas</strong> por código de disciplina (uma por código).
+            </div>
+            <span class="form-hint">Mínimo 2. Podem ser de turmas diferentes.</span>
         </div>`;
     }
 
@@ -1304,6 +1452,98 @@ function renderRestricaoParams(params = {}) {
 
     if (cat === 'professor_mesmo_dia_horario') {
         initRestricaoProfSearch();
+    } else if (cat === 'evitar_mesmo_dia') {
+        updateEvitarTags();
+        const input = document.getElementById('evitar-search-input');
+        const drop = document.getElementById('evitar-search-drop');
+        if (input) {
+            input.addEventListener('input', () => {
+                const q = input.value.trim().toLowerCase();
+                if (!q) { drop.hidden = true; return; }
+                const matches = getEvitarOptions().filter(o => {
+                    const key = o.discCod + '|' + (o.professores || '');
+                    const isSelected = selectedEvitarKeys.includes(key);
+                    return !isSelected && 
+                           (o.discCod.toLowerCase().includes(q) || 
+                            o.discNome.toLowerCase().includes(q) || 
+                            (o.professores && o.professores.toLowerCase().includes(q)));
+                });
+                if (!matches.length) {
+                    drop.innerHTML = '<div style="padding:.625rem .875rem;color:var(--text-muted);font-size:.875rem;">Nenhuma disciplina encontrada</div>';
+                } else {
+                    drop.innerHTML = matches.map(o => {
+                        const key = o.discCod + '|' + (o.professores || '');
+                        return `
+                            <div class="sr" data-key="${esc(key)}">
+                                <span class="sr-label">[${esc(o.discCod)}] — ${esc(o.discNome)}</span>
+                                ${o.professores ? `<span class="sr-sub">Prof: ${esc(o.professores)}</span>` : '<span class="sr-sub" style="font-style:italic;color:var(--text-muted)">Sem professor</span>'}
+                            </div>
+                        `;
+                    }).join('');
+                    drop.querySelectorAll('.sr').forEach(el => {
+                        el.addEventListener('click', () => {
+                            const key = el.dataset.key;
+                            selectedEvitarKeys.push(key);
+                            input.value = '';
+                            drop.hidden = true;
+                            updateEvitarTags();
+                            input.focus();
+                        });
+                    });
+                }
+                drop.hidden = false;
+            });
+        }
+        document.addEventListener('click', e => {
+            const wrap = document.getElementById('evitar-search-wrap');
+            if (wrap && !wrap.contains(e.target) && drop) drop.hidden = true;
+        });
+    } else if (cat === 'mesmo_dia_horario_grupo') {
+        updateGrupoTags();
+        const input = document.getElementById('grupo-search-input');
+        const drop = document.getElementById('grupo-search-drop');
+        if (input) {
+            input.addEventListener('input', () => {
+                const q = input.value.trim().toLowerCase();
+                if (!q) { drop.hidden = true; return; }
+                const matches = getGrupoOptions().filter(o => {
+                    const key = o.discCod + '|' + (o.professores || '');
+                    const isSelected = selectedGrupoKeys.includes(key);
+                    return !isSelected && 
+                           (o.discCod.toLowerCase().includes(q) || 
+                            o.discNome.toLowerCase().includes(q) || 
+                            (o.professores && o.professores.toLowerCase().includes(q)));
+                });
+                if (!matches.length) {
+                    drop.innerHTML = '<div style="padding:.625rem .875rem;color:var(--text-muted);font-size:.875rem;">Nenhuma disciplina encontrada</div>';
+                } else {
+                    drop.innerHTML = matches.map(o => {
+                        const key = o.discCod + '|' + (o.professores || '');
+                        return `
+                            <div class="sr" data-key="${esc(key)}">
+                                <span class="sr-label">[${esc(o.discCod)}] — ${esc(o.discNome)}</span>
+                                ${o.professores ? `<span class="sr-sub">Prof: ${esc(o.professores)}</span>` : '<span class="sr-sub" style="font-style:italic;color:var(--text-muted)">Sem professor</span>'}
+                            </div>
+                        `;
+                    }).join('');
+                    drop.querySelectorAll('.sr').forEach(el => {
+                        el.addEventListener('click', () => {
+                            const key = el.dataset.key;
+                            selectedGrupoKeys.push(key);
+                            input.value = '';
+                            drop.hidden = true;
+                            updateGrupoTags();
+                            input.focus();
+                        });
+                    });
+                }
+                drop.hidden = false;
+            });
+        }
+        document.addEventListener('click', e => {
+            const wrap = document.getElementById('grupo-search-wrap');
+            if (wrap && !wrap.contains(e.target) && drop) drop.hidden = true;
+        });
     }
 }
 
@@ -1420,6 +1660,8 @@ function clearRestricaoProf() {
 }
 
 function openRestricaoModal() {
+    selectedEvitarKeys = [];
+    selectedGrupoKeys = [];
     document.getElementById('r-id').value = '';
     document.getElementById('r-modal-title').textContent = 'Nova Restrição';
     document.getElementById('form-restricao').reset();
@@ -1457,7 +1699,15 @@ function closeRestricaoModal() {
     document.getElementById('restricao-modal-overlay').hidden = true;
 }
 
-document.getElementById('r-tipo').addEventListener('change', () => renderRestricaoParams());
+document.getElementById('r-tipo').addEventListener('change', () => {
+    const tipo = document.getElementById('r-tipo').value;
+    const pesoGroup = document.getElementById('r-peso-group');
+    if (pesoGroup) pesoGroup.hidden = (tipo === 'hard');
+});
+document.getElementById('r-categoria').addEventListener('change', () => {
+    selectedEvitarKeys = [];
+    selectedGrupoKeys = [];
+});
 document.getElementById('btn-add-restricao').addEventListener('click', openRestricaoModal);
 document.getElementById('restricao-modal-overlay').addEventListener('click', function(e) {
     if (e.target === this) closeRestricaoModal();
@@ -1465,6 +1715,28 @@ document.getElementById('restricao-modal-overlay').addEventListener('click', fun
 
 document.getElementById('form-restricao').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const cat = document.getElementById('r-categoria').value;
+    if (cat === 'evitar_mesmo_dia') {
+        const uniqueCodes = new Set(selectedEvitarKeys.map(k => k.split('|')[0]).filter(Boolean));
+        if (uniqueCodes.size < 2) {
+            Toast.error('Selecione pelo menos 2 disciplinas diferentes para evitar no mesmo dia.');
+            return;
+        }
+    }
+    if (cat === 'mesmo_dia_horario_grupo') {
+        const allSdIds = [];
+        for (const key of selectedGrupoKeys) {
+            const o = getGrupoOptions().find(item => (item.discCod + '|' + (item.professores || '')) === key);
+            if (o) {
+                allSdIds.push(...o.sdIds);
+            }
+        }
+        if (allSdIds.length < 2) {
+            Toast.error('Selecione pelo menos 2 disciplinas para o grupo.');
+            return;
+        }
+    }
+
     const btn = e.target.querySelector('[type=submit]');
     btn.disabled = true; btn.textContent = 'Salvando...';
     try {

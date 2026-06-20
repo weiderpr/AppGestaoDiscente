@@ -75,11 +75,12 @@ try {
             }
 
             $result = $service->create($instId, $user['id'], [
-                'nome'               => $nome,
-                'descricao'          => trim($_POST['descricao'] ?? ''),
-                'data_inicio'        => $_POST['data_inicio'],
-                'data_fim'           => $_POST['data_fim'],
-                'max_provas_por_dia' => (int)($_POST['max_provas_por_dia'] ?? 2),
+                'nome'                      => $nome,
+                'descricao'                 => trim($_POST['descricao'] ?? ''),
+                'data_inicio'               => $_POST['data_inicio'],
+                'data_fim'                  => $_POST['data_fim'],
+                'max_provas_por_dia'        => (int)($_POST['max_provas_por_dia'] ?? 2),
+                'evitar_conflito_professor' => !empty($_POST['evitar_conflito_professor']) ? 1 : 0,
             ]);
 
             // Salva slots se enviados
@@ -109,6 +110,7 @@ try {
             foreach (['nome','descricao','data_inicio','data_fim','max_provas_por_dia','status','segunda_chamada_data','naapi_ambiente_id','naapi_tempo_extra_min'] as $f) {
                 if (array_key_exists($f, $_POST)) $fields[$f] = $_POST[$f] !== '' ? $_POST[$f] : null;
             }
+            $fields['evitar_conflito_professor'] = !empty($_POST['evitar_conflito_professor']) ? 1 : 0;
             $result = $service->update($id, $fields);
 
             if (!empty($_POST['slots'])) {

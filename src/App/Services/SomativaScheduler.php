@@ -235,13 +235,14 @@ class SomativaScheduler extends Service
 
         $maxPorDia = (int)$data['som']['max_provas_por_dia'];
         $scData    = $data['scData'];
+        $evitarConflitoProf = !empty($data['som']['evitar_conflito_professor']);
 
         // Estado de alocação
         $ocupados    = [];  // [stId][date][slotId] = true
         $countDia    = [];  // [stId][date] = n
         $discNoDia   = [];  // [stId][date] = [discCod, ...]
         $discEmData  = [];  // [stId][sdId] = date  (para rastrear mesmo_dia_turmas)
-        $codEmData   = [];  // [date][discCod] = true (global, para mesmo_dia_turmas cross-turma)
+        $codEmData   = [];  // [date][discCod] = count (global, para mesmo_dia_turmas cross-turma)
 
         $restricoes = $this->indexRestricoes($data['restricoes']);
 
@@ -289,10 +290,6 @@ class SomativaScheduler extends Service
         }
 
         // Restrições professor_mesmo_dia_horario
-        // hardProfDisc[profId][discCod] = true  → bloqueio absoluto (mesma disciplina, turmas diferentes)
-        // softProfDisc[profId][discCod] = peso  → pontuação (mesma disciplina)
-        // hardProfAll[profId] = true            → bloqueio absoluto (qualquer disciplina do prof em outra turma)
-        // softProfAll[profId] = peso            → pontuação (qualquer disciplina)
         $hardProfDisc = [];
         $softProfDisc = [];
         $hardProfAll  = [];
@@ -314,8 +311,6 @@ class SomativaScheduler extends Service
             $isTodos = !empty($r['todos']);
 
             if ($isTodos) {
-                // Aplica a todos os professores que atuam em 2+ turmas;
-                // usa matching por professor (não por código de disciplina)
                 foreach (array_keys($profAllStIds) as $profId) {
                     if ($isHard) {
                         $hardProfAll[$profId] = true;
@@ -324,7 +319,6 @@ class SomativaScheduler extends Service
                     }
                 }
             } else {
-                // Professor específico: agrupa por código de disciplina (comportamento original)
                 $profId = (int)($r['professor_id'] ?? 0);
                 if (!$profId || !isset($profDiscTurmas[$profId])) continue;
                 foreach ($profDiscTurmas[$profId] as $discCod => $stIds) {
@@ -339,7 +333,6 @@ class SomativaScheduler extends Service
         }
 
         // Restrições mesmo_dia_horario_grupo
-        // Lookup rápido: somativa_disciplina_id → {stId, disc, turma}
         $sdIdLookup = [];
         foreach ($data['turmas'] as $t) {
             foreach ($t['disciplinas'] as $d) {
@@ -413,9 +406,6 @@ class SomativaScheduler extends Service
         }
 
         // ── Fase 0: pré-alocação de grupos Hard/Todos por professor ──────────
-        // Garante que todas as disciplinas de um professor com restrição Hard/Todos
-        // sejam alocadas simultaneamente no mesmo slot, antes que o greedy principal
-        // ocupe os slots necessários com outras disciplinas.
         $preAllocated = [];
         if (!empty($hardProfAll)) {
             $preAllocated = $this->preAllocateHardProfAll(
@@ -426,120 +416,244 @@ class SomativaScheduler extends Service
 
         $queue = $this->buildAllocationQueue($data, $restricoes, $constrainedHorario, $constrainedDia, $hardProfDisc, $softProfDisc, $discInHardGrupo, $discInSoftGrupo, $hardProfAll, $softProfAll);
 
-        foreach ($queue as $item) {
-            $stId    = $item['som_turma_id'];
-            $disc    = $item['disciplina'];
-            $turma   = $item['turma'];
-            $sdId    = (int)$disc['som_disc_id'];
-            $discCod = $disc['disciplina_codigo'];
+        // Algoritmo de Busca por Retrocesso com Heurística (Heuristic Backtracking)
+        $bestAllocCount = 0;
+        $bestAllocations = [];
+        $calls = 0;
 
-            // Pula disciplinas já pré-alocadas na Fase 0
-            if (isset($preAllocated[$sdId])) continue;
+        $success = $this->solveBacktrack(
+            0, $queue, $data, $restricoes, $datesNormais, $maxPorDia, $scData, $evitarConflitoProf,
+            $constrainedHorario, $hardConstrainedHorario, $hardConstrainedDia,
+            $hardProfDisc, $profDiscTurmas, $hardGrupos, $discInHardGrupo, $sdIdLookup, $hardProfAll, $profAllStIds,
+            $softProfDisc, $softGrupos, $discInSoftGrupo, $softProfAll, $discTurmas,
+            $ocupados, $countDia, $discNoDia, $codEmData, $discEmData, $alocacoes, $preAllocated,
+            $calls, $bestAllocCount, $bestAllocations
+        );
 
-            $bestSlot    = null;
-            $bestScore   = PHP_INT_MIN;
-            $bestJust    = '';
-            $blockMotivos = [];
+        if (!$success) {
+            // Caso não encontre uma solução 100% perfeita devido a regras impossíveis,
+            // restaura a melhor alocação parcial encontrada.
+            $alocacoes = $bestAllocations;
+            $allocatedSdIds = array_column($alocacoes, 'somativa_disciplina_id');
 
-            foreach ($datesNormais as $date) {
-                // Hard: limite de provas por dia
-                if (($countDia[$stId][$date] ?? 0) >= $maxPorDia) {
-                    $blockMotivos[] = "{$date}: limite de provas/dia atingido";
-                    continue;
-                }
-
-                // Hard: min_provas_por_dia — bloqueia dia que já atingiu mínimo enquanto outros estão abaixo
-                $hardMinBlock = false;
-                foreach ($restricoes['min_provas_por_dia'] as $r) {
-                    if ($r['tipo'] !== 'hard') continue;
-                    $rMin    = max(1, (int)($r['min'] ?? 2));
-                    $rScope  = $r['scope'] ?? 'todas';
-                    $rApply  = $rScope === 'todas' || ($rScope === 'turma' && (int)($r['somativa_turma_id'] ?? 0) === $stId);
-                    if (!$rApply) continue;
-                    $dateCount = count($discNoDia[$stId][$date] ?? []);
-                    if ($dateCount >= $rMin) {
-                        foreach ($datesNormais as $d) {
-                            if ($d === $date) continue;
-                            if (count($discNoDia[$stId][$d] ?? []) < $rMin) {
-                                $hardMinBlock = true;
-                                $blockMotivos[] = "{$date}: min_provas_por_dia (hard) — dia já tem {$dateCount}>={$rMin}, outros ainda abaixo";
-                                break;
-                            }
-                        }
-                    }
-                    if ($hardMinBlock) break;
-                }
-                if ($hardMinBlock) continue;
-
-                foreach ($data['slots'] as $slot) {
-                    $slotId = (int)$slot['id'];
-
-                    // Hard: slot já ocupado por esta turma
-                    if (!empty($ocupados[$stId][$date][$slotId])) continue;
-
-                    // Verifica bloqueios hard
-                    [$blocked, $blockReason] = $this->checkHardBlocks(
-                        $date, $slot, $disc, $restricoes, $alocacoes, $stId,
-                        $hardConstrainedHorario, $hardConstrainedDia,
-                        $ocupados, $countDia, $discTurmas, $data['slots'], $maxPorDia,
-                        $hardProfDisc, $profDiscTurmas,
-                        $hardGrupos, $discInHardGrupo, $sdIdLookup,
-                        $hardProfAll, $profAllStIds
-                    );
-                    if ($blocked) {
-                        $blockMotivos[] = "{$date}/slot{$slotId}: {$blockReason}";
-                        continue;
-                    }
-
-                    // Pontua o slot
-                    [$score, $reasons] = $this->scoreSlot(
-                        $date, $slot, $disc, $turma, $restricoes, $data,
-                        $discNoDia, $codEmData, $stId, $scData,
-                        $constrainedHorario, $alocacoes,
-                        $softProfDisc, $profDiscTurmas,
-                        $softGrupos, $discInSoftGrupo,
-                        $softProfAll, $profAllStIds
-                    );
-
-                    if ($score > $bestScore) {
-                        $bestScore = $score;
-                        $bestSlot  = ['date' => $date, 'slot' => $slot];
-                        $bestJust  = implode('; ', $reasons) ?: 'alocação padrão';
-                    }
-                }
+            // Reconstrói estado temporário para gerar justificativas de erro precisas
+            $tempOcupados = [];
+            $tempCountDia = [];
+            foreach ($alocacoes as $aloc) {
+                $sId = (int)$aloc['somativa_turma_id'];
+                $d = $aloc['data_prova'];
+                $scId = (int)$aloc['slot_config_id'];
+                $tempOcupados[$sId][$d][$scId] = true;
+                $tempCountDia[$sId][$d] = ($tempCountDia[$sId][$d] ?? 0) + 1;
             }
 
-            if ($bestSlot === null) {
-                // Resume os bloqueios (máx 3 exemplos para não poluir)
+            foreach ($queue as $item) {
+                $sdId = (int)$item['disciplina']['som_disc_id'];
+                if (in_array($sdId, $allocatedSdIds)) continue;
+
+                $blockMotivos = [];
+                foreach ($datesNormais as $date) {
+                    if (($tempCountDia[$item['som_turma_id']][$date] ?? 0) >= $maxPorDia) {
+                        $blockMotivos[] = "{$date}: limite de provas/dia atingido";
+                        continue;
+                    }
+                    foreach ($data['slots'] as $slot) {
+                        $slotId = (int)$slot['id'];
+                        if (!empty($tempOcupados[$item['som_turma_id']][$date][$slotId])) continue;
+
+                        [$blocked, $blockReason] = $this->checkHardBlocks(
+                            $date, $slot, $item['disciplina'], $restricoes, $alocacoes, $item['som_turma_id'],
+                            $hardConstrainedHorario, $hardConstrainedDia,
+                            $tempOcupados, $tempCountDia, $discTurmas, $data['slots'], $maxPorDia,
+                            $hardProfDisc, $profDiscTurmas,
+                            $hardGrupos, $discInHardGrupo, $sdIdLookup,
+                            $hardProfAll, $profAllStIds,
+                            $evitarConflitoProf
+                        );
+                        if ($blocked) {
+                            $blockMotivos[] = "{$date}/slot{$slotId}: {$blockReason}";
+                        }
+                    }
+                }
+
                 $resumoBloqueios = implode(' | ', array_slice(array_unique($blockMotivos), 0, 3));
-                $conflitos[$sdId] = [
+                $conflitos[] = [
                     'somativa_disciplina_id' => $sdId,
-                    'disciplina_codigo'      => $discCod,
-                    'disc_nome'              => $disc['disc_nome'],
-                    'turma_desc'             => $turma['turma_desc'],
-                    'motivo'                 => $resumoBloqueios ?: 'Nenhum slot livre no período',
+                    'disciplina_codigo'      => $item['disciplina']['disciplina_codigo'],
+                    'disc_nome'              => $item['disciplina']['disc_nome'],
+                    'turma_desc'             => $item['turma']['turma_desc'],
+                    'motivo'                 => $resumoBloqueios ?: 'Nenhum slot livre sob as restrições obrigatórias',
                 ];
+            }
+
+            $avisos[] = 'Aviso: Não foi possível encontrar uma grade 100% perfeita com as restrições atuais. ' . count($conflitos) . ' disciplinas não puderam ser alocadas automaticamente.';
+        }
+
+        return ['alocacoes' => $alocacoes, 'conflitos' => $conflitos, 'avisos' => $avisos];
+    }
+
+    /**
+     * Solucionador Recursivo de Backtracking com Heurística de Seleção de Slots.
+     */
+    private function solveBacktrack(
+        int $queueIdx,
+        array $queue,
+        array $data,
+        array $restricoes,
+        array $datesNormais,
+        int $maxPorDia,
+        ?string $scData,
+        bool $evitarConflitoProf,
+        array $constrainedHorario,
+        array $hardConstrainedHorario,
+        array $hardConstrainedDia,
+        array $hardProfDisc,
+        array $profDiscTurmas,
+        array $hardGrupos,
+        array $discInHardGrupo,
+        array $sdIdLookup,
+        array $hardProfAll,
+        array $profAllStIds,
+        array $softProfDisc,
+        array $softGrupos,
+        array $discInSoftGrupo,
+        array $softProfAll,
+        array $discTurmas,
+        array &$ocupados,
+        array &$countDia,
+        array &$discNoDia,
+        array &$codEmData,
+        array &$discEmData,
+        array &$alocacoes,
+        array &$preAllocated,
+        int &$calls,
+        int &$bestAllocCount,
+        array &$bestAllocations
+    ): bool {
+        $calls++;
+        if ($calls > 10000) {
+            return false; // Evita loop infinito em grades impossíveis
+        }
+
+        // Registra o maior progresso parcial
+        if ($queueIdx > $bestAllocCount) {
+            $bestAllocCount = $queueIdx;
+            $bestAllocations = $alocacoes;
+        }
+
+        if ($queueIdx >= count($queue)) {
+            return true;
+        }
+
+        $item    = $queue[$queueIdx];
+        $stId    = $item['som_turma_id'];
+        $disc    = $item['disciplina'];
+        $turma   = $item['turma'];
+        $sdId    = (int)$disc['som_disc_id'];
+        $discCod = $disc['disciplina_codigo'];
+
+        // Se já foi pré-alocado na Fase 0, pula para o próximo
+        if (isset($preAllocated[$sdId])) {
+            return $this->solveBacktrack(
+                $queueIdx + 1, $queue, $data, $restricoes, $datesNormais, $maxPorDia, $scData, $evitarConflitoProf,
+                $constrainedHorario, $hardConstrainedHorario, $hardConstrainedDia,
+                $hardProfDisc, $profDiscTurmas, $hardGrupos, $discInHardGrupo, $sdIdLookup, $hardProfAll, $profAllStIds,
+                $softProfDisc, $softGrupos, $discInSoftGrupo, $softProfAll, $discTurmas,
+                $ocupados, $countDia, $discNoDia, $codEmData, $discEmData, $alocacoes, $preAllocated,
+                $calls, $bestAllocCount, $bestAllocations
+            );
+        }
+
+        $candidates = [];
+
+        foreach ($datesNormais as $date) {
+            if (($countDia[$stId][$date] ?? 0) >= $maxPorDia) {
                 continue;
             }
 
-            // Determina aplicador/volante
-            [$aplicadorId, $volanteId] = $this->chooseProfessores(
-                $disc, $bestSlot, $data['profAvail'], $data['turmaSchedule'], (int)$turma['turma_id'], $alocacoes
-            );
+            // Hard: min_provas_por_dia
+            $hardMinBlock = false;
+            foreach ($restricoes['min_provas_por_dia'] as $r) {
+                if ($r['tipo'] !== 'hard') continue;
+                $rMin    = max(1, (int)($r['min'] ?? 2));
+                $rScope  = $r['scope'] ?? 'todas';
+                $rApply  = $rScope === 'todas' || ($rScope === 'turma' && (int)($r['somativa_turma_id'] ?? 0) === $stId);
+                if (!$rApply) continue;
+                $dateCount = count($discNoDia[$stId][$date] ?? []);
+                if ($dateCount >= $rMin) {
+                    foreach ($datesNormais as $d) {
+                        if ($d === $date) continue;
+                        if (count($discNoDia[$stId][$d] ?? []) < $rMin) {
+                            $hardMinBlock = true;
+                            break;
+                        }
+                    }
+                }
+                if ($hardMinBlock) break;
+            }
+            if ($hardMinBlock) continue;
 
-            // Determina aplicador NAAPI (apenas quando NAAPI configurado na somativa)
+            foreach ($data['slots'] as $slot) {
+                $slotId = (int)$slot['id'];
+                if (!empty($ocupados[$stId][$date][$slotId])) continue;
+
+                // Verifica bloqueios hard
+                [$blocked, $blockReason] = $this->checkHardBlocks(
+                    $date, $slot, $disc, $restricoes, $alocacoes, $stId,
+                    $hardConstrainedHorario, $hardConstrainedDia,
+                    $ocupados, $countDia, $discTurmas, $data['slots'], $maxPorDia,
+                    $hardProfDisc, $profDiscTurmas,
+                    $hardGrupos, $discInHardGrupo, $sdIdLookup,
+                    $hardProfAll, $profAllStIds,
+                    $evitarConflitoProf
+                );
+                if ($blocked) continue;
+
+                // Pontua o slot (Heurística)
+                [$score, $reasons] = $this->scoreSlot(
+                    $date, $slot, $disc, $turma, $restricoes, $data,
+                    $discNoDia, $codEmData, $stId, $scData,
+                    $constrainedHorario, $alocacoes,
+                    $softProfDisc, $profDiscTurmas,
+                    $softGrupos, $discInSoftGrupo,
+                    $softProfAll, $profAllStIds
+                );
+
+                $candidates[] = [
+                    'date'          => $date,
+                    'slot'          => $slot,
+                    'score'         => $score,
+                    'justification' => implode('; ', $reasons) ?: 'alocação padrão',
+                ];
+            }
+        }
+
+        // Ordena candidatos de forma decrescente por score (Heurística de valor mais promissor)
+        usort($candidates, fn($a, $b) => $b['score'] - $a['score']);
+
+        foreach ($candidates as $cand) {
+            $date   = $cand['date'];
+            $slot   = $cand['slot'];
+            $slotId = (int)$slot['id'];
+
+            // Aplica a alocação
+            $ocupados[$stId][$date][$slotId] = true;
+            $countDia[$stId][$date] = ($countDia[$stId][$date] ?? 0) + 1;
+            $discNoDia[$stId][$date][] = $discCod;
+            $codEmData[$date][$discCod] = ($codEmData[$date][$discCod] ?? 0) + 1;
+            $discEmData[$stId][$sdId] = $date;
+
+            [$aplicadorId, $volanteId] = $this->chooseProfessores(
+                $disc, ['date' => $date, 'slot' => $slot], $data['profAvail'], $data['turmaSchedule'], (int)$turma['turma_id'], $alocacoes
+            );
             $naapiAplicadorId = null;
             if (!empty($data['som']['naapi_ambiente_id'])) {
                 $naapiAplicadorId = $this->chooseNaapiAplicador(
-                    $bestSlot, $data['profAvail'], $aplicadorId, $alocacoes
+                    ['date' => $date, 'slot' => $slot], $data['profAvail'], $aplicadorId, $alocacoes
                 );
             }
 
-            if ($bestScore < 0) {
-                $avisos[] = "\"{$disc['disc_nome']}\" ({$turma['turma_desc']}): alocada com restrições violadas. {$bestJust}";
-            }
-
-            $alocacoes[] = [
+            $aloc = [
                 'somativa_id'            => (int)$data['som']['id'],
                 'somativa_turma_id'      => $stId,
                 'somativa_disciplina_id' => $sdId,
@@ -547,166 +661,62 @@ class SomativaScheduler extends Service
                 'disc_nome'              => $disc['disc_nome'],
                 'disc_professor_ids'     => $disc['professor_ids'] ?? '',
                 'turma_desc'             => $turma['turma_desc'],
-                'data_prova'             => $bestSlot['date'],
-                'slot_config_id'         => (int)$bestSlot['slot']['id'],
-                'slot_label'             => $bestSlot['slot']['label'] ?? null,
-                'horario_inicio'         => $bestSlot['slot']['horario_inicio'],
-                'horario_fim'            => $bestSlot['slot']['horario_fim'],
+                'data_prova'             => $date,
+                'slot_config_id'         => $slotId,
+                'slot_label'             => $slot['label'] ?? null,
+                'horario_inicio'         => $slot['horario_inicio'],
+                'horario_fim'            => $slot['horario_fim'],
                 'aplicador_id'           => $aplicadorId,
                 'volante_id'             => $volanteId,
                 'naapi_aplicador_id'     => $naapiAplicadorId,
                 'ambiente_id'            => $turma['turma_ambiente_id'] ?: null,
                 'tipo'                   => 'Normal',
                 'observacoes'            => null,
-                'justificativa'          => $bestJust,
+                'justificativa'          => $cand['justification'],
             ];
+            $alocacoes[] = $aloc;
 
-            // Atualiza estado
-            $ocupados[$stId][$bestSlot['date']][$bestSlot['slot']['id']] = true;
-            $countDia[$stId][$bestSlot['date']] = ($countDia[$stId][$bestSlot['date']] ?? 0) + 1;
-            $discNoDia[$stId][$bestSlot['date']][] = $discCod;
-            $codEmData[$bestSlot['date']][$discCod] = true;
-            $discEmData[$stId][$sdId] = $bestSlot['date'];
-        }
-
-        // ── Retry pass ────────────────────────────────────────────
-        // Após a 1ª passagem, âncoras de restrições hard estão estabelecidas.
-        // Disciplinas que falharam no look-ahead (turma parceira ainda não alocada)
-        // conseguem resolver via anchor na 2ª passagem.
-        $maxRetries = 3;
-        for ($retry = 0; $retry < $maxRetries && !empty($conflitos); $retry++) {
-            $aindaConflitos = [];
-            foreach ($conflitos as $sdId => $c) {
-                // Localiza turma/disc nos dados originais
-                $retryDisc  = null;
-                $retryTurma = null;
-                $retryStId  = 0;
-                foreach ($data['turmas'] as $t) {
-                    foreach ($t['disciplinas'] as $d) {
-                        if ((int)$d['som_disc_id'] === (int)$sdId) {
-                            $retryDisc  = $d;
-                            $retryTurma = $t;
-                            $retryStId  = (int)$t['som_turma_id'];
-                            break 2;
-                        }
-                    }
-                }
-                if (!$retryDisc) { $aindaConflitos[$sdId] = $c; continue; }
-                if (isset($preAllocated[(int)$sdId])) continue; // já resolvido na Fase 0
-
-                $bestSlot    = null;
-                $bestScore   = PHP_INT_MIN;
-                $bestJust    = '';
-                $blockMotivos = [];
-
-                foreach ($datesNormais as $date) {
-                    if (($countDia[$retryStId][$date] ?? 0) >= $maxPorDia) continue;
-
-                    // Hard: min_provas_por_dia
-                    $hardMinBlock = false;
-                    foreach ($restricoes['min_provas_por_dia'] as $r) {
-                        if ($r['tipo'] !== 'hard') continue;
-                        $rMin   = max(1, (int)($r['min'] ?? 2));
-                        $rScope = $r['scope'] ?? 'todas';
-                        $rApply = $rScope === 'todas' || ($rScope === 'turma' && (int)($r['somativa_turma_id'] ?? 0) === $retryStId);
-                        if (!$rApply) continue;
-                        $dateCount = count($discNoDia[$retryStId][$date] ?? []);
-                        if ($dateCount >= $rMin) {
-                            foreach ($datesNormais as $d) {
-                                if ($d === $date) continue;
-                                if (count($discNoDia[$retryStId][$d] ?? []) < $rMin) {
-                                    $hardMinBlock = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if ($hardMinBlock) break;
-                    }
-                    if ($hardMinBlock) continue;
-
-                    foreach ($data['slots'] as $slot) {
-                        $slotId = (int)$slot['id'];
-                        if (!empty($ocupados[$retryStId][$date][$slotId])) continue;
-
-                        [$blocked, $blockReason] = $this->checkHardBlocks(
-                            $date, $slot, $retryDisc, $restricoes, $alocacoes, $retryStId,
-                            $hardConstrainedHorario, $hardConstrainedDia,
-                            $ocupados, $countDia, $discTurmas, $data['slots'], $maxPorDia,
-                            $hardProfDisc, $profDiscTurmas,
-                            $hardGrupos, $discInHardGrupo, $sdIdLookup,
-                            $hardProfAll, $profAllStIds
-                        );
-                        if ($blocked) {
-                            $blockMotivos[] = "{$date}/slot{$slotId}: {$blockReason}";
-                            continue;
-                        }
-
-                        [$score, $reasons] = $this->scoreSlot(
-                            $date, $slot, $retryDisc, $retryTurma, $restricoes, $data,
-                            $discNoDia, $codEmData, $retryStId, $scData,
-                            $constrainedHorario, $alocacoes,
-                            $softProfDisc, $profDiscTurmas,
-                            $softGrupos, $discInSoftGrupo,
-                            $softProfAll, $profAllStIds
-                        );
-
-                        if ($score > $bestScore) {
-                            $bestScore = $score;
-                            $bestSlot  = ['date' => $date, 'slot' => $slot];
-                            $bestJust  = implode('; ', $reasons) ?: 'alocação padrão (retry)';
-                        }
-                    }
-                }
-
-                if ($bestSlot === null) {
-                    $resumo = implode(' | ', array_slice(array_unique($blockMotivos), 0, 3));
-                    $c['motivo'] = $resumo ?: $c['motivo'];
-                    $aindaConflitos[$sdId] = $c;
-                    continue;
-                }
-
-                // Sucesso no retry
-                [$aplicadorId, $volanteId] = $this->chooseProfessores(
-                    $retryDisc, $bestSlot, $data['profAvail'], $data['turmaSchedule'], (int)$retryTurma['turma_id'], $alocacoes
-                );
-                $naapiAplicadorId = null;
-                if (!empty($data['som']['naapi_ambiente_id'])) {
-                    $naapiAplicadorId = $this->chooseNaapiAplicador($bestSlot, $data['profAvail'], $aplicadorId, $alocacoes);
-                }
-                if ($bestScore < 0) {
-                    $avisos[] = "\"{$retryDisc['disc_nome']}\" ({$retryTurma['turma_desc']}): alocada com restrições violadas (retry). {$bestJust}";
-                }
-                $alocacoes[] = [
-                    'somativa_id'            => (int)$data['som']['id'],
-                    'somativa_turma_id'      => $retryStId,
-                    'somativa_disciplina_id' => (int)$sdId,
-                    'disciplina_codigo'      => $retryDisc['disciplina_codigo'],
-                    'disc_nome'              => $retryDisc['disc_nome'],
-                    'disc_professor_ids'     => $retryDisc['professor_ids'] ?? '',
-                    'turma_desc'             => $retryTurma['turma_desc'],
-                    'data_prova'             => $bestSlot['date'],
-                    'slot_config_id'         => (int)$bestSlot['slot']['id'],
-                    'slot_label'             => $bestSlot['slot']['label'] ?? null,
-                    'horario_inicio'         => $bestSlot['slot']['horario_inicio'],
-                    'horario_fim'            => $bestSlot['slot']['horario_fim'],
-                    'aplicador_id'           => $aplicadorId,
-                    'volante_id'             => $volanteId,
-                    'naapi_aplicador_id'     => $naapiAplicadorId,
-                    'ambiente_id'            => $retryTurma['turma_ambiente_id'] ?: null,
-                    'tipo'                   => 'Normal',
-                    'observacoes'            => null,
-                    'justificativa'          => $bestJust,
-                ];
-                $ocupados[$retryStId][$bestSlot['date']][$bestSlot['slot']['id']] = true;
-                $countDia[$retryStId][$bestSlot['date']] = ($countDia[$retryStId][$bestSlot['date']] ?? 0) + 1;
-                $discNoDia[$retryStId][$bestSlot['date']][] = $retryDisc['disciplina_codigo'];
-                $codEmData[$bestSlot['date']][$retryDisc['disciplina_codigo']] = true;
-                $discEmData[$retryStId][(int)$sdId] = $bestSlot['date'];
+            // Recorre recursivamente para a próxima
+            if ($this->solveBacktrack(
+                $queueIdx + 1, $queue, $data, $restricoes, $datesNormais, $maxPorDia, $scData, $evitarConflitoProf,
+                $constrainedHorario, $hardConstrainedHorario, $hardConstrainedDia,
+                $hardProfDisc, $profDiscTurmas, $hardGrupos, $discInHardGrupo, $sdIdLookup, $hardProfAll, $profAllStIds,
+                $softProfDisc, $softGrupos, $discInSoftGrupo, $softProfAll, $discTurmas,
+                $ocupados, $countDia, $discNoDia, $codEmData, $discEmData, $alocacoes, $preAllocated,
+                $calls, $bestAllocCount, $bestAllocations
+            )) {
+                return true;
             }
-            $conflitos = $aindaConflitos;
+
+            // Desfaz a alocação (Backtrack)
+            array_pop($alocacoes);
+            unset($ocupados[$stId][$date][$slotId]);
+            $countDia[$stId][$date]--;
+            if ($countDia[$stId][$date] <= 0) {
+                unset($countDia[$stId][$date]);
+            }
+
+            $idx = array_search($discCod, $discNoDia[$stId][$date]);
+            if ($idx !== false) {
+                unset($discNoDia[$stId][$date][$idx]);
+                $discNoDia[$stId][$date] = array_values($discNoDia[$stId][$date]);
+                if (empty($discNoDia[$stId][$date])) {
+                    unset($discNoDia[$stId][$date]);
+                }
+            }
+
+            $codEmData[$date][$discCod]--;
+            if ($codEmData[$date][$discCod] <= 0) {
+                unset($codEmData[$date][$discCod]);
+            }
+            if (empty($codEmData[$date])) {
+                unset($codEmData[$date]);
+            }
+
+            unset($discEmData[$stId][$sdId]);
         }
 
-        return ['alocacoes' => $alocacoes, 'conflitos' => array_values($conflitos), 'avisos' => $avisos];
+        return false;
     }
 
     // ──────────────────────────────────────────────────────────
@@ -822,7 +832,8 @@ class SomativaScheduler extends Service
         array $ocupados, array $countDia, array $discTurmas, array $allSlots, int $maxPorDia,
         array $hardProfDisc = [], array $profDiscTurmas = [],
         array $hardGrupos = [], array $discInHardGrupo = [], array $sdIdLookup = [],
-        array $hardProfAll = [], array $profAllStIds = []
+        array $hardProfAll = [], array $profAllStIds = [],
+        bool $evitarConflitoProf = false
     ): array {
         // Data bloqueada
         foreach ($restricoes['bloquear_data'] as $r) {
@@ -1141,6 +1152,12 @@ class SomativaScheduler extends Service
                     $otherStId      = $sdIdLookup[$otherSdId]['stId'];
                     $otherTurmaDesc = $sdIdLookup[$otherSdId]['turma']['turma_desc'] ?? "ID {$otherStId}";
 
+                    // Outro membro do grupo está na MESMA turma: alocar aqui tornaria
+                    // impossível que ele também use este slot (turma não pode ter 2 provas simultâneas).
+                    if ($otherStId === $stId) {
+                        return [true, "Grupo Mesmo Slot (Hard): outra disciplina do grupo está na mesma turma ({$otherTurmaDesc}) — impossível compartilhar o mesmo slot"];
+                    }
+
                     if (!empty($ocupados[$otherStId][$date][$slot['id']])) {
                         return [true, "Grupo Mesmo Slot (Hard/Antecipado): slot {$slot['id']} em {$date} já ocupado na turma {$otherTurmaDesc}"];
                     }
@@ -1157,14 +1174,16 @@ class SomativaScheduler extends Service
         }
 
         // Conflito de professor com outra turma no mesmo slot simultâneo
-        $slotId = (int)$slot['id'];
-        foreach ($alocacoes as $aloc) {
-            if ($aloc['data_prova'] !== $date) continue;
-            if ((int)$aloc['slot_config_id'] !== $slotId) continue;
-            if ((int)$aloc['somativa_turma_id'] === $stId) continue;
-            // Se o aplicador do aloc existente é professor desta disciplina → conflito
-            if ($aloc['aplicador_id'] && in_array((string)$aloc['aplicador_id'], $profIds)) {
-                return [true, "Professor já alocado como aplicador em outra turma neste slot"];
+        if ($evitarConflitoProf) {
+            $slotId = (int)$slot['id'];
+            foreach ($alocacoes as $aloc) {
+                if ($aloc['data_prova'] !== $date) continue;
+                if ((int)$aloc['slot_config_id'] !== $slotId) continue;
+                if ((int)$aloc['somativa_turma_id'] === $stId) continue;
+                // Se o aplicador do aloc existente é professor desta disciplina → conflito
+                if ($aloc['aplicador_id'] && in_array((string)$aloc['aplicador_id'], $profIds)) {
+                    return [true, "Professor já alocado como aplicador em outra turma neste slot"];
+                }
             }
         }
 
@@ -1523,25 +1542,46 @@ class SomativaScheduler extends Service
         // 2. Identificar professores da disciplina
         $disciplineProfs = array_map('intval', $profIds);
 
-        // 3. Escolher Aplicador (não pode ser aplicador nem volante no mesmo slot)
-        $aplicador = null;
-        if ($scheduledTeacher !== null && !in_array($scheduledTeacher, $busyAplicadores) && !in_array($scheduledTeacher, $busyVolantes)) {
-            $aplicador = $scheduledTeacher;
+        // 3. Escolher o Volante primeiro (para garantir que o professor da disciplina seja volante se possível,
+        // e seja o mesmo volante em todas as turmas no mesmo dia/horário)
+        $volante = null;
+        
+        // Verifica se outra turma já alocou esta mesma disciplina neste slot e obteve um volante
+        $sameDiscAloc = null;
+        foreach ($alocacoes as $aloc) {
+            if ($aloc['data_prova'] === $date && (int)$aloc['slot_config_id'] === $slotId && $aloc['disciplina_codigo'] === $disc['disciplina_codigo']) {
+                $sameDiscAloc = $aloc;
+                break;
+            }
+        }
+
+        if ($sameDiscAloc !== null && !empty($sameDiscAloc['volante_id'])) {
+            $volante = (int)$sameDiscAloc['volante_id'];
         } else {
+            // Tenta escolher um professor da disciplina que não esteja ocupado como aplicador em outro lugar
             foreach ($disciplineProfs as $pid) {
-                if (!in_array($pid, $busyAplicadores) && !in_array($pid, $busyVolantes)) {
-                    $aplicador = $pid;
+                if (!in_array($pid, $busyAplicadores)) {
+                    $volante = $pid;
                     break;
                 }
             }
         }
 
-        // 4. Escolher Volante (não pode ser o aplicador escolhido e não pode ser aplicador no mesmo slot. Pode ser volante em outro lugar)
-        $volante = null;
-        foreach ($disciplineProfs as $pid) {
-            if ($pid !== $aplicador && !in_array($pid, $busyAplicadores)) {
-                $volante = $pid;
-                break;
+        // 4. Escolher o Aplicador
+        $aplicador = null;
+        // Candidato preferencial: o professor regular agendado da turma (desde que não seja o volante e não esteja ocupado)
+        if ($scheduledTeacher !== null 
+            && $scheduledTeacher !== $volante 
+            && !in_array($scheduledTeacher, $busyAplicadores) 
+            && !in_array($scheduledTeacher, $busyVolantes)) {
+            $aplicador = $scheduledTeacher;
+        } else {
+            // Fallback: tenta pegar outro professor da disciplina que não seja o volante e não esteja ocupado
+            foreach ($disciplineProfs as $pid) {
+                if ($pid !== $volante && !in_array($pid, $busyAplicadores) && !in_array($pid, $busyVolantes)) {
+                    $aplicador = $pid;
+                    break;
+                }
             }
         }
 

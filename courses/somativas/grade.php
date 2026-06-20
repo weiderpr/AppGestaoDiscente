@@ -132,6 +132,7 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
             ⚡ Alocar Automaticamente
         </button>
         <?php endif; ?>
+        <a href="print.php?id=<?= $id ?>" target="_blank" class="btn btn-secondary btn-sm">🖨️ Imprimir</a>
         <a href="edit.php?id=<?= $id ?>" class="btn btn-ghost btn-sm">✏️ Editar</a>
     </div>
 </div>
@@ -246,10 +247,10 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
                                         <span class="gc-tipo-badge"><?= $cellData['tipo'] ?></span>
                                         <?php endif; ?>
                                         <div class="gc-disc-title-row">
-                                            <span class="gc-disc-name"><?= htmlspecialchars($cellData['disciplina_nome'] ?? '—') ?></span>
                                             <?php if (!empty($violations[$cellData['id']])): ?>
                                             <span class="gc-warning-icon" title="<?= htmlspecialchars(implode("\n", $violations[$cellData['id']])) ?>" role="img" aria-label="Aviso">⚠️</span>
                                             <?php endif; ?>
+                                            <span class="gc-disc-name"><?= htmlspecialchars($cellData['disciplina_nome'] ?? '—') ?></span>
                                         </div>
                                         <?php if ($cellData['disciplina_codigo']): ?>
                                         <span class="gc-disc-code"><?= htmlspecialchars($cellData['disciplina_codigo']) ?></span>

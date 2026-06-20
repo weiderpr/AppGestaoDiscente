@@ -27,6 +27,16 @@
     // Turma Tabs
     // ──────────────────────────────────────────────────────────
     function initTurmaTabs() {
+        const savedStId = sessionStorage.getItem('active_somativa_st_id_' + gd.somativaId);
+        if (savedStId) {
+            const stId = parseInt(savedStId);
+            const tabExists = Array.from(document.querySelectorAll('.grade-turma-tab'))
+                .some(btn => parseInt(btn.dataset.stId) === stId);
+            if (tabExists) {
+                switchTurma(stId);
+            }
+        }
+
         document.querySelectorAll('.grade-turma-tab').forEach(btn => {
             btn.addEventListener('click', () => {
                 const stId = parseInt(btn.dataset.stId);
@@ -37,6 +47,8 @@
 
     function switchTurma(stId) {
         currentStId = stId;
+
+        sessionStorage.setItem('active_somativa_st_id_' + gd.somativaId, stId);
 
         document.querySelectorAll('.grade-turma-tab').forEach(b => {
             b.classList.toggle('active', parseInt(b.dataset.stId) === stId);

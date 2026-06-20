@@ -47,8 +47,8 @@ class SomativaService extends Service {
 
     public function create(int $instId, int $userId, array $data): array {
         $this->db->prepare(
-            'INSERT INTO somativas (institution_id, nome, descricao, data_inicio, data_fim, max_provas_por_dia, status, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO somativas (institution_id, nome, descricao, data_inicio, data_fim, max_provas_por_dia, status, created_by, evitar_conflito_professor)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         )->execute([
             $instId,
             trim($data['nome']),
@@ -58,6 +58,7 @@ class SomativaService extends Service {
             (int)($data['max_provas_por_dia'] ?? 2),
             'Rascunho',
             $userId,
+            (int)($data['evitar_conflito_professor'] ?? 0),
         ]);
 
         $newId = $this->lastInsertId();
@@ -66,7 +67,7 @@ class SomativaService extends Service {
     }
 
     public function update(int $id, array $data): array {
-        $allowed = ['nome', 'descricao', 'data_inicio', 'data_fim', 'max_provas_por_dia', 'status', 'segunda_chamada_data', 'naapi_ambiente_id', 'naapi_tempo_extra_min'];
+        $allowed = ['nome', 'descricao', 'data_inicio', 'data_fim', 'max_provas_por_dia', 'status', 'segunda_chamada_data', 'naapi_ambiente_id', 'naapi_tempo_extra_min', 'evitar_conflito_professor'];
         $fields  = [];
         $params  = [];
 
@@ -144,12 +145,17 @@ class SomativaService extends Service {
 
         foreach ($turmas as &$turma) {
             $turma['disciplinas'] = $this->fetchAll(
-                "SELECT sd.id, sd.disciplina_codigo, d.descricao AS disc_nome
+                "SELECT sd.id, sd.disciplina_codigo, d.descricao AS disc_nome,
+                        (SELECT GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ')
+                         FROM turma_disciplinas td
+                         JOIN turma_disciplina_professores tdp ON tdp.turma_disciplina_id = td.id
+                         JOIN users u ON u.id = tdp.professor_id
+                         WHERE td.turma_id = ? AND td.disciplina_codigo = sd.disciplina_codigo) AS professores
                  FROM somativa_disciplinas sd
                  JOIN disciplinas d ON d.codigo = sd.disciplina_codigo
                  WHERE sd.somativa_turma_id = ?
                  ORDER BY d.descricao",
-                [$turma['somativa_turma_id']]
+                [$turma['turma_id'], $turma['somativa_turma_id']]
             );
         }
 
@@ -1035,12 +1041,13 @@ class SomativaService extends Service {
         );
         
         $idx = [
-            'bloquear_data'          => [],
-            'evitar_mesmo_dia'       => [],
-            'mesmo_dia_turmas'       => [],
-            'mesmo_horario_turmas'   => [],
+            'bloquear_data'               => [],
+            'evitar_mesmo_dia'            => [],
+            'mesmo_dia_turmas'            => [],
+            'mesmo_horario_turmas'        => [],
             'mesmo_dia_horario_diferente' => [],
-            'professor_indisponivel' => [],
+            'mesmo_dia_horario_grupo'     => [],
+            'professor_indisponivel'      => [],
         ];
         foreach ($restricoes as $r) {
             $cat    = $r['categoria'];
@@ -1182,6 +1189,20 @@ class SomativaService extends Service {
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            // 8. mesmo_dia_horario_grupo
+            foreach ($idx['mesmo_dia_horario_grupo'] as $r) {
+                $groupSdIds = array_map('intval', array_column($r['pares'] ?? [], 'somativa_disciplina_id'));
+                if (!in_array((int)$a['somativa_disciplina_id'], $groupSdIds)) continue;
+                foreach ($allocs as $other) {
+                    if ((int)$other['id'] === $gradeId) continue;
+                    if (!in_array((int)$other['somativa_disciplina_id'], $groupSdIds)) continue;
+                    if ($other['data_prova'] !== $a['data_prova'] || (int)$other['slot_config_id'] !== (int)$a['slot_config_id']) {
+                        $vList[] = "Grupo Mesmo Slot: não coincide com " . $other['disc_nome'] . " (" . $other['turma_desc'] . ")";
+                        break;
                     }
                 }
             }
