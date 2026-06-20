@@ -125,6 +125,7 @@ class SomativaScheduler extends Service
         return $this->fetchAll(
             "SELECT sd.id AS som_disc_id,
                     sd.disciplina_codigo,
+                    sd.professor_aplicador,
                     d.descricao  AS disc_nome,
                     ROUND(AVG(en.nota), 1)      AS media_turma,
                     COALESCE(MAX(e.media_nota), 6.00) AS media_aprovacao,
@@ -865,6 +866,38 @@ class SomativaScheduler extends Service
             }
         }
 
+        // Professor Aplicador: exige que o professor da disciplina esteja livre para aplicar a prova
+        if (!empty($disc['professor_aplicador'])) {
+            $disciplineProfs = array_map('intval', $profIds);
+            
+            // Encontra quais professores estão ocupados neste slot em outras alocações
+            $busyProfs = [];
+            foreach ($alocacoes as $aloc) {
+                if ($aloc['data_prova'] === $date && (int)$aloc['slot_config_id'] === (int)$slot['id']) {
+                    if ($aloc['aplicador_id']) {
+                        $busyProfs[] = (int)$aloc['aplicador_id'];
+                    }
+                    if ($aloc['volante_id']) {
+                        $busyProfs[] = (int)$aloc['volante_id'];
+                    }
+                    if (!empty($aloc['naapi_aplicador_id'])) {
+                        $busyProfs[] = (int)$aloc['naapi_aplicador_id'];
+                    }
+                }
+            }
+            
+            $hasFreeProf = false;
+            foreach ($disciplineProfs as $pid) {
+                if (!in_array($pid, $busyProfs)) {
+                    $hasFreeProf = true;
+                    break;
+                }
+            }
+            if (!$hasFreeProf && !empty($disciplineProfs)) {
+                return [true, "O professor da disciplina está ocupado em outro papel neste slot"];
+            }
+        }
+
         // Hard constraint: mesmo_horario_turmas
         $cod = $disc['disciplina_codigo'];
         if (isset($hardConstrainedHorario[$cod])) {
@@ -1543,6 +1576,22 @@ class SomativaScheduler extends Service
                     $busyNaapi[] = (int)$aloc['naapi_aplicador_id'];
                 }
             }
+        }
+
+        // Se a regra é "professor_aplicador" (o professor da disciplina DEVE ser o aplicador e não há volante)
+        if (!empty($disc['professor_aplicador'])) {
+            $aplicador = null;
+            $disciplineProfs = array_map('intval', $profIds);
+            foreach ($disciplineProfs as $pid) {
+                if (!in_array($pid, $busyAplicadores) && !in_array($pid, $busyVolantes) && !in_array($pid, $busyNaapi)) {
+                    $aplicador = $pid;
+                    break;
+                }
+            }
+            if ($aplicador === null) {
+                $aplicador = $disciplineProfs[0];
+            }
+            return [$aplicador, null];
         }
 
         // 1. Identificar professor regular da turma nesse slot

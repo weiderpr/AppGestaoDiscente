@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS `somativa_disciplinas` (
   `id`                  int unsigned NOT NULL AUTO_INCREMENT,
   `somativa_turma_id`   int unsigned NOT NULL,
   `disciplina_codigo`   varchar(15)  COLLATE utf8mb4_unicode_ci NOT NULL,
+  `professor_aplicador` tinyint unsigned NOT NULL DEFAULT 0,
   `created_at`          timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_std_disc` (`somativa_turma_id`, `disciplina_codigo`),

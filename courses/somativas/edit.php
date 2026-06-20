@@ -207,8 +207,17 @@ require_once __DIR__ . '/../../includes/header.php';
     display:inline-flex; align-items:center; gap:.35rem;
     background:rgba(79,70,229,.1); color:var(--color-primary);
     border-radius:var(--radius-sm); padding:.25rem .625rem; font-size:.8125rem; font-weight:500;
+    border: 1px solid transparent;
+    transition: all var(--transition-fast);
+}
+.disc-tag.prof-ap-active {
+    background: rgba(16,185,129,.1);
+    color: #059669;
+    border-color: #059669;
 }
 .disc-tag-code { font-weight:700; }
+.disc-tag-toggle-ap { background:none; border:none; color:inherit; opacity:.6; cursor:pointer; font-size:.85rem; padding:0 2px; line-height:1; }
+.disc-tag-toggle-ap:hover { opacity:1; }
 .disc-tag-remove { background:none; border:none; color:inherit; opacity:.6; cursor:pointer; font-size:1rem; padding:0; line-height:1; }
 .disc-tag-remove:hover { opacity:1; }
 .disc-empty, .turma-empty { font-size:.875rem; color:var(--text-muted); font-style:italic; padding:.375rem 0; }
@@ -518,9 +527,14 @@ require_once __DIR__ . '/../../includes/header.php';
                             <span class="disc-empty" id="disc-empty-<?= $stId ?>">Nenhuma disciplina adicionada</span>
                             <?php endif; ?>
                             <?php foreach ($t['disciplinas'] as $d): ?>
-                            <span class="disc-tag" id="disc-tag-<?= $d['id'] ?>">
+                            <span class="disc-tag <?= !empty($d['professor_aplicador']) ? 'prof-ap-active' : '' ?>" id="disc-tag-<?= $d['id'] ?>">
                                 <span class="disc-tag-code"><?= htmlspecialchars($d['disciplina_codigo']) ?></span>
                                 <span><?= htmlspecialchars($d['disc_nome']) ?></span>
+                                <button type="button" class="disc-tag-toggle-ap"
+                                        onclick="toggleProfAplicador(<?= $d['id'] ?>)"
+                                        title="<?= !empty($d['professor_aplicador']) ? 'Desmarcar: Professor aplica a própria prova' : 'Marcar: Professor aplica a própria prova (sem volante)' ?>">
+                                    👤
+                                </button>
                                 <button type="button" class="disc-tag-remove"
                                         onclick="removeDisciplina(<?= $d['id'] ?>, '<?= htmlspecialchars(addslashes($d['disc_nome'])) ?>')"
                                         title="Remover">×</button>
@@ -989,6 +1003,8 @@ async function addDisciplina(stId, codigo, nome) {
             span.className = 'disc-tag'; span.id = `disc-tag-${sdId}`;
             span.innerHTML = `<span class="disc-tag-code">${esc(codigo)}</span>
                 <span>${esc(nome)}</span>
+                <button type="button" class="disc-tag-toggle-ap"
+                    onclick="toggleProfAplicador(${sdId})" title="Marcar: Professor aplica a própria prova (sem volante)">👤</button>
                 <button type="button" class="disc-tag-remove"
                     onclick="removeDisciplina(${sdId},'${esc(nome)}')" title="Remover">×</button>`;
             tags.appendChild(span);
@@ -1006,6 +1022,28 @@ async function removeDisciplina(sdId, nome) {
         const d = await r.json();
         if (d.success) { document.getElementById(`disc-tag-${sdId}`)?.remove(); Toast.success('Removida.'); }
         else Toast.error(d.message || 'Erro');
+    } catch { Toast.error('Erro de comunicação'); }
+}
+
+async function toggleProfAplicador(sdId) {
+    const fd = new FormData();
+    fd.append('action', 'toggle_prof_aplicador'); fd.append('csrf_token', window.csrfToken);
+    fd.append('somativa_disciplina_id', sdId);
+    try {
+        const r = await fetch('/api/somativas/index.php', { method: 'POST', body: fd });
+        const d = await r.json();
+        if (d.success) {
+            const tag = document.getElementById(`disc-tag-${sdId}`);
+            const btn = tag.querySelector('.disc-tag-toggle-ap');
+            if (d.professor_aplicador) {
+                tag.classList.add('prof-ap-active');
+                btn.title = 'Desmarcar: Professor aplica a própria prova';
+            } else {
+                tag.classList.remove('prof-ap-active');
+                btn.title = 'Marcar: Professor aplica a própria prova (sem volante)';
+            }
+            Toast.success('Configuração atualizada.');
+        } else Toast.error(d.message || 'Erro');
     } catch { Toast.error('Erro de comunicação'); }
 }
 

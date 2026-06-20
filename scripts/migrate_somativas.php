@@ -80,6 +80,7 @@ try {
       `id`                  int unsigned NOT NULL AUTO_INCREMENT,
       `somativa_turma_id`   int unsigned NOT NULL,
       `disciplina_codigo`   varchar(15)  COLLATE utf8mb4_unicode_ci NOT NULL,
+      `professor_aplicador` tinyint unsigned NOT NULL DEFAULT 0,
       `created_at`          timestamp NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (`id`),
       UNIQUE KEY `uk_std_disc` (`somativa_turma_id`, `disciplina_codigo`),
@@ -87,6 +88,17 @@ try {
       CONSTRAINT `fk_sd_st`   FOREIGN KEY (`somativa_turma_id`) REFERENCES `somativa_turmas` (`id`) ON DELETE CASCADE,
       CONSTRAINT `fk_sd_disc` FOREIGN KEY (`disciplina_codigo`) REFERENCES `disciplinas`      (`codigo`) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // Adiciona coluna professor_aplicador se não existir
+    $colsSd = $db->query("SHOW COLUMNS FROM `somativa_disciplinas` LIKE 'professor_aplicador'")->fetchAll();
+    if (empty($colsSd)) {
+        $db->exec("ALTER TABLE `somativa_disciplinas`
+            ADD COLUMN `professor_aplicador` tinyint unsigned NOT NULL DEFAULT 0
+            AFTER `disciplina_codigo`");
+        echo "✓ Coluna somativa_disciplinas.professor_aplicador adicionada.\n";
+    } else {
+        echo "· somativa_disciplinas.professor_aplicador já existe. Pulando.\n";
+    }
     echo "✓ Tabela somativa_disciplinas criada/verificada.\n";
 
     // ── 6. Tabela somativa_grade ───────────────────────────────────────────────

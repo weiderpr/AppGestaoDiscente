@@ -207,6 +207,19 @@ try {
             echo json_encode(['success' => $service->removeDisciplina($sdId)]);
             break;
 
+        // ── Alternar Professor Aplicador ──────────────────────
+        case 'toggle_prof_aplicador':
+            if (!hasDbPermission('somativas.update', false)) {
+                http_response_code(403); echo json_encode(['success' => false, 'message' => 'Sem permissão']); exit;
+            }
+            if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+                http_response_code(403); echo json_encode(['success' => false, 'message' => 'Token inválido']); exit;
+            }
+
+            $sdId = (int)($_POST['somativa_disciplina_id'] ?? 0);
+            echo json_encode($service->toggleProfAplicador($sdId));
+            break;
+
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Ação inválida']);

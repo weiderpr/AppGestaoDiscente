@@ -145,7 +145,7 @@ class SomativaService extends Service {
 
         foreach ($turmas as &$turma) {
             $turma['disciplinas'] = $this->fetchAll(
-                "SELECT sd.id, sd.disciplina_codigo, d.descricao AS disc_nome,
+                "SELECT sd.id, sd.disciplina_codigo, sd.professor_aplicador, d.descricao AS disc_nome,
                         (SELECT GROUP_CONCAT(DISTINCT u.name ORDER BY u.name SEPARATOR ', ')
                          FROM turma_disciplinas td
                          JOIN turma_disciplina_professores tdp ON tdp.turma_disciplina_id = td.id
@@ -202,6 +202,20 @@ class SomativaService extends Service {
             'DELETE FROM somativa_disciplinas WHERE id = ?',
             [$disciplinaId]
         ) > 0;
+    }
+
+    public function toggleProfAplicador(int $sdId): array {
+        $old = $this->fetchOne('SELECT * FROM somativa_disciplinas WHERE id = ?', [$sdId]);
+        if (!$old) return ['success' => false, 'message' => 'Disciplina não encontrada'];
+        
+        $newValue = $old['professor_aplicador'] ? 0 : 1;
+        $this->execute(
+            'UPDATE somativa_disciplinas SET professor_aplicador = ? WHERE id = ?',
+            [$newValue, $sdId]
+        );
+        $this->audit('UPDATE', 'somativa_disciplinas', $sdId, $old, ['professor_aplicador' => $newValue]);
+        
+        return ['success' => true, 'professor_aplicador' => $newValue];
     }
 
     // ──────────────────────────────────────────────────────────
