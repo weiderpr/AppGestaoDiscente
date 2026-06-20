@@ -865,22 +865,68 @@
 
 .gs-suggestions {
     border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
 }
 
 .gs-suggestions-title {
     font-size: .8125rem;
     font-weight: 700;
-    margin: 0 0 .625rem;
+    margin: 0;
+    padding: .875rem 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+    transition: background-color var(--transition-fast);
+}
+
+.gs-suggestions-title::-webkit-details-marker {
+    display: none;
+}
+
+.gs-suggestions-title {
+    list-style: none;
+}
+
+.gs-suggestions-title::after {
+    content: '▼';
+    font-size: .65rem;
+    color: var(--text-muted);
+    transition: transform var(--transition-fast);
+}
+
+details[open] .gs-suggestions-title::after {
+    transform: rotate(180deg);
+}
+
+.gs-suggestions-title:hover {
+    background-color: var(--bg-hover);
 }
 
 .gs-suggestions-list {
     list-style: none;
     margin: 0;
-    padding: 0;
+    padding: 0 1rem 1rem;
     display: flex;
     flex-direction: column;
     gap: .5rem;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+details[open] .gs-suggestions-list {
+    animation: slideDown var(--transition-fast) ease-out;
 }
 
 .gs-suggestion-item {
@@ -932,6 +978,16 @@
 .autoalocar-modal .slot-modal-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; padding: 0; }
 
 .autoalocar-state { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.autoalocar-state[hidden] { display: none !important; }
+
+.autoalocar-alert {
+    margin: 1rem 1.5rem 0.5rem;
+}
+.autoalocar-alert .alert-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.125rem;
+}
 
 .autoalocar-summary {
     display: flex;
@@ -1271,20 +1327,19 @@
 
 /* Print Preview Container */
 .print-preview-container {
-    /* largo o suficiente para acomodar a "folha" A4 landscape (297mm ≈ 1122px) + margens */
-    max-width: 1200px;
+    /* centraliza as "folhas" A4 retrato (210mm ≈ 794px) */
+    max-width: 860px;
     margin: 2rem auto;
     padding: 0 1rem;
-    overflow-x: auto;
 }
 
-/* Simula folha A4 landscape (297mm × 210mm) com margens de 8mm */
+/* Simula folha A4 retrato (210mm × 297mm) com margens de 8mm */
 .print-course-section {
     background: #ffffff;
     border: 1px solid #cbd5e1;
     border-radius: 4px;
     padding: 8mm;
-    width: 297mm;          /* A4 landscape */
+    width: 210mm;          /* A4 retrato */
     min-height: 150mm;
     box-sizing: border-box;
     margin: 0 auto 2.5rem;
@@ -1317,15 +1372,38 @@
     font-size: 1rem;
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 0.875rem;
+    margin-bottom: 0;
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
 .print-turma-title::before {
-    content: "📁";
-    font-size: 1.1rem;
+    content: "▸";
+    font-size: 1rem;
+}
+
+.print-turma-header {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.875rem;
+}
+
+.print-naapi-ref {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #4f46e5;
+    background: #e0e7ff;
+    border-radius: 4px;
+    padding: 1px 6px;
+    white-space: nowrap;
+}
+
+.pcc-naapi-sem-ap {
+    color: #94a3b8;
+    font-size: 0.6rem;
 }
 
 .print-table-separator {
@@ -1419,25 +1497,27 @@
 .print-card-content {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.15rem;
 }
 
 .pcc-discipline {
     font-weight: 700;
     color: #0f172a;
-    line-height: 1.25;
+    line-height: 1.2;
 }
 
+/* código na mesma linha que o nome */
 .pcc-disc-code {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: #64748b;
     font-weight: 500;
-    display: block;
+    display: inline;
+    margin-left: 0.2rem;
 }
 
 .pcc-badge {
     display: inline-block;
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     font-weight: 700;
     color: #ffffff;
     background: #f59e0b;
@@ -1448,53 +1528,89 @@
 }
 
 .pcc-professor-info {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     color: #475569;
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
 }
 
+/* linha de professor: label + nome + sala inline */
 .pcc-prof-row {
-    white-space: nowrap;
+    display: flex;
+    align-items: baseline;
+    gap: 0.2rem;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.pcc-person-name {
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
 }
 
 .pcc-label {
-    font-weight: 600;
+    font-weight: 700;
     color: #64748b;
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     text-transform: uppercase;
+    flex-shrink: 0;
 }
 
 .pcc-room {
-    font-size: 0.72rem;
+    font-size: 0.65rem;
     color: #475569;
     font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
+/* sala inline (após o nome do aplicador) */
+.pcc-room-inline {
+    font-size: 0.6rem;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 2;
+    min-width: 0;
+}
+
+/* NAAPI compacto: uma única linha com badge + A: nome + sala */
 .pcc-naapi-block {
-    margin-top: 0.375rem;
-    padding-top: 0.375rem;
+    margin-top: 0.2rem;
+    padding-top: 0.2rem;
     border-top: 1px dashed #cbd5e1;
     display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.2rem;
+    overflow: hidden;
+    min-width: 0;
 }
 
 .pcc-naapi-badge {
     display: inline-block;
-    font-size: 0.625rem;
+    font-size: 0.55rem;
     font-weight: 700;
     color: #4f46e5;
     background: #e0e7ff;
     border-radius: 3px;
     padding: 0.5px 3px;
-    width: fit-content;
+    flex-shrink: 0;
     text-transform: uppercase;
 }
 
 /* Control settings toggles */
-body.hide-professors .pcc-professor-info,
-body.hide-professors .pcc-naapi-block .pcc-prof-row {
+body.hide-professors .pcc-professor-info {
+    display: none !important;
+}
+body.hide-professors .pcc-naapi-block .pcc-person-name,
+body.hide-professors .pcc-naapi-block .pcc-label {
     display: none !important;
 }
 
@@ -1638,10 +1754,27 @@ body.font-lg .pcc-naapi-block {
         display: block !important;
     }
 
+    .print-turma-header {
+        margin-bottom: 0.4rem !important;
+        gap: 0.3rem !important;
+    }
+
     .print-turma-title {
         color: #000000 !important;
-        font-size: 9.5pt !important;
-        margin-bottom: 0.5rem !important;
+        font-size: 8.5pt !important;
+        margin-bottom: 0 !important;
+    }
+
+    .print-turma-title::before {
+        content: "▸" !important;
+        font-size: 8.5pt !important;
+    }
+
+    .print-naapi-ref {
+        font-size: 6pt !important;
+        padding: 0px 4px !important;
+        color: #3730a3 !important;
+        background: #e0e7ff !important;
     }
 
     .print-table {
@@ -1656,67 +1789,104 @@ body.font-lg .pcc-naapi-block {
         border: 1px solid #000000 !important;
         color: #000000 !important;
         background: #ffffff !important;
-        padding: 3px 4px !important;
-        font-size: 7.5pt !important;
+        padding: 2px 3px !important;
+        font-size: 6pt !important;
+        line-height: 1.2 !important;
     }
-    
+
     .print-th-slot {
-        width: 70px !important;
+        width: 58px !important;
     }
 
     .print-table th {
         background: #f1f5f9 !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
+        padding: 2px 3px !important;
+        font-size: 6pt !important;
     }
-    
+
     .print-td-slot {
         background: #f8fafc !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
+        vertical-align: middle !important;
     }
 
     .print-slot-time {
-        font-size: 7.5pt !important;
+        font-size: 6pt !important;
+        display: block !important;
     }
 
     .print-slot-label {
-        font-size: 5.5pt !important;
+        font-size: 4.5pt !important;
+        display: block !important;
     }
 
+    /* disciplina: só o nome, sem código */
     .pcc-discipline {
-        font-size: 7.5pt !important;
+        font-size: 5.5pt !important;
+        line-height: 1.2 !important;
         color: #000000 !important;
     }
 
     .pcc-disc-code {
-        font-size: 6.5pt !important;
-        color: #000000 !important;
+        display: none !important;
     }
 
-    .pcc-professor-info,
-    .pcc-room {
-        font-size: 6.5pt !important;
+    /* aplicador / volante */
+    .pcc-professor-info {
+        font-size: 5pt !important;
         color: #000000 !important;
+        gap: 0.05rem !important;
     }
 
-    /* permite que nomes longos de professores quebrem linha em vez de cortar */
+    /* cada linha A:/V: — label fixo + nome ocupa o resto, pode quebrar linha */
     .pcc-prof-row {
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
+        display: flex !important;
+        align-items: baseline !important;
+        gap: 0.15rem !important;
+        min-width: 0 !important;
+    }
+
+    .pcc-person-name {
+        flex: 1 !important;
+        min-width: 0 !important;
+        overflow-wrap: break-word !important;
+        word-break: break-word !important;
+    }
+
+    .pcc-room {
+        font-size: 4.5pt !important;
+        color: #444444 !important;
+        overflow-wrap: break-word !important;
+        word-break: break-word !important;
+    }
+
+    .pcc-label {
+        font-size: 4.5pt !important;
+        color: #555555 !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* NAAPI compacto: badge N + A: + nome */
+    .pcc-naapi-block {
+        font-size: 4.5pt !important;
+        margin-top: 0.15rem !important;
+        padding-top: 0.15rem !important;
+        gap: 0.15rem !important;
+        min-width: 0 !important;
+    }
+
+    .pcc-naapi-badge {
+        font-size: 4pt !important;
+        padding: 0.5px 2px !important;
+        flex-shrink: 0 !important;
+        background: #e0e7ff !important;
+        color: #4f46e5 !important;
+        border: 1px solid #4f46e5 !important;
     }
 
     /* badge "Segunda Chamada" — garante fundo laranja impresso */
     .pcc-badge {
         background: #f59e0b !important;
         color: #ffffff !important;
-    }
-
-    .pcc-naapi-badge {
-        border: 1px solid #4f46e5 !important;
-        background: #e0e7ff !important;
-        color: #4f46e5 !important;
     }
 
     /* remove -webkit-print-color-adjust redundantes (já cobertos pelo * acima) */
@@ -1729,6 +1899,6 @@ body.font-lg .pcc-naapi-block {
 }
 
 @page {
-    size: A4 landscape;
+    size: A4 portrait;
     margin: 8mm;
 }

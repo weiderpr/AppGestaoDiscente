@@ -21,6 +21,7 @@
         initDragAndDrop();
         initSlotModal();
         initSmartSearchAll();
+        initSuggestionsToggle();
     });
 
     // ──────────────────────────────────────────────────────────
@@ -464,6 +465,17 @@
         });
     }
 
+    function initSuggestionsToggle() {
+        const btn = document.getElementById('btn-suggestions');
+        const panel = document.getElementById('gs-suggestions-panel');
+        if (btn && panel) {
+            btn.addEventListener('click', () => {
+                panel.open = true;
+                panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+        }
+    }
+
     function initOneSearch(container) {
         const input    = container.querySelector('.smart-search-input');
         const dropdown = container.querySelector('.smart-search-dropdown');
@@ -598,7 +610,7 @@
         if (!gd.somativaId) return;
 
         openAutoAlocar();
-        setLoadingSub('Executando algoritmo greedy...');
+        setLoadingSub('Executando alocação inteligente...');
 
         try {
             const fd = new FormData();

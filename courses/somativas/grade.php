@@ -404,8 +404,8 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
 
         <!-- Sugestões compactas -->
         <?php if ($suggestions): ?>
-        <div class="gs-section gs-suggestions" id="gs-suggestions-panel">
-            <h4 class="gs-suggestions-title">💡 Sugestões</h4>
+        <details class="gs-suggestions" id="gs-suggestions-panel">
+            <summary class="gs-suggestions-title">💡 Sugestões</summary>
             <ul class="gs-suggestions-list">
                 <?php foreach ($suggestions as $sg): ?>
                 <li class="gs-suggestion-item gs-sug-<?= $sg['tipo'] ?>">
@@ -413,7 +413,7 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
                 </li>
                 <?php endforeach; ?>
             </ul>
-        </div>
+        </details>
         <?php endif; ?>
 
     </aside><!-- /grade-sidebar -->
@@ -556,6 +556,15 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
 
             <!-- Estado: resultado -->
             <div id="autoalocar-result" class="autoalocar-state" hidden>
+
+                <!-- Alerta de Sucesso -->
+                <div class="alert alert-success autoalocar-alert" id="autoalocar-success-alert">
+                    <span class="alert-icon">✨</span>
+                    <div>
+                        <strong>Alocação inteligente concluída!</strong>
+                        <div class="alert-sub">Confira a pré-visualização das alocações na tabela abaixo antes de confirmar.</div>
+                    </div>
+                </div>
 
                 <!-- Resumo (badges) -->
                 <div class="autoalocar-summary" id="autoalocar-summary"></div>

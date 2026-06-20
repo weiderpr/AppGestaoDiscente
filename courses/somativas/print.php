@@ -57,12 +57,12 @@ foreach ($turmas as $t) {
 // Calcula tamanho de fonte proporcional ao nº de datas (A4 landscape, slot col ≈ 17mm, restam ~264mm)
 $numDates     = count($dates);
 $printFontPt  = match(true) {
-    $numDates <= 5  => 7.5,
-    $numDates <= 8  => 7,
-    $numDates <= 11 => 6.5,
-    $numDates <= 14 => 6,
-    $numDates <= 18 => 5.5,
-    default         => 5,
+    $numDates <= 5  => 7,
+    $numDates <= 8  => 6.5,
+    $numDates <= 11 => 6,
+    $numDates <= 14 => 5.5,
+    $numDates <= 18 => 5,
+    default         => 4.5,
 };
 
 ?>
@@ -83,7 +83,8 @@ $printFontPt  = match(true) {
     <script src="/assets/js/main.js"></script>
     <script src="/assets/js/components/Toast.js"></script>
     <script src="/assets/js/components/Loading.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @media print {
             .print-table { font-size: <?= $printFontPt ?>pt !important; }
@@ -154,7 +155,12 @@ $printFontPt  = match(true) {
             $gData = $gradeData[$stId] ?? [];
         ?>
         <div class="print-turma-block">
-            <h3 class="print-turma-title">Turma: <?= htmlspecialchars($t['turma_desc']) ?></h3>
+            <div class="print-turma-header">
+                <h3 class="print-turma-title">Turma: <?= htmlspecialchars($t['turma_desc']) ?></h3>
+                <?php if (!empty($somativa['naapi_ambiente_id'])): ?>
+                <span class="print-naapi-ref">NAAPI — Sala: <?= htmlspecialchars($somativa['naapi_ambiente_desc'] ?? '') ?> · +<?= (int)($somativa['naapi_tempo_extra_min'] ?? 60) ?> min</span>
+                <?php endif; ?>
+            </div>
             <table class="print-table">
                 <thead>
                     <tr>
@@ -186,51 +192,48 @@ $printFontPt  = match(true) {
                         <td class="print-cell <?= $hasCard ? 'print-has-card' : 'print-empty-cell' ?>">
                             <?php if ($hasCard): ?>
                             <div class="print-card-content">
+                                <!-- Disciplina: apenas o nome -->
                                 <div class="pcc-discipline">
-                                    <span class="pcc-disc-name"><?= htmlspecialchars($cellData['disciplina_nome'] ?? '—') ?></span>
-                                    <?php if (!empty($cellData['disciplina_codigo'])): ?>
-                                    <span class="pcc-disc-code">(<?= htmlspecialchars($cellData['disciplina_codigo']) ?>)</span>
-                                    <?php endif; ?>
+                                    <?= htmlspecialchars($cellData['disciplina_nome'] ?? '—') ?>
                                 </div>
 
                                 <?php if ($cellData['tipo'] !== 'Normal'): ?>
                                 <span class="pcc-badge"><?= $cellData['tipo'] ?></span>
                                 <?php endif; ?>
 
+                                <!-- Aplicador e Volante: uma linha cada, nome nunca espremido -->
                                 <div class="pcc-professor-info">
                                     <?php if (!empty($cellData['aplicador_nome'])): ?>
                                     <div class="pcc-prof-row">
-                                        <span class="pcc-label">A:</span> <?= htmlspecialchars($cellData['aplicador_nome']) ?>
+                                        <span class="pcc-label">A:</span>
+                                        <span class="pcc-person-name"><?= htmlspecialchars($cellData['aplicador_nome']) ?></span>
                                     </div>
                                     <?php endif; ?>
                                     <?php if (!empty($cellData['volante_nome'])): ?>
                                     <div class="pcc-prof-row">
-                                        <span class="pcc-label">V:</span> <?= htmlspecialchars($cellData['volante_nome']) ?>
+                                        <span class="pcc-label">V:</span>
+                                        <span class="pcc-person-name"><?= htmlspecialchars($cellData['volante_nome']) ?></span>
                                     </div>
                                     <?php endif; ?>
                                 </div>
 
+                                <!-- Sala própria da disciplina -->
                                 <?php if (!empty($cellData['ambiente_desc'])): ?>
-                                <div class="pcc-room">
-                                    🏫 <?= htmlspecialchars($cellData['ambiente_desc']) ?>
-                                </div>
+                                <div class="pcc-room">Sala: <?= htmlspecialchars($cellData['ambiente_desc']) ?></div>
                                 <?php endif; ?>
 
+                                <!-- NAAPI: badge N + aplicador numa linha (sala mostrada no cabeçalho da turma) -->
                                 <?php
                                 $naapiAtivo = !empty($somativa['naapi_ambiente_id']);
                                 if ($naapiAtivo && $cellData['tipo'] === 'Normal'):
                                 ?>
                                 <div class="pcc-naapi-block">
-                                    <span class="pcc-naapi-badge">NAAPI</span>
+                                    <span class="pcc-naapi-badge">N</span>
                                     <?php if (!empty($cellData['naapi_aplicador_nome'])): ?>
-                                    <div class="pcc-prof-row">
-                                        <span class="pcc-label">A:</span> <?= htmlspecialchars($cellData['naapi_aplicador_nome']) ?>
-                                    </div>
-                                    <?php endif; ?>
-                                    <?php if ($somativa['naapi_ambiente_desc']): ?>
-                                    <div class="pcc-room">
-                                        🏫 <?= htmlspecialchars($somativa['naapi_ambiente_desc']) ?>
-                                    </div>
+                                    <span class="pcc-label">A:</span>
+                                    <span class="pcc-person-name"><?= htmlspecialchars($cellData['naapi_aplicador_nome']) ?></span>
+                                    <?php else: ?>
+                                    <span class="pcc-naapi-sem-ap">—</span>
                                     <?php endif; ?>
                                 </div>
                                 <?php endif; ?>
@@ -253,86 +256,94 @@ $printFontPt  = match(true) {
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const body = document.body;
-    
-    // Toggle Font Size
-    const fontSizeSelect = document.getElementById('select-font-size');
-    fontSizeSelect.addEventListener('change', (e) => {
+
+    document.getElementById('select-font-size').addEventListener('change', e => {
         body.classList.remove('font-sm', 'font-md', 'font-lg');
         body.classList.add(e.target.value);
     });
 
-    // Toggle Professors visibility
-    const toggleProf = document.getElementById('toggle-professors');
-    toggleProf.addEventListener('change', (e) => {
+    document.getElementById('toggle-professors').addEventListener('change', e => {
         body.classList.toggle('hide-professors', !e.target.checked);
     });
 
-    // Toggle Rooms visibility
-    const toggleRooms = document.getElementById('toggle-rooms');
-    toggleRooms.addEventListener('change', (e) => {
+    document.getElementById('toggle-rooms').addEventListener('change', e => {
         body.classList.toggle('hide-rooms', !e.target.checked);
     });
 
-    // Toggle NAAPI block visibility
-    const toggleNaapi = document.getElementById('toggle-naapi');
-    toggleNaapi.addEventListener('change', (e) => {
+    document.getElementById('toggle-naapi').addEventListener('change', e => {
         body.classList.toggle('hide-naapi', !e.target.checked);
+    });
+
+    // Corrige preview em branco após fechar o diálogo de impressão do navegador
+    // (Firefox e alguns Chromium não restauram CSS de tela após @media print)
+    window.addEventListener('afterprint', () => {
+        document.querySelectorAll('.print-course-section').forEach(s => {
+            s.style.display = 'none';
+            void s.offsetWidth; // força reflow
+            s.style.display  = '';
+        });
     });
 });
 
-window.exportToPDF = function() {
+// Exporta PDF como screenshot pixel-perfeito de cada seção da pré-visualização
+window.exportToPDF = async function() {
     if (typeof Loading !== 'undefined') Loading.show();
+    try {
+        await document.fonts.ready;
 
-    const htmlEl      = document.documentElement;
-    const bodyEl      = document.body;
-    const currentTheme = htmlEl.getAttribute('data-theme');
-    const fontClass   = Array.from(bodyEl.classList).find(c => /^font-/.test(c)) || 'font-md';
+        const { jsPDF }  = window.jspdf;
+        const sections   = Array.from(document.querySelectorAll('.print-course-section'));
+        if (!sections.length) throw new Error('Sem conteúdo para exportar.');
 
-    htmlEl.setAttribute('data-theme', 'light');
+        const filename = 'Grade-Somativa-<?= addslashes($somativa['nome']) ?>'.replace(/[^a-z0-9]/gi, '_') + '.pdf';
 
-    const element  = document.querySelector('.print-preview-container');
-    const filename = 'Grade-Somativa-' + '<?= addslashes($somativa['nome']) ?>'.replace(/[^a-z0-9]/gi, '_') + '.pdf';
+        const pdf   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageW = pdf.internal.pageSize.getWidth();   // 210 mm
+        const pageH = pdf.internal.pageSize.getHeight();  // 297 mm
 
-    const restore = () => {
-        htmlEl.setAttribute('data-theme', currentTheme);
-        if (typeof Loading !== 'undefined') Loading.hide();
-    };
+        for (let i = 0; i < sections.length; i++) {
+            if (i > 0) pdf.addPage();
 
-    // Aguarda fontes carregarem antes de capturar
-    document.fonts.ready.then(() => {
-        const opt = {
-            margin:    [8, 8, 8, 8],
-            filename:  filename,
-            image:     { type: 'jpeg', quality: 0.95 },
-            html2canvas: {
-                scale:           1.8,
+            const canvas = await html2canvas(sections[i], {
+                scale:           3,       // 3× para texto mais nítido no PDF
                 useCORS:         true,
                 logging:         false,
                 backgroundColor: '#ffffff',
-                scrollX:         0,
-                scrollY:         0,
-                onclone: (doc) => {
-                    // garante que o clone tem tema claro e a classe de fonte correta
+                onclone: (doc, el) => {
                     doc.documentElement.setAttribute('data-theme', 'light');
-                    doc.body.classList.remove('font-sm', 'font-md', 'font-lg');
-                    doc.body.classList.add(fontClass);
+                    el.style.boxShadow    = 'none';
+                    el.style.border       = 'none';
+                    el.style.borderRadius = '0';
+                    el.style.margin       = '0';
                 }
-            },
-            jsPDF:     { unit: 'mm', format: 'a4', orientation: 'landscape' },
-            pagebreak: { mode: ['css', 'legacy'] }
-        };
-
-        html2pdf().set(opt).from(element).save()
-            .then(() => {
-                restore();
-                if (typeof Toast !== 'undefined') Toast.success("PDF baixado com sucesso!");
-            })
-            .catch(err => {
-                restore();
-                if (typeof Toast !== 'undefined') Toast.error("Erro ao gerar PDF.");
-                console.error(err);
             });
-    });
+
+            // Escala para preencher largura total; reduz proporcionalmente se altura exceder a página.
+            // r é em mm/px — produto garante dimensões em mm para o jsPDF.
+            const rW = pageW / canvas.width;
+            const rH = pageH / canvas.height;
+            const r  = Math.min(rW, rH);   // usa o fator menor: nunca corta, nunca ultrapassa
+            const dw = canvas.width  * r;   // mm — igual a pageW quando rW <= rH
+            const dh = canvas.height * r;   // mm — igual a pageH quando rH <= rW
+
+            pdf.addImage(
+                canvas.toDataURL('image/jpeg', 0.98),
+                'JPEG',
+                (pageW - dw) / 2,  // centraliza horizontal (≈ 0 quando rW é o fator limitante)
+                0,                 // ancora no topo
+                dw,
+                dh
+            );
+        }
+
+        pdf.save(filename);
+        if (typeof Toast !== 'undefined') Toast.success('PDF baixado com sucesso!');
+    } catch (err) {
+        console.error('Erro ao gerar PDF:', err);
+        if (typeof Toast !== 'undefined') Toast.error('Erro ao gerar PDF.');
+    } finally {
+        if (typeof Loading !== 'undefined') Loading.hide();
+    }
 };
 </script>
 

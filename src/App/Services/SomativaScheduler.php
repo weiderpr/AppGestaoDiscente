@@ -531,7 +531,7 @@ class SomativaScheduler extends Service
         array &$bestAllocations
     ): bool {
         $calls++;
-        if ($calls > 10000) {
+        if ($calls > 50000) {
             return false; // Evita loop infinito em grades impossíveis
         }
 
