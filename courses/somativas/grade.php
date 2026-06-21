@@ -511,6 +511,51 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
         </div>
 
         <!-- Painel: Diretrizes/Regras -->
+        <?php
+        // Build discipline code to name lookup mapping
+        $disciplinaNomes = [];
+        $somativaDisciplinaNomes = [];
+        if (!empty($turmas)) {
+            foreach ($turmas as $t) {
+                if (!empty($t['disciplinas'])) {
+                    foreach ($t['disciplinas'] as $d) {
+                        $disciplinaNomes[$d['disciplina_codigo']] = $d['disc_nome'];
+                        $somativaDisciplinaNomes[(int)$d['id']] = $d['disc_nome'];
+                    }
+                }
+            }
+        }
+
+        // Helper to format restriction parameters beautifully
+        $formatParamVal = function($key, $val) use ($disciplinaNomes, $somativaDisciplinaNomes) {
+            if (is_array($val)) {
+                $items = [];
+                foreach ($val as $item) {
+                    if (is_array($item)) {
+                        if (isset($item['disciplina_codigo'])) {
+                            $cod = $item['disciplina_codigo'];
+                            $items[] = $disciplinaNomes[$cod] ?? $cod;
+                        } elseif (isset($item['somativa_disciplina_id'])) {
+                            $sdId = (int)$item['somativa_disciplina_id'];
+                            $items[] = $somativaDisciplinaNomes[$sdId] ?? "#{$sdId}";
+                        } else {
+                            $items[] = json_encode($item, JSON_UNESCAPED_UNICODE);
+                        }
+                    } else {
+                        $items[] = $item;
+                    }
+                }
+                return implode(', ', $items);
+            }
+            if (strpos($key, 'disciplina_codigo') !== false) {
+                return $disciplinaNomes[$val] ?? $val;
+            }
+            if (strpos($key, 'somativa_disciplina_id') !== false) {
+                return $somativaDisciplinaNomes[(int)$val] ?? $val;
+            }
+            return $val;
+        };
+        ?>
         <div class="console-panel" id="console-tab-rules">
             <div class="rules-list-container">
                 <?php if (empty($regrasAtivas)): ?>
@@ -540,7 +585,7 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
                                         <?php if (!empty($params)): ?>
                                             <div class="rule-desc-params">
                                                 <?php foreach ($params as $k => $v): ?>
-                                                    <span><strong><?= htmlspecialchars($k) ?>:</strong> <?= htmlspecialchars(is_array($v) ? implode(', ', $v) : $v) ?></span>
+                                                    <span><strong><?= htmlspecialchars(str_replace('_', ' ', $k)) ?>:</strong> <?= htmlspecialchars($formatParamVal($k, $v)) ?></span>
                                                 <?php endforeach; ?>
                                             </div>
                                         <?php endif; ?>

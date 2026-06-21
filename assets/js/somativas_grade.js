@@ -797,6 +797,21 @@
         const consoleEl = document.getElementById('grade-console');
         if (!consoleEl) return;
 
+        // Restore last execution logs from sessionStorage if it matches this somativa
+        const savedSomativaId = sessionStorage.getItem('grade_console_last_logs_somativa_id');
+        const savedLogs = sessionStorage.getItem('grade_console_last_logs');
+        if (parseInt(savedSomativaId) === parseInt(gd.somativaId) && savedLogs) {
+            try {
+                const logsList = JSON.parse(savedLogs);
+                const consolePre = document.getElementById('console-output-text');
+                if (consolePre && logsList && logsList.length > 0) {
+                    consolePre.textContent = logsList.join('\n');
+                }
+            } catch (e) {
+                console.error("Erro ao carregar logs do cache", e);
+            }
+        }
+
         const toggleBtn = document.getElementById('btn-console-toggle');
         const toggleIcon = consoleEl.querySelector('.console-toggle-icon');
         const tabs = consoleEl.querySelectorAll('.console-tab');
@@ -993,6 +1008,10 @@
         const consolePre = document.getElementById('console-output-text');
         if (!consolePre || !logsList || logsList.length === 0) return;
 
+        // Persist logs in sessionStorage associated with this somativa
+        sessionStorage.setItem('grade_console_last_logs_somativa_id', gd.somativaId);
+        sessionStorage.setItem('grade_console_last_logs', JSON.stringify(logsList));
+
         const outputTab = document.querySelector('.console-tab[data-tab="console-tab-output"]');
         if (outputTab) outputTab.click();
 
@@ -1005,6 +1024,17 @@
                 consolePre.scrollTop = consolePre.scrollHeight;
                 lineIdx++;
                 setTimeout(printNextLine, 20);
+            } else {
+                // Done streaming! Automatically collapse the console after a short delay
+                setTimeout(() => {
+                    const consoleEl = document.getElementById('grade-console');
+                    if (consoleEl) {
+                        consoleEl.classList.add('collapsed');
+                        const toggleIcon = consoleEl.querySelector('.console-toggle-icon');
+                        if (toggleIcon) toggleIcon.textContent = '▲';
+                    }
+                    sessionStorage.setItem('grade_console_collapsed', 'true');
+                }, 1000);
             }
         }
 
@@ -1052,13 +1082,24 @@
                 Toast.error(data.message || 'Erro ao gerar alocação');
                 const consolePre = document.getElementById('console-output-text');
                 if (consolePre) {
-                    consolePre.textContent = `[ERRO] Falha ao alocar automaticamente: ${data.message || 'Erro desconhecido'}`;
+                    consolePre.textContent = `[ERRO] Falha ao alocar automaticamente: ${data.message || 'Erro desconhecido'}\n[SISTEMA] Não gerado com sucesso devido a erros no processamento.`;
                 }
                 return;
             }
 
             if (data.logs && data.logs.length > 0) {
-                streamLogsToConsole(data.logs);
+                const logsToStream = [...data.logs];
+                logsToStream.push("");
+                logsToStream.push(`[SISTEMA] Processamento concluído: Gerado com sucesso!`);
+                logsToStream.push(`[SISTEMA] Total de alocações propostas: ${data.alocacoes ? data.alocacoes.length : 0}`);
+                
+                if (data.conflitos && data.conflitos.length > 0) {
+                    logsToStream.push(`[AVISO] ${data.conflitos.length} disciplina(s) não puderam ser alocadas devido a restrições/conflitos:`);
+                    data.conflitos.forEach(c => {
+                        logsToStream.push(`  - ${c.disc_name} (${c.turma_desc}): ${c.motivo}`);
+                    });
+                }
+                streamLogsToConsole(logsToStream);
             }
 
             renderAutoAlocarResult(data);
