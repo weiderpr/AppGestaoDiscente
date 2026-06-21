@@ -26,6 +26,7 @@
         initSidebarToggle();
         renderSuggestions(currentStId);
         initConsolePanel();
+        initPrintModal();
     });
 
     // ──────────────────────────────────────────────────────────
@@ -74,6 +75,7 @@
         const panel = document.getElementById('gs-suggestions-panel');
         const btn = document.getElementById('btn-suggestions');
         const countSpan = document.getElementById('sug-count');
+        const countSpanSidebar = document.getElementById('sug-count-sidebar');
 
         if (!listContainer || !panel) return;
 
@@ -84,6 +86,10 @@
             }
             return s.somativa_turma_ids.includes(parseInt(stId));
         });
+
+        if (countSpanSidebar) {
+            countSpanSidebar.textContent = filtered.length;
+        }
 
         if (btn) {
             if (filtered.length > 0) {
@@ -410,6 +416,49 @@
         resetModalFields();
     };
 
+    function initPrintModal() {
+        const btnImprimir = document.getElementById('btn-imprimir');
+        const printOverlay = document.getElementById('print-modal-overlay');
+
+        if (btnImprimir) {
+            btnImprimir.addEventListener('click', () => {
+                window.openPrintModal();
+            });
+        }
+
+        if (printOverlay) {
+            printOverlay.addEventListener('click', (e) => {
+                if (e.target === printOverlay) window.closePrintModal();
+            });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && printOverlay && !printOverlay.hidden) {
+                window.closePrintModal();
+            }
+        });
+    }
+
+    window.openPrintModal = function () {
+        const overlay = document.getElementById('print-modal-overlay');
+        const iframe = document.getElementById('print-modal-iframe');
+        if (overlay && iframe) {
+            iframe.src = `print.php?id=${gd.somativaId}`;
+            overlay.hidden = false;
+        }
+    };
+
+    window.closePrintModal = function () {
+        const overlay = document.getElementById('print-modal-overlay');
+        const iframe = document.getElementById('print-modal-iframe');
+        if (overlay) {
+            overlay.hidden = true;
+        }
+        if (iframe) {
+            iframe.src = '';
+        }
+    };
+
     function resetModalFields() {
         document.getElementById('slot-modal-form')?.reset();
         document.getElementById('field-aplicador-id').value = '';
@@ -523,30 +572,73 @@
                 ? (activeTab.querySelector('.gtt-turma')?.textContent || 'esta turma')
                 : 'esta turma';
 
-            Modal.confirm({
-                title:       'Limpar todos os cards',
-                message:     `Remover todas as provas alocadas de <strong>${escHtml(turmaDesc)}</strong>?<br>Esta ação não pode ser desfeita.`,
-                confirmText: 'Limpar tudo',
-                confirmClass:'btn-danger',
-                onConfirm: async () => {
-                    const fd = new FormData();
-                    fd.append('action',            'clear_all_slots');
-                    fd.append('csrf_token',        CSRF);
-                    fd.append('somativa_turma_id', currentStId);
+            const modalId = Modal.open({
+                title: 'Limpar todos os cards',
+                content: `
+                    <p class="modal-confirm-message" style="margin-bottom: 1.5rem; line-height: 1.5;">
+                        Você está prestes a remover as provas alocadas. Como deseja proceder?
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <button type="button" class="btn btn-danger" id="btn-clear-turma" style="text-align: left; padding: 0.875rem 1.25rem; display: block; width: 100%;">
+                            <strong>Desalocar somente da turma selecionada</strong>
+                            <div style="font-size: 0.75rem; opacity: 0.8; font-weight: normal; margin-top: 0.25rem;">Remove apenas as provas da turma atual: <strong>${escHtml(turmaDesc)}</strong></div>
+                        </button>
+                        <button type="button" class="btn btn-danger" id="btn-clear-all" style="text-align: left; padding: 0.875rem 1.25rem; display: block; width: 100%;">
+                            <strong>Desalocar de todas as turmas</strong>
+                            <div style="font-size: 0.75rem; opacity: 0.8; font-weight: normal; margin-top: 0.25rem;">Remove todas as provas alocadas de todas as turmas desta somativa</div>
+                        </button>
+                    </div>
+                `,
+                size: 'md',
+                buttons: [
+                    { text: 'Cancelar', class: 'btn-secondary', action: () => {} }
+                ],
+                onOpen: (modalEl) => {
+                    modalEl.querySelector('#btn-clear-turma').addEventListener('click', async () => {
+                        Modal.close(modalId);
+                        
+                        const fd = new FormData();
+                        fd.append('action',            'clear_all_slots');
+                        fd.append('csrf_token',        CSRF);
+                        fd.append('somativa_turma_id', currentStId);
 
-                    try {
-                        const res  = await fetch('/api/somativas/grade.php', { method: 'POST', body: fd });
-                        const data = await res.json();
-                        if (data.success) {
-                            const n = data.removed ?? 0;
-                            Toast.success(`${n} card${n !== 1 ? 's' : ''} removido${n !== 1 ? 's' : ''}.`);
-                            setTimeout(() => location.reload(), 600);
-                        } else {
-                            Toast.error(data.message || 'Erro ao limpar cards');
+                        try {
+                            const res  = await fetch('/api/somativas/grade.php', { method: 'POST', body: fd });
+                            const data = await res.json();
+                            if (data.success) {
+                                const n = data.removed ?? 0;
+                                Toast.success(`${n} card${n !== 1 ? 's' : ''} removido${n !== 1 ? 's' : ''} da turma.`);
+                                setTimeout(() => location.reload(), 600);
+                            } else {
+                                Toast.error(data.message || 'Erro ao limpar cards');
+                            }
+                        } catch (e) {
+                            Toast.error('Erro de comunicação');
                         }
-                    } catch (e) {
-                        Toast.error('Erro de comunicação');
-                    }
+                    });
+
+                    modalEl.querySelector('#btn-clear-all').addEventListener('click', async () => {
+                        Modal.close(modalId);
+                        
+                        const fd = new FormData();
+                        fd.append('action',      'clear_all_somativa_slots');
+                        fd.append('csrf_token',  CSRF);
+                        fd.append('somativa_id', gd.somativaId);
+
+                        try {
+                            const res  = await fetch('/api/somativas/grade.php', { method: 'POST', body: fd });
+                            const data = await res.json();
+                            if (data.success) {
+                                const n = data.removed ?? 0;
+                                Toast.success(`${n} card${n !== 1 ? 's' : ''} removido${n !== 1 ? 's' : ''} de todas as turmas.`);
+                                setTimeout(() => location.reload(), 600);
+                            } else {
+                                Toast.error(data.message || 'Erro ao limpar cards');
+                            }
+                        } catch (e) {
+                            Toast.error('Erro de comunicação');
+                        }
+                    });
                 }
             });
         });
@@ -1076,6 +1168,15 @@
                 const msg = `${data.saved} prova${data.saved !== 1 ? 's' : ''} alocada${data.saved !== 1 ? 's' : ''}!`;
                 Toast.success(msg);
                 closeAutoAlocar();
+
+                const consoleEl = document.getElementById('grade-console');
+                if (consoleEl) {
+                    consoleEl.classList.add('collapsed');
+                    const toggleIcon = consoleEl.querySelector('.console-toggle-icon');
+                    if (toggleIcon) toggleIcon.textContent = '▲';
+                }
+                sessionStorage.setItem('grade_console_collapsed', 'true');
+
                 setTimeout(() => location.reload(), 700);
             } else {
                 Toast.error(data.message || 'Erro ao confirmar');
@@ -1749,6 +1850,15 @@
                     if (data.success) {
                         Toast.success(`${data.updated} prova${data.updated !== 1 ? 's' : ''} atualizadas com sucesso!`);
                         closeAnalysisModal();
+
+                        const consoleEl = document.getElementById('grade-console');
+                        if (consoleEl) {
+                            consoleEl.classList.add('collapsed');
+                            const toggleIcon = consoleEl.querySelector('.console-toggle-icon');
+                            if (toggleIcon) toggleIcon.textContent = '▲';
+                        }
+                        sessionStorage.setItem('grade_console_collapsed', 'true');
+
                         setTimeout(() => location.reload(), 800);
                     } else {
                         Toast.error(data.message || 'Erro ao aplicar alocação');

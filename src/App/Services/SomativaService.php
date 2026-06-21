@@ -310,6 +310,10 @@ class SomativaService extends Service {
         return $this->execute('DELETE FROM somativa_grade WHERE somativa_turma_id = ?', [$somativaTurmaId]);
     }
 
+    public function clearAllGradeSlotsBySomativa(int $somativaId): int {
+        return $this->execute('DELETE FROM somativa_grade WHERE somativa_id = ?', [$somativaId]);
+    }
+
     // ──────────────────────────────────────────────────────────
     // Sugestões Automáticas
     // ──────────────────────────────────────────────────────────

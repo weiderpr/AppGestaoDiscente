@@ -198,6 +198,24 @@ try {
             echo json_encode(['success' => true, 'removed' => $removed]);
             break;
 
+        // ── Limpar todos os cards de todas as turmas ──────────
+        case 'clear_all_somativa_slots':
+            if (!hasDbPermission('somativas.update', false)) {
+                http_response_code(403); echo json_encode(['success' => false, 'message' => 'Sem permissão']); exit;
+            }
+            if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+                http_response_code(403); echo json_encode(['success' => false, 'message' => 'Token inválido']); exit;
+            }
+
+            $somId = (int)($_POST['somativa_id'] ?? 0);
+            if (!$somId) {
+                echo json_encode(['success' => false, 'message' => 'Somativa não informada']); exit;
+            }
+
+            $removed = $service->clearAllGradeSlotsBySomativa($somId);
+            echo json_encode(['success' => true, 'removed' => $removed]);
+            break;
+
         // ── Disciplinas não alocadas ──────────────────────────
         case 'nao_alocadas':
             $somId = (int)($_GET['somativa_id']       ?? 0);

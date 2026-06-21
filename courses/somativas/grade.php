@@ -130,9 +130,6 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
         </span>
     </div>
     <div class="grade-topbar-right">
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-suggestions" style="display: none;">
-            💡 Sugestões (<span id="sug-count">0</span>)
-        </button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-analisar-professores">
             📊 Analisar Professores
         </button>
@@ -144,7 +141,7 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
             ⚡ Alocar Automaticamente
         </button>
         <?php endif; ?>
-        <a href="print.php?id=<?= $id ?>" target="_blank" class="btn btn-secondary btn-sm">🖨️ Imprimir</a>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-imprimir">🖨️ Imprimir</button>
         <a href="edit.php?id=<?= $id ?>" class="btn btn-ghost btn-sm">✏️ Editar</a>
     </div>
 </div>
@@ -464,7 +461,7 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
 
             <!-- Sugestões compactas -->
             <details class="gs-suggestions" id="gs-suggestions-panel" hidden>
-                <summary class="gs-suggestions-title">💡 Sugestões</summary>
+                <summary class="gs-suggestions-title">💡 Sugestões (<span id="sug-count-sidebar">0</span>)</summary>
                 <div class="gs-suggestions-container" id="gs-suggestions-container"></div>
             </details>
 
