@@ -47,6 +47,7 @@ function labelCategoria(string $cat): string {
         'preferir_primeiros_horarios' => 'Concentrar nos Primeiros Horários',
         'min_provas_por_dia'          => 'Mínimo de Provas por Dia',
         'mesmo_dia_horario_grupo'     => 'Mesmo Dia e Horário (Grupo de Disciplinas)',
+        'concentrar_maximo_cards'     => 'Concentrar ao máximo os cards',
         default                       => $cat,
     };
 }
@@ -120,6 +121,16 @@ function resumoParams(string $cat, array $params, array $turmas = [], array $dis
                 }
             }
             return "Mín. {$min}/dia — Turma ID {$stId}";
+        })(),
+        'concentrar_maximo_cards' => (function() use ($params, $turmas): string {
+            if (($params['scope'] ?? 'todas') !== 'turma') return 'Todas as turmas';
+            $stId = (int)($params['somativa_turma_id'] ?? 0);
+            foreach ($turmas as $t) {
+                if ((int)$t['somativa_turma_id'] === $stId) {
+                    return 'Turma: ' . $t['course_name'] . ' — ' . $t['turma_desc'];
+                }
+            }
+            return 'Turma ID ' . $stId;
         })(),
         default                       => json_encode($params),
     };
@@ -685,6 +696,7 @@ require_once __DIR__ . '/../../includes/header.php';
                                 <option value="preferir_primeiros_horarios">Concentrar provas nos primeiros horários</option>
                                 <option value="min_provas_por_dia">Mínimo de provas por dia</option>
                                 <option value="mesmo_dia_horario_grupo">Mesmo dia e horário — grupo de disciplinas</option>
+                                <option value="concentrar_maximo_cards">Concentrar ao máximo os cards</option>
                             </select>
                         </div>
 
@@ -1458,6 +1470,34 @@ function renderRestricaoParams(params = {}) {
             </select>
             <span class="form-hint">Aplica a restrição somente à turma selecionada.</span>
         </div>`;
+    } else if (cat === 'concentrar_maximo_cards') {
+        const scope = params.scope || 'todas';
+        const selectedStId = params.somativa_turma_id || '';
+
+        const turmaOptions = TURMAS_SOMATIVA
+            .map(t => {
+                const sel = String(t.somativa_turma_id) === String(selectedStId) ? 'selected' : '';
+                return `<option value="${esc(t.somativa_turma_id)}" ${sel}>${esc(t.label)}</option>`;
+            })
+            .join('');
+
+        html = `
+        <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">Aplicar para<span class="label-req">*</span></label>
+            <select name="param_scope" id="r-cmc-scope" class="form-control" onchange="toggleCmcTurmaField()">
+                <option value="todas" ${scope === 'todas' ? 'selected' : ''}>Todas as turmas</option>
+                <option value="turma" ${scope === 'turma' ? 'selected' : ''}>Turma específica</option>
+            </select>
+        </div>
+        <div class="form-group" id="r-cmc-turma-group" style="grid-column:1/-1" ${scope !== 'turma' ? 'hidden' : ''}>
+            <label class="form-label">Turma<span class="label-req">*</span></label>
+            <select name="param_somativa_turma_id" id="r-cmc-turma-select" class="form-control"
+                    ${scope === 'turma' ? 'required' : ''}>
+                <option value="">Selecione...</option>
+                ${turmaOptions}
+            </select>
+            <span class="form-hint">Aplica a restrição somente à turma selecionada.</span>
+        </div>`;
     } else if (cat === 'mesmo_dia_horario_grupo') {
         if (params && params.pares) {
             const sdIds = params.pares.map(p => Number(p.somativa_disciplina_id));
@@ -1621,6 +1661,16 @@ function toggleMppdTurmaField() {
     const scope = document.getElementById('r-mppd-scope').value;
     const group = document.getElementById('r-mppd-turma-group');
     const sel   = document.getElementById('r-mppd-turma-select');
+    if (!group) return;
+    group.hidden = scope !== 'turma';
+    sel.required = scope === 'turma';
+    if (scope !== 'turma') sel.value = '';
+}
+
+function toggleCmcTurmaField() {
+    const scope = document.getElementById('r-cmc-scope').value;
+    const group = document.getElementById('r-cmc-turma-group');
+    const sel   = document.getElementById('r-cmc-turma-select');
     if (!group) return;
     group.hidden = scope !== 'turma';
     sel.required = scope === 'turma';

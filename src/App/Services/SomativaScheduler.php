@@ -263,6 +263,12 @@ class SomativaScheduler extends Service
         $discEmData  = [];  // [stId][sdId] = date  (para rastrear mesmo_dia_turmas)
         $codEmData   = [];  // [date][discCod] = count (global, para mesmo_dia_turmas cross-turma)
 
+        $turmaTotalDisciplinas = [];
+        foreach ($data['turmas'] as $t) {
+            $turmaTotalDisciplinas[(int)$t['som_turma_id']] = count($t['disciplinas'] ?? []);
+        }
+        $data['turmaTotalDisciplinas'] = $turmaTotalDisciplinas;
+
         $this->logTrace("Processando indexação de restrições...");
         $restricoes = $this->indexRestricoes($data['restricoes']);
 
@@ -429,14 +435,30 @@ class SomativaScheduler extends Service
         $this->theoreticalMinScore = 0;
         $totalDays = count($datesNormais);
         foreach ($data['turmas'] as $t) {
+            $tId = (int)$t['som_turma_id'];
             $n = count($t['disciplinas']);
             if ($n === 0) continue;
-            if ($n >= $totalDays) {
-                $q = (int)($n / $totalDays);
-                $r = $n % $totalDays;
-                $this->theoreticalMinScore += $r * ($q + 1) * ($q + 1) + ($totalDays - $r) * $q * $q;
+
+            $hasCmc = false;
+            foreach ($restricoes['concentrar_maximo_cards'] ?? [] as $r) {
+                if (($r['scope'] ?? 'todas') === 'todas' || (($r['scope'] ?? '') === 'turma' && (int)($r['somativa_turma_id'] ?? 0) === $tId)) {
+                    $hasCmc = true;
+                    break;
+                }
+            }
+
+            if ($hasCmc) {
+                $divisor = min($maxPorDia, count($data['slots']));
+                $d_active = (int)ceil($n / $divisor);
+                $this->theoreticalMinScore += $d_active * 100;
             } else {
-                $this->theoreticalMinScore += $n * 1 * 1 + ($totalDays - $n) * 100;
+                if ($n >= $totalDays) {
+                    $q = (int)($n / $totalDays);
+                    $r = $n % $totalDays;
+                    $this->theoreticalMinScore += $r * ($q + 1) * ($q + 1) + ($totalDays - $r) * $q * $q;
+                } else {
+                    $this->theoreticalMinScore += $n * 1 * 1 + ($totalDays - $n) * 100;
+                }
             }
         }
 
@@ -545,7 +567,8 @@ class SomativaScheduler extends Service
                             $hardProfDisc, $profDiscTurmas,
                             $hardGrupos, $discInHardGrupo, $sdIdLookup,
                             $hardProfAll, $profAllStIds,
-                            $evitarConflitoProf
+                            $evitarConflitoProf,
+                            $data['turmaTotalDisciplinas'] ?? []
                         );
                         if ($blocked) {
                             $blockMotivos[] = "{$date}/slot{$slotId}: {$blockReason}";
@@ -707,7 +730,8 @@ class SomativaScheduler extends Service
                     $hardProfDisc, $profDiscTurmas,
                     $hardGrupos, $discInHardGrupo, $sdIdLookup,
                     $hardProfAll, $profAllStIds,
-                    $evitarConflitoProf
+                    $evitarConflitoProf,
+                    $data['turmaTotalDisciplinas'] ?? []
                 );
                 if ($blocked) continue;
 
@@ -838,6 +862,7 @@ class SomativaScheduler extends Service
             'preferir_primeiros_horarios' => [],
             'mesmo_dia_horario_grupo'     => [],
             'min_provas_por_dia'          => [],
+            'concentrar_maximo_cards'     => [],
         ];
 
         foreach ($restricoes as $r) {
@@ -924,6 +949,17 @@ class SomativaScheduler extends Service
 
                 // O rendimento escolar (sugestão) não é mais considerado como regra automática de prioridade.
 
+                // concentrar_maximo_cards priority boost
+                $cmcPriority = 0;
+                foreach ($restricoes['concentrar_maximo_cards'] ?? [] as $r) {
+                    $applies = ($r['scope'] ?? 'todas') === 'todas' ||
+                               (($r['scope'] ?? '') === 'turma' && (int)($r['somativa_turma_id'] ?? 0) === $stId);
+                    if ($applies) {
+                        $cmcPriority = max($cmcPriority, (($r['tipo'] ?? 'soft') === 'hard') ? 100 : 50);
+                    }
+                }
+                $priority += $cmcPriority;
+
                 $queue[] = [
                     'som_turma_id' => $stId,
                     'disciplina'   => $disc,
@@ -981,7 +1017,8 @@ class SomativaScheduler extends Service
         array $hardProfDisc = [], array $profDiscTurmas = [],
         array $hardGrupos = [], array $discInHardGrupo = [], array $sdIdLookup = [],
         array $hardProfAll = [], array $profAllStIds = [],
-        bool $evitarConflitoProf = false
+        bool $evitarConflitoProf = false,
+        array $turmaTotalDisciplinas = []
     ): array {
         // Data bloqueada
         foreach ($restricoes['bloquear_data'] as $r) {
@@ -1353,6 +1390,35 @@ class SomativaScheduler extends Service
             }
         }
 
+        // Hard constraint: concentrar_maximo_cards
+        $hasCmcHard = false;
+        foreach ($restricoes['concentrar_maximo_cards'] ?? [] as $r) {
+            if ($r['tipo'] !== 'hard') continue;
+            if (($r['scope'] ?? 'todas') === 'todas' || (($r['scope'] ?? '') === 'turma' && (int)($r['somativa_turma_id'] ?? 0) === $stId)) {
+                $hasCmcHard = true;
+                break;
+            }
+        }
+        if ($hasCmcHard) {
+            $isNewDay = empty($countDia[$stId][$date]);
+            if ($isNewDay) {
+                $activeDaysCount = 0;
+                foreach ($countDia[$stId] ?? [] as $otherDate => $cCount) {
+                    if ($cCount > 0) {
+                        $activeDaysCount++;
+                    }
+                }
+                $totalDisciplinas = $turmaTotalDisciplinas[$stId] ?? 0;
+                if ($totalDisciplinas > 0) {
+                    $divisor = min($maxPorDia, count($allSlots));
+                    $allowedMaxDays = (int)ceil($totalDisciplinas / $divisor);
+                    if ($activeDaysCount + 1 > $allowedMaxDays) {
+                        return [true, "Concentração (Hard): limite máximo de dias com provas ({$allowedMaxDays}) seria excedido ao abrir o dia {$date}"];
+                    }
+                }
+            }
+        }
+
         // Conflito de professor com outra turma no mesmo slot simultâneo
         if ($evitarConflitoProf) {
             $slotId = (int)$slot['id'];
@@ -1660,11 +1726,56 @@ class SomativaScheduler extends Service
             }
         }
 
-        // Distribuição: bonifica datas iniciais levemente (espalha melhor)
-        $dayIdx = array_search($date, $data['dates']);
-        if ($dayIdx !== false) {
-            $bonus = max(0, 8 - (int)($dayIdx * 0.4));
-            $score += $bonus;
+        // concentrar_maximo_cards (soft): bonifica alocação em dias já ocupados,
+        // penaliza a abertura de um novo dia se houver espaço em dias existentes.
+        $cmcSoftWeights = [];
+        foreach ($restricoes['concentrar_maximo_cards'] ?? [] as $r) {
+            if ($r['tipo'] !== 'soft') continue;
+            if (($r['scope'] ?? 'todas') === 'todas' || (($r['scope'] ?? '') === 'turma' && (int)($r['somativa_turma_id'] ?? 0) === $stId)) {
+                $cmcSoftWeights[] = max(1, (int)($r['peso'] ?? 5));
+            }
+        }
+        if (!empty($cmcSoftWeights)) {
+            $peso = max($cmcSoftWeights);
+            $currentCount = count($discNoDia[$stId][$date] ?? []);
+            if ($currentCount > 0) {
+                $bonus = $peso * 40;
+                $score += $bonus;
+                $reasons[] = "concentrar_maximo_cards: dia já possui prova (+{$bonus})";
+            } else {
+                $hasOtherDayWithSlots = false;
+                $allSlotsCount = count($data['slots']);
+                $maxPorDia = (int)$data['som']['max_provas_por_dia'];
+                foreach ($discNoDia[$stId] ?? [] as $otherDate => $discs) {
+                    if ($otherDate === $date) continue;
+                    $otherCount = count($discs);
+                    if ($otherCount > 0 && $otherCount < $maxPorDia && $otherCount < $allSlotsCount) {
+                        $hasOtherDayWithSlots = true;
+                        break;
+                    }
+                }
+                if ($hasOtherDayWithSlots) {
+                    $penalty = $peso * 40;
+                    $score -= $penalty;
+                    $reasons[] = "concentrar_maximo_cards: abrindo novo dia desnecessariamente (−{$penalty})";
+                }
+            }
+        }
+
+        // Distribuição: bonifica datas iniciais levemente (espalha melhor) apenas se concentrar_maximo_cards não estiver ativo para esta turma
+        $hasCmcActive = false;
+        foreach ($restricoes['concentrar_maximo_cards'] ?? [] as $r) {
+            if (($r['scope'] ?? 'todas') === 'todas' || (($r['scope'] ?? '') === 'turma' && (int)($r['somativa_turma_id'] ?? 0) === $stId)) {
+                $hasCmcActive = true;
+                break;
+            }
+        }
+        if (!$hasCmcActive) {
+            $dayIdx = array_search($date, $data['dates']);
+            if ($dayIdx !== false) {
+                $bonus = max(0, 8 - (int)($dayIdx * 0.4));
+                $score += $bonus;
+            }
         }
 
         return [$score, $reasons];
@@ -1935,7 +2046,8 @@ class SomativaScheduler extends Service
                             $context['hardProfDisc'], $context['profDiscTurmas'],
                             $context['hardGrupos'], $context['discInHardGrupo'], $context['sdIdLookup'],
                             $hardProfAll, $profAllStIds,
-                            $context['evitarConflitoProf']
+                            $context['evitarConflitoProf'],
+                            $data['turmaTotalDisciplinas'] ?? []
                         );
                         if ($blocked) {
                             $canUse = false;
@@ -2016,16 +2128,45 @@ class SomativaScheduler extends Service
             $turmaDays[$tId][$d] = ($turmaDays[$tId][$d] ?? 0) + 1;
         }
 
+        $cmcTurmas = [];
+        foreach ($data['restricoes'] ?? [] as $r) {
+            if ($r['categoria'] === 'concentrar_maximo_cards' && $r['is_active']) {
+                $params = json_decode($r['params'], true) ?? [];
+                $scope = $params['scope'] ?? 'todas';
+                if ($scope === 'todas') {
+                    foreach ($data['turmas'] as $t) {
+                        $cmcTurmas[(int)$t['som_turma_id']] = true;
+                    }
+                } else {
+                    $stId = (int)($params['somativa_turma_id'] ?? 0);
+                    if ($stId) {
+                        $cmcTurmas[$stId] = true;
+                    }
+                }
+            }
+        }
+
         $score = 0;
         foreach ($data['turmas'] as $t) {
             $tId = (int)$t['som_turma_id'];
             if (count($t['disciplinas']) === 0) continue;
 
-            foreach ($datesNormais as $date) {
-                $count = $turmaDays[$tId][$date] ?? 0;
-                $score += $count * $count;
-                if ($count === 0) {
-                    $score += 100;
+            $hasCmc = isset($cmcTurmas[$tId]);
+
+            if ($hasCmc) {
+                foreach ($datesNormais as $date) {
+                    $count = $turmaDays[$tId][$date] ?? 0;
+                    if ($count > 0) {
+                        $score += 100;
+                    }
+                }
+            } else {
+                foreach ($datesNormais as $date) {
+                    $count = $turmaDays[$tId][$date] ?? 0;
+                    $score += $count * $count;
+                    if ($count === 0) {
+                        $score += 100;
+                    }
                 }
             }
         }

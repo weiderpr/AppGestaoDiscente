@@ -155,6 +155,7 @@ try {
                 'tipo'                   => $_POST['tipo'] ?? 'Normal',
                 'observacoes'            => trim($_POST['observacoes'] ?? '') ?: null,
                 'created_by'             => $user['id'],
+                'propagate_naapi'        => (int)($_POST['propagate_naapi']    ?? 0),
             ]);
 
             if ($result['success']) {

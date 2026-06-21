@@ -276,6 +276,20 @@ class SomativaService extends Service {
                     $existing['id'],
                 ]
             );
+
+            if (!empty($data['propagate_naapi'])) {
+                $this->execute(
+                    'UPDATE somativa_grade SET naapi_aplicador_id = ?, updated_at = NOW()
+                     WHERE somativa_id = ? AND data_prova = ? AND slot_config_id = ?',
+                    [
+                        $data['naapi_aplicador_id'] ?: null,
+                        (int)$data['somativa_id'],
+                        $data['data_prova'],
+                        (int)$data['slot_config_id']
+                    ]
+                );
+            }
+
             return ['success' => true, 'id' => $existing['id']];
         }
 
@@ -299,7 +313,22 @@ class SomativaService extends Service {
             $data['created_by'],
         ]);
 
-        return ['success' => true, 'id' => $this->lastInsertId()];
+        $newId = $this->lastInsertId();
+
+        if (!empty($data['propagate_naapi'])) {
+            $this->execute(
+                'UPDATE somativa_grade SET naapi_aplicador_id = ?, updated_at = NOW()
+                 WHERE somativa_id = ? AND data_prova = ? AND slot_config_id = ?',
+                [
+                    $data['naapi_aplicador_id'] ?: null,
+                    (int)$data['somativa_id'],
+                    $data['data_prova'],
+                    (int)$data['slot_config_id']
+                ]
+            );
+        }
+
+        return ['success' => true, 'id' => $newId];
     }
 
     public function clearGradeSlot(int $gradeId): bool {

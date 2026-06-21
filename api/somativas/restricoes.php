@@ -221,6 +221,16 @@ function buildParams(string $categoria, array $post): ?array
             }
             return ['scope' => 'todas'];
 
+        case 'concentrar_maximo_cards':
+            $scope = trim($post['param_scope'] ?? 'todas');
+            if (!in_array($scope, ['todas', 'turma'])) return null;
+            if ($scope === 'turma') {
+                $stId = (int)($post['param_somativa_turma_id'] ?? 0);
+                if (!$stId) return null;
+                return ['scope' => 'turma', 'somativa_turma_id' => $stId];
+            }
+            return ['scope' => 'todas'];
+
         case 'min_provas_por_dia':
             $min   = max(1, (int)($post['param_min'] ?? 2));
             $scope = trim($post['param_scope'] ?? 'todas');

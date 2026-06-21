@@ -527,7 +527,7 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
         }
 
         // Helper to format restriction parameters beautifully
-        $formatParamVal = function($key, $val) use ($disciplinaNomes, $somativaDisciplinaNomes) {
+        $formatParamVal = function($key, $val) use ($disciplinaNomes, $somativaDisciplinaNomes, $turmas) {
             if (is_array($val)) {
                 $items = [];
                 foreach ($val as $item) {
@@ -546,6 +546,15 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
                     }
                 }
                 return implode(', ', $items);
+            }
+            if ($key === 'somativa_turma_id' || $key === 'turma_id') {
+                foreach ($turmas as $t) {
+                    $matchId = ($key === 'somativa_turma_id') ? ($t['somativa_turma_id'] ?? $t['id'] ?? 0) : ($t['turma_id'] ?? 0);
+                    if ((int)$matchId === (int)$val) {
+                        return $t['course_name'] . ' — ' . $t['turma_desc'];
+                    }
+                }
+                return 'Turma ID ' . $val;
             }
             if (strpos($key, 'disciplina_codigo') !== false) {
                 return $disciplinaNomes[$val] ?? $val;

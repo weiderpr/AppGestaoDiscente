@@ -12,6 +12,7 @@
 
     let draggedCard  = null; // card sendo arrastado
     let currentStId  = gd.currentStId;
+    let originalNaapiAplicadorId = ''; // aplicador original do NAP/NAAPI
 
     // ──────────────────────────────────────────────────────────
     // Init
@@ -354,6 +355,7 @@
 
         // Se há card existente no cell, pré-carrega os valores
         const existingCard = cell.querySelector('.grade-card');
+        originalNaapiAplicadorId = '';
         if (existingCard) {
             const data = {
                 aplicadorId: existingCard.dataset.aplicadorId || '',
@@ -368,8 +370,10 @@
                 tipo:        existingCard.dataset.tipo       || 'Normal',
             };
             fillModalFields(data);
+            originalNaapiAplicadorId = data.naapiAplicadorId;
         } else if (cardData) {
             fillModalFields(cardData);
+            originalNaapiAplicadorId = cardData.naapiAplicadorId || '';
 
             // Tenta obter sugestões de aplicador, volante e ambiente para nova alocação
             const hasDetails = cardData.aplicadorId || cardData.volanteId || cardData.ambienteId;
@@ -390,6 +394,7 @@
                                 tipo:               cardData.tipo || 'Normal',
                                 obs:                cardData.obs  || '',
                             });
+                            originalNaapiAplicadorId = res.data.naapi_aplicador_id || '';
                         }
                     })
                     .catch(err => console.error("Erro ao buscar sugestões de alocação", err));
@@ -505,12 +510,56 @@
     }
 
     async function submitSlot(form) {
+        const currentNaapiAplicadorId = document.getElementById('field-naapi-aplicador-id')?.value || '';
+
+        if (currentNaapiAplicadorId !== originalNaapiAplicadorId) {
+            Modal.open({
+                title: 'Alterar Aplicador NAAPI',
+                content: `
+                    <p class="modal-confirm-message" style="margin-bottom: 1.5rem; line-height: 1.5;">
+                        Você alterou o aplicador NAAPI (NAP) desta prova. Como deseja aplicar esta alteração?
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <button type="button" class="btn btn-primary" id="btn-propagate-none" style="text-align: left; padding: 0.875rem 1.25rem; display: block; width: 100%;">
+                            <strong>Trocar somente para este card</strong>
+                            <div style="font-size: 0.75rem; opacity: 0.8; font-weight: normal; margin-top: 0.25rem;">A alteração será aplicada apenas a esta prova específica nesta turma.</div>
+                        </button>
+                        <button type="button" class="btn btn-primary" id="btn-propagate-all" style="text-align: left; padding: 0.875rem 1.25rem; display: block; width: 100%;">
+                            <strong>Trocar para este dia e horário em todas as turmas</strong>
+                            <div style="font-size: 0.75rem; opacity: 0.8; font-weight: normal; margin-top: 0.25rem;">A alteração será replicada para todas as turmas no mesmo dia e horário.</div>
+                        </button>
+                    </div>
+                `,
+                size: 'md',
+                buttons: [
+                    { text: 'Cancelar', class: 'btn-secondary', action: () => {} }
+                ],
+                onOpen: (modalEl) => {
+                    const decisionModalId = modalEl.id;
+                    modalEl.querySelector('#btn-propagate-none').addEventListener('click', async () => {
+                        Modal.close(decisionModalId);
+                        await submitSlotForm(form, false);
+                    });
+                    modalEl.querySelector('#btn-propagate-all').addEventListener('click', async () => {
+                        Modal.close(decisionModalId);
+                        await submitSlotForm(form, true);
+                    });
+                }
+            });
+            return;
+        }
+
+        await submitSlotForm(form, false);
+    }
+
+    async function submitSlotForm(form, propagateNaapi) {
         const btn = document.getElementById('btn-slot-save');
         btn.disabled    = true;
         btn.textContent = 'Salvando...';
 
         try {
             const fd = new FormData(form);
+            fd.append('propagate_naapi', propagateNaapi ? '1' : '0');
             const res  = await fetch('/api/somativas/grade.php', { method: 'POST', body: fd });
             const data = await res.json();
 
