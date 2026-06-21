@@ -1,0 +1,133 @@
+=== CONSTRAINTS DETAILS FOR SOMATIVA 1 ===
+
+--- Constraint ID: 32 | Categoria: preferir_primeiros_horarios | Tipo: hard ---
+Params: {"scope":"todas"}
+
+--- Constraint ID: 39 | Categoria: min_provas_por_dia | Tipo: soft ---
+Params: {"min":1,"scope":"todas"}
+
+--- Constraint ID: 40 | Categoria: mesmo_dia_horario_grupo | Tipo: hard ---
+Grupo (Mesmo Dia & Horário) contains:
+  - ID 14: HISTÓRIA - 1ª SÉRIE (8FG.183) in Turma "Primeira Série"
+  - ID 15: HISTÓRIA - 1ª SÉRIE (8FG.183) in Turma "Primeira Série"
+  - ID 16: HISTÓRIA - 1ª SÉRIE (8FG.183) in Turma "Primeira Série"
+  - ID 27: HISTÓRIA - 2ª SÉRIE (8FG.184) in Turma "Segunda Série"
+  - ID 35: HISTÓRIA - 2ª SÉRIE (8FG.184) in Turma "Segunda Série"
+  - ID 44: HISTÓRIA - 2ª SÉRIE (8FG.184) in Turma "Segunda Série"
+  - ID 51: HISTÓRIA - 3ª SÉRIE (8FG.185) in Turma "Terceira Série"
+  - ID 57: HISTÓRIA - 3ª SÉRIE (8FG.185) in Turma "Terceira Série"
+  - ID 63: HISTÓRIA - 3ª SÉRIE (8FG.185) in Turma "Terceira Série"
+
+--- Constraint ID: 41 | Categoria: mesmo_dia_horario_grupo | Tipo: hard ---
+Grupo (Mesmo Dia & Horário) contains:
+  - ID 8: GEOGRAFIA - 1ª SÉRIE (8FG.181) in Turma "Primeira Série"
+  - ID 9: GEOGRAFIA - 1ª SÉRIE (8FG.181) in Turma "Primeira Série"
+  - ID 10: GEOGRAFIA - 1ª SÉRIE (8FG.181) in Turma "Primeira Série"
+  - ID 25: GEOGRAFIA - 2ª SÉRIE (8FG.182) in Turma "Segunda Série"
+  - ID 33: GEOGRAFIA - 2ª SÉRIE (8FG.182) in Turma "Segunda Série"
+  - ID 42: GEOGRAFIA - 2ª SÉRIE (8FG.182) in Turma "Segunda Série"
+
+--- Constraint ID: 42 | Categoria: mesmo_dia_horario_grupo | Tipo: hard ---
+Grupo (Mesmo Dia & Horário) contains:
+  - ID 5: BIOLOGIA - 1ª SÉRIE (8FG.173) in Turma "Primeira Série"
+  - ID 6: BIOLOGIA - 1ª SÉRIE (8FG.173) in Turma "Primeira Série"
+  - ID 7: BIOLOGIA - 1ª SÉRIE (8FG.173) in Turma "Primeira Série"
+  - ID 71: BIOLOGIA - 2ª SÉRIE (8FG.174) in Turma "Segunda Série"
+  - ID 32: BIOLOGIA - 2ª SÉRIE (8FG.174) in Turma "Segunda Série"
+  - ID 41: BIOLOGIA - 2ª SÉRIE (8FG.174) in Turma "Segunda Série"
+
+--- Constraint ID: 43 | Categoria: mesmo_dia_horario_grupo | Tipo: hard ---
+Grupo (Mesmo Dia & Horário) contains:
+  - ID 11: QUÍMICA - 1ª SÉRIE (8FG.178) in Turma "Primeira Série"
+  - ID 12: QUÍMICA - 1ª SÉRIE (8FG.178) in Turma "Primeira Série"
+  - ID 13: QUÍMICA - 1ª SÉRIE (8FG.178) in Turma "Primeira Série"
+  - ID 26: QUÍMICA - 2ª SÉRIE (8FG.179) in Turma "Segunda Série"
+  - ID 34: QUÍMICA - 2ª SÉRIE (8FG.179) in Turma "Segunda Série"
+  - ID 43: QUÍMICA - 2ª SÉRIE (8FG.179) in Turma "Segunda Série"
+  - ID 50: QUÍMICA - 3ª SÉRIE (8FG.180) in Turma "Terceira Série"
+  - ID 56: QUÍMICA - 3ª SÉRIE (8FG.180) in Turma "Terceira Série"
+  - ID 62: QUÍMICA - 3ª SÉRIE (8FG.180) in Turma "Terceira Série"
+
+--- Constraint ID: 44 | Categoria: mesmo_dia_horario_grupo | Tipo: hard ---
+Grupo (Mesmo Dia & Horário) contains:
+  - ID 29: MATEMÁTICA - 2ª SÉRIE (8FG.171) in Turma "Segunda Série"
+  - ID 36: MATEMÁTICA - 2ª SÉRIE (8FG.171) in Turma "Segunda Série"
+  - ID 45: MATEMÁTICA - 2ª SÉRIE (8FG.171) in Turma "Segunda Série"
+  - ID 52: MATEMÁTICA - 3ª SÉRIE (8FG.172) in Turma "Terceira Série"
+  - ID 58: MATEMÁTICA - 3ª SÉRIE (8FG.172) in Turma "Terceira Série"
+  - ID 64: MATEMÁTICA - 3ª SÉRIE (8FG.172) in Turma "Terceira Série"
+  - ID 17: MATEMÁTICA - 1ª SÉRIE (8FG.170) in Turma "Primeira Série"
+  - ID 19: MATEMÁTICA - 1ª SÉRIE (8FG.170) in Turma "Primeira Série"
+  - ID 21: MATEMÁTICA - 1ª SÉRIE (8FG.170) in Turma "Primeira Série"
+
+--- Constraint ID: 45 | Categoria: mesmo_dia_horario_grupo | Tipo: hard ---
+Grupo (Mesmo Dia & Horário) contains:
+  - ID 2: LÍNGUA PORTUGUESA - 1ª SÉRIE (8FG.164) in Turma "Primeira Série"
+  - ID 3: LÍNGUA PORTUGUESA - 1ª SÉRIE (8FG.164) in Turma "Primeira Série"
+  - ID 4: LÍNGUA PORTUGUESA - 1ª SÉRIE (8FG.164) in Turma "Primeira Série"
+  - ID 48: LÍNGUA PORTUGUESA - 3ª SÉRIE (8FG.166) in Turma "Terceira Série"
+  - ID 54: LÍNGUA PORTUGUESA - 3ª SÉRIE (8FG.166) in Turma "Terceira Série"
+  - ID 60: LÍNGUA PORTUGUESA - 3ª SÉRIE (8FG.166) in Turma "Terceira Série"
+  - ID 23: LÍNGUA PORTUGUESA - 2ª SÉRIE (8FG.165) in Turma "Segunda Série"
+  - ID 31: LÍNGUA PORTUGUESA - 2ª SÉRIE (8FG.165) in Turma "Segunda Série"
+  - ID 40: LÍNGUA PORTUGUESA - 2ª SÉRIE (8FG.165) in Turma "Segunda Série"
+
+--- Constraint ID: 46 | Categoria: mesmo_dia_horario_grupo | Tipo: hard ---
+Grupo (Mesmo Dia & Horário) contains:
+  - ID 72: FÍSICA - 1ª SÉRIE (8FG.175) in Turma "Primeira Série"
+  - ID 73: FÍSICA - 1ª SÉRIE (8FG.175) in Turma "Primeira Série"
+  - ID 74: FÍSICA - 1ª SÉRIE (8FG.175) in Turma "Primeira Série"
+  - ID 53: FÍSICA - 3ª SÉRIE (8FG.177) in Turma "Terceira Série"
+  - ID 59: FÍSICA - 3ª SÉRIE (8FG.177) in Turma "Terceira Série"
+  - ID 65: FÍSICA - 3ª SÉRIE (8FG.177) in Turma "Terceira Série"
+
+--- Constraint ID: 47 | Categoria: mesmo_dia_horario_grupo | Tipo: hard ---
+Grupo (Mesmo Dia & Horário) contains:
+  - ID 39: FÍSICA - 2ª SÉRIE (8FG.176) in Turma "Segunda Série"
+  - ID 38: FÍSICA - 2ª SÉRIE (8FG.176) in Turma "Segunda Série"
+  - ID 47: FÍSICA - 2ª SÉRIE (8FG.176) in Turma "Segunda Série"
+
+--- Constraint ID: 51 | Categoria: mesmo_dia_horario_diferente | Tipo: hard ---
+Regra: nao_deve | Scope: mesma_turma
+  - Disciplina A: FÍSICA - 1ª SÉRIE (8FG.175)
+  - Disciplina B: QUÍMICA - 1ª SÉRIE (8FG.178)
+
+--- Constraint ID: 52 | Categoria: mesmo_dia_horario_diferente | Tipo: hard ---
+Regra: nao_deve | Scope: mesma_turma
+  - Disciplina A: MATEMÁTICA - 1ª SÉRIE (8FG.170)
+  - Disciplina B: FÍSICA - 1ª SÉRIE (8FG.175)
+
+--- Constraint ID: 53 | Categoria: mesmo_dia_horario_diferente | Tipo: hard ---
+Regra: nao_deve | Scope: mesma_turma
+  - Disciplina A: MATEMÁTICA - 1ª SÉRIE (8FG.170)
+  - Disciplina B: QUÍMICA - 1ª SÉRIE (8FG.178)
+
+--- Constraint ID: 71 | Categoria: mesmo_dia_horario_diferente | Tipo: hard ---
+Regra: nao_deve | Scope: mesma_turma
+  - Disciplina A: MATEMÁTICA - 2ª SÉRIE (8FG.171)
+  - Disciplina B: SISTEMAS EMBARCADOS (8MECT.144)
+
+--- Constraint ID: 72 | Categoria: mesmo_dia_horario_diferente | Tipo: hard ---
+Regra: nao_deve | Scope: mesma_turma
+  - Disciplina A: MATEMÁTICA - 3ª SÉRIE (8FG.172)
+  - Disciplina B: DESENVOLVIMENTO DE SISTEMAS SUPERVISÓRIOS (8MECT.146)
+
+--- Constraint ID: 73 | Categoria: mesmo_dia_horario_diferente | Tipo: hard ---
+Regra: nao_deve | Scope: mesma_turma
+  - Disciplina A: FÍSICA - 2ª SÉRIE (8FG.176)
+  - Disciplina B: SISTEMAS EMBARCADOS (8MECT.144)
+
+--- Constraint ID: 74 | Categoria: mesmo_dia_horario_diferente | Tipo: hard ---
+Regra: nao_deve | Scope: mesma_turma
+  - Disciplina A: FÍSICA - 1ª SÉRIE (8FG.175)
+  - Disciplina B: TECNOLOGIA DOS MATERIAIS (8MECT.138)
+
+--- Constraint ID: 75 | Categoria: mesmo_dia_horario_grupo | Tipo: hard ---
+Grupo (Mesmo Dia & Horário) contains:
+  - ID 18: FILOSOFIA - 1ª SÉRIE (8FG.186) in Turma "Primeira Série"
+  - ID 20: FILOSOFIA - 1ª SÉRIE (8FG.186) in Turma "Primeira Série"
+  - ID 22: FILOSOFIA - 1ª SÉRIE (8FG.186) in Turma "Primeira Série"
+  - ID 30: FILOSOFIA - 2ª SÉRIE (8FG.187) in Turma "Segunda Série"
+  - ID 37: FILOSOFIA - 2ª SÉRIE (8FG.187) in Turma "Segunda Série"
+  - ID 46: FILOSOFIA - 2ª SÉRIE (8FG.187) in Turma "Segunda Série"
+

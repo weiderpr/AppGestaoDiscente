@@ -1,0 +1,4 @@
+=== VALIDATION ON CURRENT USER-ADJUSTED GRADE ===
+Somativa: Somativa 1 - 2026 (ID: 1)
+
+PERFECT! No hard constraints violated by the current manual layout.

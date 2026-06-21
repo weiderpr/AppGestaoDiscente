@@ -21,6 +21,8 @@ namespace App\Services;
 
 class SomativaScheduler extends Service
 {
+    private $theoreticalMinScore = 0;
+
     // ──────────────────────────────────────────────────────────
     // Ponto de entrada
     // ──────────────────────────────────────────────────────────
@@ -406,6 +408,21 @@ class SomativaScheduler extends Service
             }
         }
 
+        // Calcula a pontuação teórica mínima ideal para parada antecipada
+        $this->theoreticalMinScore = 0;
+        $totalDays = count($datesNormais);
+        foreach ($data['turmas'] as $t) {
+            $n = count($t['disciplinas']);
+            if ($n === 0) continue;
+            if ($n >= $totalDays) {
+                $q = (int)($n / $totalDays);
+                $r = $n % $totalDays;
+                $this->theoreticalMinScore += $r * ($q + 1) * ($q + 1) + ($totalDays - $r) * $q * $q;
+            } else {
+                $this->theoreticalMinScore += $n * 1 * 1 + ($totalDays - $n) * 100;
+            }
+        }
+
         // ── Fase 0: pré-alocação de grupos Hard/Todos por professor ──────────
         $preAllocated = [];
         if (!empty($hardProfAll)) {
@@ -427,12 +444,13 @@ class SomativaScheduler extends Service
             );
         }
 
-        $queue = $this->buildAllocationQueue($data, $restricoes, $constrainedHorario, $constrainedDia, $hardProfDisc, $softProfDisc, $discInHardGrupo, $discInSoftGrupo, $hardProfAll, $softProfAll);
+        $queue = $this->buildAllocationQueue($data, $restricoes, $constrainedHorario, $constrainedDia, $hardProfDisc, $softProfDisc, $discInHardGrupo, $discInSoftGrupo, $hardProfAll, $softProfAll, $hardGrupos);
 
         // Algoritmo de Busca por Retrocesso com Heurística (Heuristic Backtracking)
         $bestAllocCount = 0;
         $bestAllocations = [];
         $calls = 0;
+        $solutions = [];
 
         $success = $this->solveBacktrack(
             0, $queue, $data, $restricoes, $datesNormais, $maxPorDia, $scData, $evitarConflitoProf,
@@ -440,8 +458,24 @@ class SomativaScheduler extends Service
             $hardProfDisc, $profDiscTurmas, $hardGrupos, $discInHardGrupo, $sdIdLookup, $hardProfAll, $profAllStIds,
             $softProfDisc, $softGrupos, $discInSoftGrupo, $softProfAll, $discTurmas,
             $ocupados, $countDia, $discNoDia, $codEmData, $discEmData, $alocacoes, $preAllocated,
-            $calls, $bestAllocCount, $bestAllocations
+            $calls, $bestAllocCount, $bestAllocations, $solutions
         );
+
+        if (!empty($solutions)) {
+            $bestSolution = null;
+            $bestScore = 99999999;
+            
+            foreach ($solutions as $sol) {
+                $score = $this->calculateSolutionScore($sol, $data, $datesNormais);
+                if ($score < $bestScore) {
+                    $bestScore = $score;
+                    $bestSolution = $sol;
+                }
+            }
+            
+            $alocacoes = $bestSolution;
+            $success = true;
+        }
 
         if (!$success) {
             // Caso não encontre uma solução 100% perfeita devido a regras impossíveis,
@@ -541,11 +575,16 @@ class SomativaScheduler extends Service
         array &$preAllocated,
         int &$calls,
         int &$bestAllocCount,
-        array &$bestAllocations
+        array &$bestAllocations,
+        array &$solutions
     ): bool {
         $calls++;
         if ($calls > 200000) {
             return false; // Evita loop infinito em grades impossíveis
+        }
+
+        if (!empty($solutions) && $calls > 100000) {
+            return true; // Termina a busca se já temos pelo menos 1 solução e passou do limite de 100.000 chamadas
         }
 
         // Registra o maior progresso parcial
@@ -555,7 +594,18 @@ class SomativaScheduler extends Service
         }
 
         if ($queueIdx >= count($queue)) {
-            return true;
+            $solutions[] = $alocacoes;
+            
+            // Se encontrou uma solução perfeita (igual ou menor que a pontuação teórica mínima), para a busca imediatamente
+            $score = $this->calculateSolutionScore($alocacoes, $data, $datesNormais);
+            if ($score <= $this->theoreticalMinScore) {
+                return true;
+            }
+
+            if (count($solutions) >= 5000) {
+                return true; // Encontrou soluções suficientes
+            }
+            return false; // Força backtrack para buscar melhores opções de distribuição
         }
 
         $item    = $queue[$queueIdx];
@@ -573,7 +623,7 @@ class SomativaScheduler extends Service
                 $hardProfDisc, $profDiscTurmas, $hardGrupos, $discInHardGrupo, $sdIdLookup, $hardProfAll, $profAllStIds,
                 $softProfDisc, $softGrupos, $discInSoftGrupo, $softProfAll, $discTurmas,
                 $ocupados, $countDia, $discNoDia, $codEmData, $discEmData, $alocacoes, $preAllocated,
-                $calls, $bestAllocCount, $bestAllocations
+                $calls, $bestAllocCount, $bestAllocations, $solutions
             );
         }
 
@@ -696,7 +746,7 @@ class SomativaScheduler extends Service
                 $hardProfDisc, $profDiscTurmas, $hardGrupos, $discInHardGrupo, $sdIdLookup, $hardProfAll, $profAllStIds,
                 $softProfDisc, $softGrupos, $discInSoftGrupo, $softProfAll, $discTurmas,
                 $ocupados, $countDia, $discNoDia, $codEmData, $discEmData, $alocacoes, $preAllocated,
-                $calls, $bestAllocCount, $bestAllocations
+                $calls, $bestAllocCount, $bestAllocations, $solutions
             )) {
                 return true;
             }
@@ -773,9 +823,16 @@ class SomativaScheduler extends Service
         array $constrainedHorario, array $constrainedDia,
         array $hardProfDisc = [], array $softProfDisc = [],
         array $discInHardGrupo = [], array $discInSoftGrupo = [],
-        array $hardProfAll = [], array $softProfAll = []
+        array $hardProfAll = [], array $softProfAll = [],
+        array $hardGrupos = []
     ): array {
         $queue = [];
+
+        // Pre-calcula o tamanho dos grupos para priorizar grupos maiores
+        $hardGroupSizes = [];
+        foreach ($hardGrupos as $gi => $g) {
+            $hardGroupSizes[$gi] = count($g['sdIds']);
+        }
 
         foreach ($data['turmas'] as $turma) {
             $stId = (int)$turma['som_turma_id'];
@@ -814,10 +871,17 @@ class SomativaScheduler extends Service
                     if (isset($softProfDisc[$pid][$cod])) { $priority += 80;  break; }
                 }
 
-                // mesmo_dia_horario_grupo: prioriza disciplinas em grupos de sincronização
+                // mesmo_dia_horario_grupo: prioriza disciplinas em grupos de sincronização (multiplicado pelo tamanho do grupo)
                 $curSdId = (int)$disc['som_disc_id'];
-                if (isset($discInHardGrupo[$curSdId])) { $priority += 140; }
-                elseif (isset($discInSoftGrupo[$curSdId])) { $priority += 70; }
+                if (isset($discInHardGrupo[$curSdId])) {
+                    $maxSize = 0;
+                    foreach ($discInHardGrupo[$curSdId] as $gi) {
+                        $maxSize = max($maxSize, $hardGroupSizes[$gi] ?? 0);
+                    }
+                    $priority += 100 * $maxSize;
+                } elseif (isset($discInSoftGrupo[$curSdId])) {
+                    $priority += 70;
+                }
 
                 // O rendimento escolar (sugestão) não é mais considerado como regra automática de prioridade.
 
@@ -831,6 +895,38 @@ class SomativaScheduler extends Service
         }
 
         usort($queue, fn($a, $b) => $b['priority'] - $a['priority']);
+
+        // Agrupa os membros de grupos hard de forma consecutiva na fila de alocação
+        if (!empty($hardGrupos)) {
+            $groupedQueue = [];
+            $visited = [];
+            foreach ($queue as $item) {
+                $sdId = (int)$item['disciplina']['som_disc_id'];
+                if (isset($visited[$sdId])) continue;
+                
+                $groupedQueue[] = $item;
+                $visited[$sdId] = true;
+                
+                if (isset($discInHardGrupo[$sdId])) {
+                    foreach ($discInHardGrupo[$sdId] as $gi) {
+                        if (!isset($hardGrupos[$gi])) continue;
+                        $grupo = $hardGrupos[$gi];
+                        foreach ($grupo['sdIds'] as $otherSdId) {
+                            if (isset($visited[$otherSdId])) continue;
+                            foreach ($queue as $qItem) {
+                                if ((int)$qItem['disciplina']['som_disc_id'] === $otherSdId) {
+                                    $groupedQueue[] = $qItem;
+                                    $visited[$otherSdId] = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            $queue = $groupedQueue;
+        }
+
         return $queue;
     }
 
@@ -1870,5 +1966,30 @@ class SomativaScheduler extends Service
         }
 
         return $preAllocated;
+    }
+
+    private function calculateSolutionScore(array $sol, array $data, array $datesNormais): int
+    {
+        $turmaDays = [];
+        foreach ($sol as $aloc) {
+            $tId = (int)$aloc['somativa_turma_id'];
+            $d = $aloc['data_prova'];
+            $turmaDays[$tId][$d] = ($turmaDays[$tId][$d] ?? 0) + 1;
+        }
+
+        $score = 0;
+        foreach ($data['turmas'] as $t) {
+            $tId = (int)$t['som_turma_id'];
+            if (count($t['disciplinas']) === 0) continue;
+
+            foreach ($datesNormais as $date) {
+                $count = $turmaDays[$tId][$date] ?? 0;
+                $score += $count * $count;
+                if ($count === 0) {
+                    $score += 100;
+                }
+            }
+        }
+        return $score;
     }
 }

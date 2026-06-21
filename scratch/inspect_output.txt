@@ -1,0 +1,209 @@
+=== ACTIVE SOMATIVA ===
+ID: 1
+Nome: Somativa 1 - 2026
+Data Inicio: 2026-07-13
+Data Fim: 2026-07-17
+Max Provas/Dia: 2
+Segunda Chamada Data: None
+Evitar Conflito Professor: 0
+
+=== CONSTRAINTS (RESTRICOES) ===
+ID: 32 | Tipo: hard | Categoria: preferir_primeiros_horarios | Peso: 5 | Ativo: 1 | Desc: 
+   Params: {"scope": "todas"}
+ID: 38 | Tipo: hard | Categoria: professor_mesmo_dia_horario | Peso: 10 | Ativo: 0 | Desc: 
+   Params: {"todos": true}
+ID: 39 | Tipo: soft | Categoria: min_provas_por_dia | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"min": 1, "scope": "todas"}
+ID: 40 | Tipo: hard | Categoria: mesmo_dia_horario_grupo | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"pares": [{"somativa_disciplina_id": 14}, {"somativa_disciplina_id": 15}, {"somativa_disciplina_id": 16}, {"somativa_disciplina_id": 27}, {"somativa_disciplina_id": 35}, {"somativa_disciplina_id": 44}, {"somativa_disciplina_id": 51}, {"somativa_disciplina_id": 57}, {"somativa_disciplina_id": 63}]}
+ID: 41 | Tipo: hard | Categoria: mesmo_dia_horario_grupo | Peso: 5 | Ativo: 1 | Desc: 
+   Params: {"pares": [{"somativa_disciplina_id": 8}, {"somativa_disciplina_id": 9}, {"somativa_disciplina_id": 10}, {"somativa_disciplina_id": 25}, {"somativa_disciplina_id": 33}, {"somativa_disciplina_id": 42}]}
+ID: 42 | Tipo: hard | Categoria: mesmo_dia_horario_grupo | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"pares": [{"somativa_disciplina_id": 5}, {"somativa_disciplina_id": 6}, {"somativa_disciplina_id": 7}, {"somativa_disciplina_id": 71}, {"somativa_disciplina_id": 32}, {"somativa_disciplina_id": 41}]}
+ID: 43 | Tipo: hard | Categoria: mesmo_dia_horario_grupo | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"pares": [{"somativa_disciplina_id": 11}, {"somativa_disciplina_id": 12}, {"somativa_disciplina_id": 13}, {"somativa_disciplina_id": 26}, {"somativa_disciplina_id": 34}, {"somativa_disciplina_id": 43}, {"somativa_disciplina_id": 50}, {"somativa_disciplina_id": 56}, {"somativa_disciplina_id": 62}]}
+ID: 44 | Tipo: hard | Categoria: mesmo_dia_horario_grupo | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"pares": [{"somativa_disciplina_id": 29}, {"somativa_disciplina_id": 36}, {"somativa_disciplina_id": 45}, {"somativa_disciplina_id": 52}, {"somativa_disciplina_id": 58}, {"somativa_disciplina_id": 64}, {"somativa_disciplina_id": 17}, {"somativa_disciplina_id": 19}, {"somativa_disciplina_id": 21}]}
+ID: 45 | Tipo: hard | Categoria: mesmo_dia_horario_grupo | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"pares": [{"somativa_disciplina_id": 2}, {"somativa_disciplina_id": 3}, {"somativa_disciplina_id": 4}, {"somativa_disciplina_id": 48}, {"somativa_disciplina_id": 54}, {"somativa_disciplina_id": 60}, {"somativa_disciplina_id": 23}, {"somativa_disciplina_id": 31}, {"somativa_disciplina_id": 40}]}
+ID: 46 | Tipo: hard | Categoria: mesmo_dia_horario_grupo | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"pares": [{"somativa_disciplina_id": 72}, {"somativa_disciplina_id": 73}, {"somativa_disciplina_id": 74}, {"somativa_disciplina_id": 53}, {"somativa_disciplina_id": 59}, {"somativa_disciplina_id": 65}]}
+ID: 47 | Tipo: hard | Categoria: mesmo_dia_horario_grupo | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"pares": [{"somativa_disciplina_id": 39}, {"somativa_disciplina_id": 38}, {"somativa_disciplina_id": 47}]}
+ID: 48 | Tipo: hard | Categoria: mesmo_dia_horario_grupo | Peso: 10 | Ativo: 0 | Desc: 
+   Params: {"pares": [{"somativa_disciplina_id": 23}, {"somativa_disciplina_id": 31}, {"somativa_disciplina_id": 40}]}
+ID: 49 | Tipo: hard | Categoria: mesmo_dia_horario_grupo | Peso: 10 | Ativo: 0 | Desc: 
+   Params: {"pares": [{"somativa_disciplina_id": 17}, {"somativa_disciplina_id": 19}, {"somativa_disciplina_id": 21}]}
+ID: 50 | Tipo: hard | Categoria: mesmo_dia_horario_grupo | Peso: 10 | Ativo: 0 | Desc: 
+   Params: {"pares": [{"somativa_disciplina_id": 50}, {"somativa_disciplina_id": 56}, {"somativa_disciplina_id": 62}]}
+ID: 51 | Tipo: hard | Categoria: mesmo_dia_horario_diferente | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"regra": "nao_deve", "scope": "mesma_turma", "disciplina_codigo_a": "8FG.175", "disciplina_codigo_b": "8FG.178"}
+ID: 52 | Tipo: hard | Categoria: mesmo_dia_horario_diferente | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"regra": "nao_deve", "scope": "mesma_turma", "disciplina_codigo_a": "8FG.170", "disciplina_codigo_b": "8FG.175"}
+ID: 53 | Tipo: hard | Categoria: mesmo_dia_horario_diferente | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"regra": "nao_deve", "scope": "mesma_turma", "disciplina_codigo_a": "8FG.170", "disciplina_codigo_b": "8FG.178"}
+ID: 71 | Tipo: hard | Categoria: mesmo_dia_horario_diferente | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"regra": "nao_deve", "scope": "mesma_turma", "disciplina_codigo_a": "8FG.171", "disciplina_codigo_b": "8MECT.144"}
+ID: 72 | Tipo: hard | Categoria: mesmo_dia_horario_diferente | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"regra": "nao_deve", "scope": "mesma_turma", "disciplina_codigo_a": "8FG.172", "disciplina_codigo_b": "8MECT.146"}
+ID: 73 | Tipo: hard | Categoria: mesmo_dia_horario_diferente | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"regra": "nao_deve", "scope": "mesma_turma", "disciplina_codigo_a": "8FG.176", "disciplina_codigo_b": "8MECT.144"}
+ID: 74 | Tipo: hard | Categoria: mesmo_dia_horario_diferente | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"regra": "nao_deve", "scope": "mesma_turma", "disciplina_codigo_a": "8FG.175", "disciplina_codigo_b": "8MECT.138"}
+ID: 75 | Tipo: hard | Categoria: mesmo_dia_horario_grupo | Peso: 10 | Ativo: 1 | Desc: 
+   Params: {"pares": [{"somativa_disciplina_id": 18}, {"somativa_disciplina_id": 20}, {"somativa_disciplina_id": 22}, {"somativa_disciplina_id": 30}, {"somativa_disciplina_id": 37}, {"somativa_disciplina_id": 46}]}
+
+=== TURMAS E DISCIPLINAS ===
+Turma: Primeira Série (som_turma_id: 2)
+  - LÍNGUA PORTUGUESA - 1ª SÉRIE (8FG.164) | Profs: Keilla Conceição Petrin Grande (IDs: 29) | Aplicador Obrigatório: 0
+  - MATEMÁTICA - 1ª SÉRIE (8FG.170) | Profs: Rosicler Aparecida de Oliveira Reinato (IDs: 38) | Aplicador Obrigatório: 0
+  - BIOLOGIA - 1ª SÉRIE (8FG.173) | Profs: Cristina Roscoe Vianna (IDs: 23) | Aplicador Obrigatório: 0
+  - FÍSICA - 1ª SÉRIE (8FG.175) | Profs: Raphaella Bahia Soares Cabral (IDs: 37) | Aplicador Obrigatório: 0
+  - QUÍMICA - 1ª SÉRIE (8FG.178) | Profs: Maira dos Santos Pires (IDs: 31) | Aplicador Obrigatório: 0
+  - GEOGRAFIA - 1ª SÉRIE (8FG.181) | Profs: Wagner Francisco Marinho da Silva (IDs: 7) | Aplicador Obrigatório: 0
+  - HISTÓRIA - 1ª SÉRIE (8FG.183) | Profs: Hercules Alfredo Batista Alves (IDs: 28) | Aplicador Obrigatório: 0
+  - FILOSOFIA - 1ª SÉRIE (8FG.186) | Profs: Paulo Henrique Silva Costa (IDs: 35) | Aplicador Obrigatório: 0
+Turma: Segunda Série (som_turma_id: 4)
+  - LÍNGUA PORTUGUESA - 2ª SÉRIE (8FG.165) | Profs: Erika Kress (IDs: 26) | Aplicador Obrigatório: 0
+  - MATEMÁTICA - 2ª SÉRIE (8FG.171) | Profs: Michael Ferreira (IDs: 33) | Aplicador Obrigatório: 0
+  - BIOLOGIA - 2ª SÉRIE (8FG.174) | Profs: Cristina Roscoe Vianna (IDs: 23) | Aplicador Obrigatório: 0
+  - FÍSICA - 2ª SÉRIE (8FG.176) | Profs: Pedro Duarte Antunes (IDs: 36) | Aplicador Obrigatório: 0
+  - QUÍMICA - 2ª SÉRIE (8FG.179) | Profs: Maira dos Santos Pires (IDs: 31) | Aplicador Obrigatório: 0
+  - GEOGRAFIA - 2ª SÉRIE (8FG.182) | Profs: Wagner Francisco Marinho da Silva (IDs: 7) | Aplicador Obrigatório: 0
+  - HISTÓRIA - 2ª SÉRIE (8FG.184) | Profs: Hercules Alfredo Batista Alves (IDs: 28) | Aplicador Obrigatório: 0
+  - FILOSOFIA - 2ª SÉRIE (8FG.187) | Profs: Paulo Henrique Silva Costa (IDs: 35) | Aplicador Obrigatório: 0
+Turma: Terceira Série (som_turma_id: 7)
+  - LÍNGUA PORTUGUESA - 3ª SÉRIE (8FG.166) | Profs: Keilla Conceição Petrin Grande (IDs: 29) | Aplicador Obrigatório: 0
+  - MATEMÁTICA - 3ª SÉRIE (8FG.172) | Profs: Michael Ferreira (IDs: 33) | Aplicador Obrigatório: 0
+  - FÍSICA - 3ª SÉRIE (8FG.177) | Profs: Raphaella Bahia Soares Cabral (IDs: 37) | Aplicador Obrigatório: 0
+  - QUÍMICA - 3ª SÉRIE (8FG.180) | Profs: Telles Cardoso Silva (IDs: 39) | Aplicador Obrigatório: 0
+  - HISTÓRIA - 3ª SÉRIE (8FG.185) | Profs: Hercules Alfredo Batista Alves (IDs: 28) | Aplicador Obrigatório: 0
+  - SOCIOLOGIA (8FG.188) | Profs: Carlos Guilherme Rocha (IDs: 22) | Aplicador Obrigatório: 0
+Turma: Primeira Série (som_turma_id: 3)
+  - LÍNGUA PORTUGUESA - 1ª SÉRIE (8FG.164) | Profs: Keilla Conceição Petrin Grande (IDs: 29) | Aplicador Obrigatório: 0
+  - MATEMÁTICA - 1ª SÉRIE (8FG.170) | Profs: Rosicler Aparecida de Oliveira Reinato (IDs: 38) | Aplicador Obrigatório: 0
+  - BIOLOGIA - 1ª SÉRIE (8FG.173) | Profs: Cristina Roscoe Vianna (IDs: 23) | Aplicador Obrigatório: 0
+  - FÍSICA - 1ª SÉRIE (8FG.175) | Profs: Raphaella Bahia Soares Cabral (IDs: 37) | Aplicador Obrigatório: 0
+  - QUÍMICA - 1ª SÉRIE (8FG.178) | Profs: Maira dos Santos Pires (IDs: 31) | Aplicador Obrigatório: 0
+  - GEOGRAFIA - 1ª SÉRIE (8FG.181) | Profs: Wagner Francisco Marinho da Silva (IDs: 7) | Aplicador Obrigatório: 0
+  - HISTÓRIA - 1ª SÉRIE (8FG.183) | Profs: Hercules Alfredo Batista Alves (IDs: 28) | Aplicador Obrigatório: 0
+  - FILOSOFIA - 1ª SÉRIE (8FG.186) | Profs: Paulo Henrique Silva Costa (IDs: 35) | Aplicador Obrigatório: 0
+  - TECNOLOGIA DOS MATERIAIS (8MECT.138) | Profs: Wanderley Xavier Pereira (IDs: 55) | Aplicador Obrigatório: 1
+Turma: Segunda Série (som_turma_id: 5)
+  - LÍNGUA PORTUGUESA - 2ª SÉRIE (8FG.165) | Profs: Erika Kress (IDs: 26) | Aplicador Obrigatório: 0
+  - MATEMÁTICA - 2ª SÉRIE (8FG.171) | Profs: Michael Ferreira (IDs: 33) | Aplicador Obrigatório: 0
+  - BIOLOGIA - 2ª SÉRIE (8FG.174) | Profs: Cristina Roscoe Vianna (IDs: 23) | Aplicador Obrigatório: 0
+  - FÍSICA - 2ª SÉRIE (8FG.176) | Profs: Pedro Duarte Antunes (IDs: 36) | Aplicador Obrigatório: 0
+  - QUÍMICA - 2ª SÉRIE (8FG.179) | Profs: Maira dos Santos Pires (IDs: 31) | Aplicador Obrigatório: 0
+  - GEOGRAFIA - 2ª SÉRIE (8FG.182) | Profs: Wagner Francisco Marinho da Silva (IDs: 7) | Aplicador Obrigatório: 0
+  - HISTÓRIA - 2ª SÉRIE (8FG.184) | Profs: Hercules Alfredo Batista Alves (IDs: 28) | Aplicador Obrigatório: 0
+  - FILOSOFIA - 2ª SÉRIE (8FG.187) | Profs: Paulo Henrique Silva Costa (IDs: 35) | Aplicador Obrigatório: 0
+  - SISTEMAS EMBARCADOS (8MECT.144) | Profs: Juliano Coelho Miranda (IDs: 56) | Aplicador Obrigatório: 1
+Turma: Terceira Série (som_turma_id: 8)
+  - LÍNGUA PORTUGUESA - 3ª SÉRIE (8FG.166) | Profs: Keilla Conceição Petrin Grande (IDs: 29) | Aplicador Obrigatório: 0
+  - MATEMÁTICA - 3ª SÉRIE (8FG.172) | Profs: Michael Ferreira (IDs: 33) | Aplicador Obrigatório: 0
+  - FÍSICA - 3ª SÉRIE (8FG.177) | Profs: Raphaella Bahia Soares Cabral (IDs: 37) | Aplicador Obrigatório: 0
+  - QUÍMICA - 3ª SÉRIE (8FG.180) | Profs: Telles Cardoso Silva (IDs: 39) | Aplicador Obrigatório: 0
+  - HISTÓRIA - 3ª SÉRIE (8FG.185) | Profs: Hercules Alfredo Batista Alves (IDs: 28) | Aplicador Obrigatório: 0
+  - SOCIOLOGIA (8FG.188) | Profs: Carlos Guilherme Rocha (IDs: 22) | Aplicador Obrigatório: 0
+  - DESENVOLVIMENTO DE SISTEMAS SUPERVISÓRIOS (8MECT.146) | Profs: Juliano Coelho Miranda (IDs: 56) | Aplicador Obrigatório: 1
+Turma: Primeira Série (som_turma_id: 1)
+  - MATERIAIS DE CONSTRUÇÃO I (8EDIF.131) | Profs: Luciana Alvarenga Santos (IDs: 58) | Aplicador Obrigatório: 1
+  - TECNOLOGIA DAS CONSTRUÇÕES I (8EDIF.132) | Profs: Luciana Alvarenga Santos (IDs: 58) | Aplicador Obrigatório: 1
+  - LÍNGUA PORTUGUESA - 1ª SÉRIE (8FG.164) | Profs: Keilla Conceição Petrin Grande (IDs: 29) | Aplicador Obrigatório: 0
+  - MATEMÁTICA - 1ª SÉRIE (8FG.170) | Profs: Rosicler Aparecida de Oliveira Reinato (IDs: 38) | Aplicador Obrigatório: 0
+  - BIOLOGIA - 1ª SÉRIE (8FG.173) | Profs: Cristina Roscoe Vianna (IDs: 23) | Aplicador Obrigatório: 0
+  - FÍSICA - 1ª SÉRIE (8FG.175) | Profs: Raphaella Bahia Soares Cabral (IDs: 37) | Aplicador Obrigatório: 0
+  - QUÍMICA - 1ª SÉRIE (8FG.178) | Profs: Maira dos Santos Pires (IDs: 31) | Aplicador Obrigatório: 0
+  - GEOGRAFIA - 1ª SÉRIE (8FG.181) | Profs: Wagner Francisco Marinho da Silva (IDs: 7) | Aplicador Obrigatório: 0
+  - HISTÓRIA - 1ª SÉRIE (8FG.183) | Profs: Hercules Alfredo Batista Alves (IDs: 28) | Aplicador Obrigatório: 0
+  - FILOSOFIA - 1ª SÉRIE (8FG.186) | Profs: Paulo Henrique Silva Costa (IDs: 35) | Aplicador Obrigatório: 0
+Turma: Segunda Série (som_turma_id: 6)
+  - LÍNGUA PORTUGUESA - 2ª SÉRIE (8FG.165) | Profs: Erika Kress (IDs: 26) | Aplicador Obrigatório: 0
+  - MATEMÁTICA - 2ª SÉRIE (8FG.171) | Profs: Michael Ferreira (IDs: 33) | Aplicador Obrigatório: 0
+  - BIOLOGIA - 2ª SÉRIE (8FG.174) | Profs: Cristina Roscoe Vianna (IDs: 23) | Aplicador Obrigatório: 0
+  - FÍSICA - 2ª SÉRIE (8FG.176) | Profs: Pedro Duarte Antunes (IDs: 36) | Aplicador Obrigatório: 0
+  - QUÍMICA - 2ª SÉRIE (8FG.179) | Profs: Maira dos Santos Pires (IDs: 31) | Aplicador Obrigatório: 0
+  - GEOGRAFIA - 2ª SÉRIE (8FG.182) | Profs: Wagner Francisco Marinho da Silva (IDs: 7) | Aplicador Obrigatório: 0
+  - HISTÓRIA - 2ª SÉRIE (8FG.184) | Profs: Hercules Alfredo Batista Alves (IDs: 28) | Aplicador Obrigatório: 0
+  - FILOSOFIA - 2ª SÉRIE (8FG.187) | Profs: Paulo Henrique Silva Costa (IDs: 35) | Aplicador Obrigatório: 0
+Turma: Terceira Série (som_turma_id: 9)
+  - LÍNGUA PORTUGUESA - 3ª SÉRIE (8FG.166) | Profs: Keilla Conceição Petrin Grande (IDs: 29) | Aplicador Obrigatório: 0
+  - MATEMÁTICA - 3ª SÉRIE (8FG.172) | Profs: Michael Ferreira (IDs: 33) | Aplicador Obrigatório: 0
+  - FÍSICA - 3ª SÉRIE (8FG.177) | Profs: Raphaella Bahia Soares Cabral (IDs: 37) | Aplicador Obrigatório: 0
+  - QUÍMICA - 3ª SÉRIE (8FG.180) | Profs: Telles Cardoso Silva (IDs: 39) | Aplicador Obrigatório: 0
+  - HISTÓRIA - 3ª SÉRIE (8FG.185) | Profs: Hercules Alfredo Batista Alves (IDs: 28) | Aplicador Obrigatório: 0
+  - SOCIOLOGIA (8FG.188) | Profs: Carlos Guilherme Rocha (IDs: 22) | Aplicador Obrigatório: 0
+
+=== CURRENT GRADE ===
+Turma: Primeira Série | Data: 2026-07-13 | Slot: Primeiro horário | Disciplina: FÍSICA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-13 | Slot: Primeiro horário | Disciplina: FÍSICA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-13 | Slot: Primeiro horário | Disciplina: FÍSICA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-13 | Slot: Segundo horário | Disciplina: GEOGRAFIA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-13 | Slot: Segundo horário | Disciplina: GEOGRAFIA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-13 | Slot: Segundo horário | Disciplina: GEOGRAFIA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-14 | Slot: Primeiro horário | Disciplina: MATEMÁTICA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-14 | Slot: Primeiro horário | Disciplina: MATEMÁTICA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-14 | Slot: Primeiro horário | Disciplina: MATEMÁTICA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-14 | Slot: Segundo horário | Disciplina: MATERIAIS DE CONSTRUÇÃO I (Normal)
+Turma: Primeira Série | Data: 2026-07-15 | Slot: Primeiro horário | Disciplina: BIOLOGIA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-15 | Slot: Primeiro horário | Disciplina: BIOLOGIA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-15 | Slot: Primeiro horário | Disciplina: BIOLOGIA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-15 | Slot: Segundo horário | Disciplina: TECNOLOGIA DOS MATERIAIS (Normal)
+Turma: Primeira Série | Data: 2026-07-15 | Slot: Segundo horário | Disciplina: TECNOLOGIA DAS CONSTRUÇÕES I (Normal)
+Turma: Primeira Série | Data: 2026-07-16 | Slot: Primeiro horário | Disciplina: QUÍMICA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-16 | Slot: Primeiro horário | Disciplina: QUÍMICA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-16 | Slot: Primeiro horário | Disciplina: QUÍMICA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-16 | Slot: Segundo horário | Disciplina: HISTÓRIA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-16 | Slot: Segundo horário | Disciplina: HISTÓRIA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-16 | Slot: Segundo horário | Disciplina: HISTÓRIA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-17 | Slot: Primeiro horário | Disciplina: LÍNGUA PORTUGUESA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-17 | Slot: Primeiro horário | Disciplina: LÍNGUA PORTUGUESA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-17 | Slot: Primeiro horário | Disciplina: LÍNGUA PORTUGUESA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-17 | Slot: Segundo horário | Disciplina: FILOSOFIA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-17 | Slot: Segundo horário | Disciplina: FILOSOFIA - 1ª SÉRIE (Normal)
+Turma: Primeira Série | Data: 2026-07-17 | Slot: Segundo horário | Disciplina: FILOSOFIA - 1ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-13 | Slot: Primeiro horário | Disciplina: FÍSICA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-13 | Slot: Primeiro horário | Disciplina: FÍSICA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-13 | Slot: Primeiro horário | Disciplina: FÍSICA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-13 | Slot: Segundo horário | Disciplina: GEOGRAFIA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-13 | Slot: Segundo horário | Disciplina: GEOGRAFIA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-13 | Slot: Segundo horário | Disciplina: GEOGRAFIA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-14 | Slot: Primeiro horário | Disciplina: MATEMÁTICA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-14 | Slot: Primeiro horário | Disciplina: MATEMÁTICA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-14 | Slot: Primeiro horário | Disciplina: MATEMÁTICA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-15 | Slot: Primeiro horário | Disciplina: BIOLOGIA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-15 | Slot: Primeiro horário | Disciplina: BIOLOGIA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-15 | Slot: Primeiro horário | Disciplina: BIOLOGIA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-15 | Slot: Segundo horário | Disciplina: SISTEMAS EMBARCADOS (Normal)
+Turma: Segunda Série | Data: 2026-07-16 | Slot: Primeiro horário | Disciplina: QUÍMICA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-16 | Slot: Primeiro horário | Disciplina: QUÍMICA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-16 | Slot: Primeiro horário | Disciplina: QUÍMICA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-16 | Slot: Segundo horário | Disciplina: HISTÓRIA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-16 | Slot: Segundo horário | Disciplina: HISTÓRIA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-16 | Slot: Segundo horário | Disciplina: HISTÓRIA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-17 | Slot: Primeiro horário | Disciplina: LÍNGUA PORTUGUESA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-17 | Slot: Primeiro horário | Disciplina: LÍNGUA PORTUGUESA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-17 | Slot: Primeiro horário | Disciplina: LÍNGUA PORTUGUESA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-17 | Slot: Segundo horário | Disciplina: FILOSOFIA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-17 | Slot: Segundo horário | Disciplina: FILOSOFIA - 2ª SÉRIE (Normal)
+Turma: Segunda Série | Data: 2026-07-17 | Slot: Segundo horário | Disciplina: FILOSOFIA - 2ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-13 | Slot: Primeiro horário | Disciplina: FÍSICA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-13 | Slot: Primeiro horário | Disciplina: FÍSICA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-13 | Slot: Primeiro horário | Disciplina: FÍSICA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-14 | Slot: Primeiro horário | Disciplina: MATEMÁTICA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-14 | Slot: Primeiro horário | Disciplina: MATEMÁTICA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-14 | Slot: Primeiro horário | Disciplina: MATEMÁTICA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-15 | Slot: Primeiro horário | Disciplina: SOCIOLOGIA (Normal)
+Turma: Terceira Série | Data: 2026-07-15 | Slot: Primeiro horário | Disciplina: SOCIOLOGIA (Normal)
+Turma: Terceira Série | Data: 2026-07-15 | Slot: Primeiro horário | Disciplina: SOCIOLOGIA (Normal)
+Turma: Terceira Série | Data: 2026-07-16 | Slot: Primeiro horário | Disciplina: QUÍMICA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-16 | Slot: Primeiro horário | Disciplina: QUÍMICA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-16 | Slot: Primeiro horário | Disciplina: QUÍMICA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-16 | Slot: Segundo horário | Disciplina: HISTÓRIA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-16 | Slot: Segundo horário | Disciplina: HISTÓRIA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-16 | Slot: Segundo horário | Disciplina: HISTÓRIA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-17 | Slot: Primeiro horário | Disciplina: LÍNGUA PORTUGUESA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-17 | Slot: Primeiro horário | Disciplina: LÍNGUA PORTUGUESA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-17 | Slot: Primeiro horário | Disciplina: LÍNGUA PORTUGUESA - 3ª SÉRIE (Normal)
+Turma: Terceira Série | Data: 2026-07-17 | Slot: Segundo horário | Disciplina: DESENVOLVIMENTO DE SISTEMAS SUPERVISÓRIOS (Normal)
