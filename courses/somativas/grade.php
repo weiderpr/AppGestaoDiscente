@@ -51,6 +51,16 @@ foreach ($turmas as $t) {
     $naoAlocado[$stId] = $service->getDisciplinasNaoAlocadas($id, $stId);
 }
 
+// Professores ocupados (aplicador/volante/naapi) por data+slot em toda a somativa
+$ocupadosPorSlot = [];
+foreach ($gradeData as $_stIdOc => $gradeIndexOc) {
+    foreach ($gradeIndexOc as $keyOc => $gOc) {
+        if (!empty($gOc['aplicador_id']))       $ocupadosPorSlot[$keyOc][(int)$gOc['aplicador_id']] = true;
+        if (!empty($gOc['volante_id']))          $ocupadosPorSlot[$keyOc][(int)$gOc['volante_id']] = true;
+        if (!empty($gOc['naapi_aplicador_id'])) $ocupadosPorSlot[$keyOc][(int)$gOc['naapi_aplicador_id']] = true;
+    }
+}
+
 // Disponibilidade de professores por data/slot — todas as turmas da instituição
 $availability = $service->getTeacherAvailability(
     (int)$somativa['institution_id'], $dates, $slots
@@ -81,7 +91,7 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
     <link rel="stylesheet" href="/assets/css/components/toast.css">
     <link rel="stylesheet" href="/assets/css/components/loading.css">
     <link rel="stylesheet" href="/assets/css/components/modal.css?v=1.5">
-    <link rel="stylesheet" href="/assets/css/somativas.css">
+    <link rel="stylesheet" href="/assets/css/somativas.css?v=4">
 
     <script src="/assets/js/main.js"></script>
     <script src="/assets/js/components/Toast.js"></script>
@@ -216,6 +226,26 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
                                 $cellAvail= $avail[$cellKey] ?? [];
                                 $hasCard  = !empty($cellData);
                                 $isSecondCall = (!empty($somativa['segunda_chamada_data']) && $d['data'] === $somativa['segunda_chamada_data']);
+
+                                // Professores com aula neste horário que não foram alocados em nenhuma função
+                                $professoresLivres = [];
+                                if ($hasCard) {
+                                    $ocupadosNeste = $ocupadosPorSlot[$cellKey] ?? [];
+                                    foreach ($cellAvail as $av) {
+                                        if (!isset($ocupadosNeste[$av['id']])) {
+                                            $daTurma        = in_array((int)$t['turma_id'], $av['turma_ids'] ?? []);
+                                            $av['da_turma'] = $daTurma;
+                                            $av['da_curso']  = !$daTurma && in_array((int)$t['course_id'], $av['course_ids'] ?? []);
+                                            $professoresLivres[] = $av;
+                                        }
+                                    }
+                                    // Ordem: turma > curso > outros
+                                    usort($professoresLivres, function($a, $b) {
+                                        $sa = $a['da_turma'] ? 2 : ($a['da_curso'] ? 1 : 0);
+                                        $sb = $b['da_turma'] ? 2 : ($b['da_curso'] ? 1 : 0);
+                                        return $sb <=> $sa;
+                                    });
+                                }
                             ?>
                             <td class="grade-cell <?= $d['is_weekend'] ? 'weekend' : '' ?> <?= $isSecondCall ? 'last-day' : '' ?> <?= $hasCard ? 'has-card' : 'empty-cell' ?>"
                                 data-date="<?= $d['data'] ?>"
@@ -253,11 +283,35 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
                                             <?php if (!empty($violations[$cellData['id']])): ?>
                                             <span class="gc-warning-icon" title="<?= htmlspecialchars(implode("\n", $violations[$cellData['id']])) ?>" role="img" aria-label="Aviso">⚠️</span>
                                             <?php endif; ?>
+                                            <?php if ($professoresLivres): ?>
+                                            <span class="gc-livres-icon" role="img" aria-label="Professores disponíveis não alocados">👤
+                                                <span class="gc-livres-tooltip">
+                                                    <strong>Livre neste horário:</strong>
+                                                    <?php foreach ($professoresLivres as $lp):
+                                                        if (!empty($lp['da_turma'])) {
+                                                            $lpClass = ' gc-livres-item--turma';
+                                                            $lpBadge = '<span class="gc-livres-badge gc-livres-badge--turma">turma</span>';
+                                                        } elseif (!empty($lp['da_curso'])) {
+                                                            $lpClass = ' gc-livres-item--curso';
+                                                            $lpBadge = '<span class="gc-livres-badge gc-livres-badge--curso">curso</span>';
+                                                        } else {
+                                                            $lpClass = '';
+                                                            $lpBadge = '';
+                                                        }
+                                                    ?>
+                                                    <span class="gc-livres-item<?= $lpClass ?>">
+                                                        <?= $lpBadge ?>
+                                                        <span class="gc-livres-name"><?= htmlspecialchars($lp['name']) ?></span>
+                                                        <?php if (!empty($lp['turma'])): ?>
+                                                        <span class="gc-livres-sub"><?= htmlspecialchars($lp['turma']) ?><?= !empty($lp['disc']) ? ' · ' . htmlspecialchars($lp['disc']) : '' ?></span>
+                                                        <?php endif; ?>
+                                                    </span>
+                                                    <?php endforeach; ?>
+                                                </span>
+                                            </span>
+                                            <?php endif; ?>
                                             <span class="gc-disc-name"><?= htmlspecialchars($cellData['disciplina_nome'] ?? '—') ?></span>
                                         </div>
-                                        <?php if ($cellData['disciplina_codigo']): ?>
-                                        <span class="gc-disc-code"><?= htmlspecialchars($cellData['disciplina_codigo']) ?></span>
-                                        <?php endif; ?>
                                     </div>
                                     <?php if ($cellData['aplicador_nome']): ?>
                                     <div class="gc-pessoa gc-aplicador">

@@ -623,8 +623,10 @@ class SomativaService extends Service {
             $diaSemana = $dateInfo['dia_semana'];
 
             $teachers = $this->fetchAll(
-                "SELECT DISTINCT u.id, u.name,
-                        gta.horario_inicio, gta.horario_fim, gta.disciplina_codigo, d.descricao AS disc_nome
+                "SELECT u.id, u.name,
+                        gta.horario_inicio, gta.horario_fim, gta.disciplina_codigo,
+                        d.descricao AS disc_nome, tr.description AS turma_desc,
+                        gta.turma_id, tr.course_id
                  FROM gestao_turma_aulas gta
                  JOIN turmas tr ON tr.id = gta.turma_id
                  JOIN courses c ON c.id = tr.course_id
@@ -643,17 +645,23 @@ class SomativaService extends Service {
                     if ($t['horario_inicio'] < $slot['horario_fim'] && $t['horario_fim'] > $slot['horario_inicio']) {
                         $pid = (int)$t['id'];
                         if (!isset($byProf[$pid])) {
-                            $byProf[$pid] = ['id' => $pid, 'name' => $t['name'], 'discs' => []];
+                            $byProf[$pid] = ['id' => $pid, 'name' => $t['name'], 'discs' => [], 'turmas' => [], 'turma_ids' => [], 'course_ids' => []];
                         }
-                        $byProf[$pid]['discs'][] = $t['disc_nome'];
+                        $byProf[$pid]['discs'][]      = $t['disc_nome'];
+                        $byProf[$pid]['turmas'][]     = $t['turma_desc'];
+                        $byProf[$pid]['turma_ids'][]  = (int)$t['turma_id'];
+                        $byProf[$pid]['course_ids'][] = (int)$t['course_id'];
                     }
                 }
                 $avail = [];
                 foreach ($byProf as $p) {
                     $avail[] = [
-                        'id'   => $p['id'],
-                        'name' => $p['name'],
-                        'disc' => implode(', ', array_unique($p['discs'])),
+                        'id'         => $p['id'],
+                        'name'       => $p['name'],
+                        'disc'       => implode(', ', array_unique($p['discs'])),
+                        'turma'      => implode(', ', array_unique($p['turmas'])),
+                        'turma_ids'  => array_values(array_unique($p['turma_ids'])),
+                        'course_ids' => array_values(array_unique($p['course_ids'])),
                     ];
                 }
                 $availability[$key] = $avail;

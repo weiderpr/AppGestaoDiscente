@@ -1201,6 +1201,87 @@ details[open] .gs-suggestions-list {
     margin-top: 1px;
 }
 
+/* ── Professores Livres no Card ──────────────────────────── */
+.gc-livres-icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    font-size: .85rem;
+    cursor: help;
+    opacity: .65;
+    flex-shrink: 0;
+    line-height: 1;
+    margin-top: 1px;
+    transition: opacity var(--transition-fast);
+}
+.gc-livres-icon:hover { opacity: 1; }
+
+.gc-livres-tooltip {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 50;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 14px rgba(0,0,0,.14);
+    padding: .5rem .75rem;
+    min-width: 210px;
+    max-width: 300px;
+    font-size: .72rem;
+    line-height: 1.45;
+    color: var(--text-primary);
+    pointer-events: none;
+    flex-direction: column;
+    gap: .2rem;
+}
+.gc-livres-icon:hover .gc-livres-tooltip { display: flex; }
+
+.gc-livres-tooltip strong {
+    display: block;
+    font-size: .68rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-weight: 700;
+    margin-bottom: .2rem;
+}
+.gc-livres-item {
+    display: block;
+    color: var(--text-secondary);
+    padding: .2rem 0;
+    border-bottom: 1px solid var(--border-color-light, rgba(0,0,0,.06));
+}
+.gc-livres-item:last-child { border-bottom: none; }
+
+.gc-livres-item { display: flex; flex-direction: column; gap: 1px; }
+
+.gc-livres-item--turma .gc-livres-name { color: var(--color-primary, #4f46e5); font-weight: 600; }
+.gc-livres-item--turma .gc-livres-sub  { color: rgba(79,70,229,.6); }
+
+.gc-livres-item--curso .gc-livres-name { color: var(--color-success, #10b981); font-weight: 600; }
+.gc-livres-item--curso .gc-livres-sub  { color: rgba(16,185,129,.65); }
+
+.gc-livres-name { display: block; font-size: .73rem; color: var(--text-secondary); }
+.gc-livres-sub  { display: block; font-size: .67rem; color: var(--text-muted); }
+
+.gc-livres-badge {
+    display: inline-block;
+    font-size: .6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #fff;
+    border-radius: 3px;
+    padding: 0 4px;
+    line-height: 1.7;
+    margin-bottom: 1px;
+    width: fit-content;
+}
+.gc-livres-badge--turma { background: var(--color-primary, #4f46e5); }
+.gc-livres-badge--curso  { background: var(--color-success, #10b981); }
+
 /* ── Bloco NAAPI no Card ─────────────────────────────────── */
 .gc-naapi-block {
     margin-top: .5rem;
