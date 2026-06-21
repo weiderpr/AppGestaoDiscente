@@ -141,6 +141,7 @@ try {
             'alocacoes' => $plano['alocacoes'],
             'conflitos' => $plano['conflitos'],
             'avisos'    => $plano['avisos'],
+            'logs'      => $plano['logs'] ?? [],
             'provider'  => $provider,
             'total'     => count($plano['alocacoes']),
         ]);

@@ -31,11 +31,12 @@ if (empty($somativa['slots'])) {
     exit;
 }
 
-$turmas     = $somativa['turmas'];
-$slots      = $somativa['slots'];
-$dates      = $service->getDatesInRange($somativa['data_inicio'], $somativa['data_fim']);
-$suggestions= $service->getSuggestions($id);
-$violations = $service->validateGrade($id);
+$turmas       = $somativa['turmas'];
+$slots        = $somativa['slots'];
+$dates        = $service->getDatesInRange($somativa['data_inicio'], $somativa['data_fim']);
+$suggestions  = $service->getSuggestions($id);
+$violations   = $service->validateGrade($id);
+$regrasAtivas = $service->getRestricoes($id);
 
 // Dados completos de grade: indexado por somativa_turma_id
 $gradeData  = [];
@@ -473,6 +474,97 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
 </div><!-- /grade-body -->
 
 <!-- ════════════════════════════════════════════════════
+     CONSOLE DE LOGS E DIAGNÓSTICOS (ESTILO VS CODE)
+     ════════════════════════════════════════════════════ -->
+<div class="grade-console collapsed" id="grade-console">
+    <!-- Barra de Cabeçalho do Console -->
+    <div class="console-header">
+        <div class="console-tabs">
+            <button type="button" class="console-tab active" data-tab="console-tab-problems">
+                ⚠️ Problemas <span class="console-badge badge-warning" id="console-problems-count">0</span>
+            </button>
+            <button type="button" class="console-tab" data-tab="console-tab-output">
+                🖥️ Console/Saída
+            </button>
+            <button type="button" class="console-tab" data-tab="console-tab-rules">
+                ⚖️ Diretrizes/Regras <span class="console-badge badge-neutral"><?= count($regrasAtivas) ?></span>
+            </button>
+        </div>
+        <div class="console-actions">
+            <button type="button" class="console-action-btn" id="btn-console-toggle" title="Minimizar/Maximizar Console">
+                <span class="console-toggle-icon">▲</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Corpo do Console -->
+    <div class="console-body">
+        <!-- Painel: Problemas -->
+        <div class="console-panel active" id="console-tab-problems">
+            <div class="problems-list" id="console-problems-list">
+                <!-- Preenchido via JS -->
+            </div>
+        </div>
+
+        <!-- Painel: Console/Saída -->
+        <div class="console-panel" id="console-tab-output">
+            <pre class="console-output" id="console-output-text">[INFO] Inicializando visualização do console de logs.
+[INFO] Grade carregada com sucesso.
+[INFO] Aguardando execução do algoritmo de alocação automática ou diagnósticos...</pre>
+        </div>
+
+        <!-- Painel: Diretrizes/Regras -->
+        <div class="console-panel" id="console-tab-rules">
+            <div class="rules-list-container">
+                <?php if (empty($regrasAtivas)): ?>
+                    <p class="rules-empty-state">Nenhuma diretriz ou restrição cadastrada para esta somativa.</p>
+                <?php else: ?>
+                    <table class="console-rules-table">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Categoria</th>
+                                <th>Descrição / Regra</th>
+                                <th>Peso</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($regrasAtivas as $r):
+                                $params = json_decode($r['params'], true) ?? [];
+                                $badgeClass = $r['tipo'] === 'hard' ? 'badge-danger' : 'badge-warning';
+                                $statusClass = $r['is_active'] ? 'rule-active' : 'rule-inactive';
+                            ?>
+                                <tr class="<?= $statusClass ?>">
+                                    <td><span class="badge <?= $badgeClass ?>"><?= htmlspecialchars(strtoupper($r['tipo'])) ?></span></td>
+                                    <td><strong><?= htmlspecialchars(strtoupper(str_replace('_', ' ', $r['categoria']))) ?></strong></td>
+                                    <td>
+                                        <div class="rule-desc-title"><?= htmlspecialchars($r['descricao'] ?: 'Sem descrição') ?></div>
+                                        <?php if (!empty($params)): ?>
+                                            <div class="rule-desc-params">
+                                                <?php foreach ($params as $k => $v): ?>
+                                                    <span><strong><?= htmlspecialchars($k) ?>:</strong> <?= htmlspecialchars(is_array($v) ? implode(', ', $v) : $v) ?></span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?= $r['peso'] ?></td>
+                                    <td>
+                                        <span class="rule-status-dot"></span>
+                                        <?= $r['is_active'] ? 'Ativa' : 'Inativa' ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════
      MODAL DE CONFIGURAÇÃO DE SLOT
 ════════════════════════════════════════════════════ -->
 <div id="slot-modal-overlay" class="slot-modal-overlay" hidden>
@@ -891,6 +983,7 @@ window.GradeData = {
     naapiTempoExtra:   <?= (int)($somativa['naapi_tempo_extra_min'] ?? 60) ?>,
 };
 window.GradeSuggestions = <?= json_encode($suggestions) ?>;
+window.GradeViolations  = <?= json_encode($violations) ?>;
 </script>
 <script src="/assets/js/somativas_grade.js?v=<?= time() ?>"></script>
 

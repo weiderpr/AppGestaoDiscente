@@ -22,6 +22,12 @@ namespace App\Services;
 class SomativaScheduler extends Service
 {
     private $theoreticalMinScore = 0;
+    private array $traceLogs = [];
+
+    private function logTrace(string $msg): void
+    {
+        $this->traceLogs[] = '[' . date('H:i:s') . '] ' . $msg;
+    }
 
     // ──────────────────────────────────────────────────────────
     // Ponto de entrada
@@ -31,22 +37,32 @@ class SomativaScheduler extends Service
      * @return array{
      *   alocacoes: array,
      *   conflitos: array,
-     *   avisos:    array
+     *   avisos:    array,
+     *   logs:      array
      * }
      */
     public function run(int $somativaId, int $instId): array
     {
+        $this->traceLogs = [];
+        $this->logTrace("Inicializando agendador automático para Somativa ID: {$somativaId}");
+
         $data = $this->loadData($somativaId, $instId);
 
         if (empty($data)) {
-            return ['alocacoes' => [], 'conflitos' => [], 'avisos' => ['Somativa não encontrada.']];
+            $this->logTrace("ERRO: Somativa não encontrada no banco de dados.");
+            return ['alocacoes' => [], 'conflitos' => [], 'avisos' => ['Somativa não encontrada.'], 'logs' => $this->traceLogs];
         }
 
         if (empty($data['turmas']) || empty($data['slots']) || empty($data['dates'])) {
-            return ['alocacoes' => [], 'conflitos' => [], 'avisos' => ['Configure turmas, slots e datas antes de alocar.']];
+            $this->logTrace("ERRO: Dados de configuração incompletos (sem turmas, slots ou datas).");
+            return ['alocacoes' => [], 'conflitos' => [], 'avisos' => ['Configure turmas, slots e datas antes de alocar.'], 'logs' => $this->traceLogs];
         }
 
-        return $this->greedyAllocate($data);
+        $this->logTrace("Carregados: " . count($data['dates']) . " datas, " . count($data['slots']) . " slots, " . count($data['turmas']) . " turmas, " . count($data['restricoes']) . " restrições.");
+
+        $result = $this->greedyAllocate($data);
+        $result['logs'] = $this->traceLogs;
+        return $result;
     }
 
     // ──────────────────────────────────────────────────────────
@@ -247,6 +263,7 @@ class SomativaScheduler extends Service
         $discEmData  = [];  // [stId][sdId] = date  (para rastrear mesmo_dia_turmas)
         $codEmData   = [];  // [date][discCod] = count (global, para mesmo_dia_turmas cross-turma)
 
+        $this->logTrace("Processando indexação de restrições...");
         $restricoes = $this->indexRestricoes($data['restricoes']);
 
         $constrainedHorario = [];
@@ -426,6 +443,7 @@ class SomativaScheduler extends Service
         // ── Fase 0: pré-alocação de grupos Hard/Todos por professor ──────────
         $preAllocated = [];
         if (!empty($hardProfAll)) {
+            $this->logTrace("Fase 0: Iniciando pré-alocação para restrição Hard global de professores.");
             $context = [
                 'hardConstrainedHorario' => $hardConstrainedHorario,
                 'hardConstrainedDia'     => $hardConstrainedDia,
@@ -442,11 +460,19 @@ class SomativaScheduler extends Service
                 $alocacoes, $ocupados, $countDia, $discNoDia, $codEmData,
                 $context
             );
+            $this->logTrace("Fase 0 concluída. Pré-alocadas " . count($preAllocated) . " disciplinas.");
         }
 
+        $this->logTrace("Calculando fila de alocação de disciplinas baseada nas restrições (Heurística MCV)...");
         $queue = $this->buildAllocationQueue($data, $restricoes, $constrainedHorario, $constrainedDia, $hardProfDisc, $softProfDisc, $discInHardGrupo, $discInSoftGrupo, $hardProfAll, $softProfAll, $hardGrupos);
+        $this->logTrace("Fila ordenada com " . count($queue) . " disciplinas.");
+        foreach ($queue as $idx => $qItem) {
+            $this->logTrace("  [" . ($idx + 1) . "] " . $qItem['disciplina']['disc_nome'] . " (" . $qItem['turma']['turma_desc'] . ") | Prioridade: " . $qItem['priority']);
+        }
 
         // Algoritmo de Busca por Retrocesso com Heurística (Heuristic Backtracking)
+        $this->logTrace("Iniciando algoritmo de busca Backtracking com Heurística de Valor Mais Promissor.");
+        $this->logTrace("Pontuação Teórica Mínima esperada (Lower Bound): " . $this->theoreticalMinScore);
         $bestAllocCount = 0;
         $bestAllocations = [];
         $calls = 0;
@@ -462,6 +488,7 @@ class SomativaScheduler extends Service
         );
 
         if (!empty($solutions)) {
+            $this->logTrace("Busca por retrocesso concluída. Encontrada(s) " . count($solutions) . " solução(ões) viável(is).");
             $bestSolution = null;
             $bestScore = 99999999;
             
@@ -473,11 +500,14 @@ class SomativaScheduler extends Service
                 }
             }
             
+            $this->logTrace("Melhor solução selecionada com score global: {$bestScore} (Mínimo Ideal: {$this->theoreticalMinScore}).");
             $alocacoes = $bestSolution;
             $success = true;
         }
 
         if (!$success) {
+            $this->logTrace("ATENÇÃO: Não foi encontrada nenhuma solução 100% livre de conflitos com as restrições obrigatórias.");
+            $this->logTrace("Melhor alocação parcial obtida: {$bestAllocCount} de " . count($queue) . " disciplinas.");
             // Caso não encontre uma solução 100% perfeita devido a regras impossíveis,
             // restaura a melhor alocação parcial encontrada.
             $alocacoes = $bestAllocations;
@@ -580,17 +610,24 @@ class SomativaScheduler extends Service
     ): bool {
         $calls++;
         if ($calls > 200000) {
+            $this->logTrace("Limite máximo de 200.000 chamadas recursivas atingido. Abortando busca.");
             return false; // Evita loop infinito em grades impossíveis
         }
 
         if (!empty($solutions) && $calls > 100000) {
+            $this->logTrace("Limite de 100.000 chamadas ultrapassado com soluções já encontradas. Encerrando busca.");
             return true; // Termina a busca se já temos pelo menos 1 solução e passou do limite de 100.000 chamadas
+        }
+
+        if ($calls % 5000 === 0) {
+            $this->logTrace("Progresso da busca: {$calls} chamadas efetuadas. Melhor profundidade: {$bestAllocCount}/" . count($queue) . " disciplinas.");
         }
 
         // Registra o maior progresso parcial
         if ($queueIdx > $bestAllocCount) {
             $bestAllocCount = $queueIdx;
             $bestAllocations = $alocacoes;
+            $this->logTrace("Nova melhor profundidade alcançada: {$bestAllocCount} de " . count($queue) . " disciplinas alocadas (Chamadas: {$calls}).");
         }
 
         if ($queueIdx >= count($queue)) {
@@ -598,7 +635,9 @@ class SomativaScheduler extends Service
             
             // Se encontrou uma solução perfeita (igual ou menor que a pontuação teórica mínima), para a busca imediatamente
             $score = $this->calculateSolutionScore($alocacoes, $data, $datesNormais);
+            $this->logTrace("Solução válida encontrada no passo {$calls} com score de restrições soft: {$score}");
             if ($score <= $this->theoreticalMinScore) {
+                $this->logTrace("Solução ótima global encontrada com score {$score} <= mínimo teórico {$this->theoreticalMinScore}. Interrompendo busca.");
                 return true;
             }
 

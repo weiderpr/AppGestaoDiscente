@@ -25,6 +25,7 @@
         initAnalysisModal();
         initSidebarToggle();
         renderSuggestions(currentStId);
+        initConsolePanel();
     });
 
     // ──────────────────────────────────────────────────────────
@@ -66,6 +67,7 @@
 
         renderSuggestions(stId);
     }
+    window.AppSwitchTurma = switchTurma;
 
     function renderSuggestions(stId) {
         const listContainer = document.getElementById('gs-suggestions-container');
@@ -697,6 +699,227 @@
     }
 
     // ──────────────────────────────────────────────────────────
+    // Console de Logs e Diagnósticos (Estilo VS Code)
+    // ──────────────────────────────────────────────────────────
+    function initConsolePanel() {
+        const consoleEl = document.getElementById('grade-console');
+        if (!consoleEl) return;
+
+        const toggleBtn = document.getElementById('btn-console-toggle');
+        const toggleIcon = consoleEl.querySelector('.console-toggle-icon');
+        const tabs = consoleEl.querySelectorAll('.console-tab');
+        const panels = consoleEl.querySelectorAll('.console-panel');
+
+        function toggleConsole(forceState) {
+            const isCollapsed = consoleEl.classList.contains('collapsed');
+            const shouldCollapse = (forceState !== undefined) ? forceState : !isCollapsed;
+
+            consoleEl.classList.toggle('collapsed', shouldCollapse);
+            if (toggleIcon) {
+                toggleIcon.textContent = shouldCollapse ? '▲' : '▼';
+            }
+            sessionStorage.setItem('grade_console_collapsed', shouldCollapse ? 'true' : 'false');
+        }
+
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleConsole();
+            });
+        }
+
+        consoleEl.querySelector('.console-header')?.addEventListener('dblclick', () => {
+            toggleConsole();
+        });
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const targetTabId = tab.dataset.tab;
+
+                tabs.forEach(t => t.classList.remove('active'));
+                panels.forEach(p => p.classList.remove('active'));
+
+                tab.classList.add('active');
+                const targetPanel = document.getElementById(targetTabId);
+                if (targetPanel) targetPanel.classList.add('active');
+
+                if (consoleEl.classList.contains('collapsed')) {
+                    toggleConsole(false);
+                }
+
+                sessionStorage.setItem('grade_console_active_tab', targetTabId);
+            });
+        });
+
+        const savedCollapsed = sessionStorage.getItem('grade_console_collapsed');
+        const savedActiveTab = sessionStorage.getItem('grade_console_active_tab');
+
+        if (savedCollapsed === 'false') {
+            toggleConsole(false);
+        } else {
+            toggleConsole(true);
+        }
+
+        if (savedActiveTab) {
+            const activeTabBtn = consoleEl.querySelector(`.console-tab[data-tab="${savedActiveTab}"]`);
+            if (activeTabBtn) {
+                tabs.forEach(t => t.classList.remove('active'));
+                panels.forEach(p => p.classList.remove('active'));
+                activeTabBtn.classList.add('active');
+                const pnl = document.getElementById(savedActiveTab);
+                if (pnl) pnl.classList.add('active');
+            }
+        }
+
+        renderConsoleProblems();
+    }
+
+    function renderConsoleProblems() {
+        const problemsList = document.getElementById('console-problems-list');
+        const problemsCountBadge = document.getElementById('console-problems-count');
+        if (!problemsList) return;
+
+        const violations = window.GradeViolations || {};
+        const suggestions = window.GradeSuggestions || [];
+        let items = [];
+
+        // 1. Process violations (Critical Hard errors)
+        for (const [gradeId, msgList] of Object.entries(violations)) {
+            const card = document.querySelector(`.grade-card[data-grade-id="${gradeId}"]`);
+            const cell = card ? card.closest('.grade-cell') : null;
+
+            const date = cell ? cell.dataset.date : '';
+            const slotId = cell ? cell.dataset.slotId : '';
+            const stId = cell ? cell.dataset.stId : '';
+
+            const discNome = card ? card.dataset.discNome : 'Disciplina';
+            const discCod = card ? card.dataset.discCod : '';
+            
+            const turmaInfo = (window.GradeData?.turmas || []).find(t => t.somativa_turma_id === parseInt(stId));
+            const turmaDesc = turmaInfo ? `${turmaInfo.course_name} (${turmaInfo.turma_desc})` : 'Turma';
+
+            msgList.forEach(msg => {
+                items.push({
+                    type: 'hard',
+                    msg: msg,
+                    title: `${discNome} (${discCod})`,
+                    meta: `${turmaDesc} · ${formatDate(date)} · Slot ${slotId}`,
+                    target: { gradeId, stId, date, slotId }
+                });
+            });
+        }
+
+        // 2. Process suggestions that are not satisfied (Pedagogical/Logistic soft warnings)
+        suggestions.forEach(sug => {
+            if (!sug.atendida) {
+                const stId = sug.somativa_turma_ids ? sug.somativa_turma_ids[0] : null;
+                const turmaInfo = stId ? (window.GradeData?.turmas || []).find(t => t.somativa_turma_id === parseInt(stId)) : null;
+                const turmaDesc = turmaInfo ? `${turmaInfo.course_name} (${turmaInfo.turma_desc})` : '';
+
+                items.push({
+                    type: 'soft',
+                    msg: sug.mensagem,
+                    title: sug.categoria === 'logistica' ? '🚚 Logística' : (sug.categoria === 'pedagogica' ? '🧠 Pedagógica' : '👤 Professores'),
+                    meta: (turmaDesc ? `${turmaDesc} · ` : '') + (sug.detalhes ? sug.detalhes.replace(/<[^>]*>/g, '') : ''),
+                    target: { stId: stId }
+                });
+            }
+        });
+
+        if (problemsCountBadge) {
+            problemsCountBadge.textContent = items.length;
+            problemsCountBadge.className = `console-badge ${items.length > 0 ? 'badge-warning' : 'badge-neutral'}`;
+        }
+
+        if (items.length === 0) {
+            problemsList.innerHTML = `
+                <div style="padding: 2rem; text-align: center; color: #a6adc8; font-style: italic; font-size: 0.8125rem;">
+                    ✨ Nenhum problema ou conflito ativo detectado na grade de horários!
+                </div>
+            `;
+            return;
+        }
+
+        problemsList.innerHTML = items.map(item => {
+            const icon = item.type === 'hard' ? '🛑' : '⚠️';
+            const itemClass = item.type === 'hard' ? 'problem-hard' : 'problem-soft';
+            const targetJson = JSON.stringify(item.target);
+
+            return `
+                <div class="problem-item ${itemClass}" onclick='focusGridCell(this, ${targetJson})'>
+                    <span class="problem-icon">${icon}</span>
+                    <div class="problem-details">
+                        <span class="problem-msg">${escHtml(item.msg)}</span>
+                        <div class="problem-meta">
+                            <strong>${escHtml(item.title)}</strong>
+                            <span class="problem-meta-sep">·</span>
+                            <span>${escHtml(item.meta)}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window.focusGridCell = function(element, target) {
+        if (!target) return;
+
+        if (target.stId && parseInt(target.stId) !== parseInt(currentStId)) {
+            const tabBtn = document.querySelector(`.grade-turma-tab[data-st-id="${target.stId}"]`);
+            if (tabBtn && window.AppSwitchTurma) {
+                window.AppSwitchTurma(parseInt(target.stId));
+            }
+        }
+
+        setTimeout(() => {
+            let targetCell = null;
+            if (target.gradeId) {
+                targetCell = document.querySelector(`.grade-cell[data-grade-id="${target.gradeId}"]`);
+            }
+            if (!targetCell && target.date && target.slotId) {
+                targetCell = document.querySelector(`.grade-cell[data-date="${target.date}"][data-slot-id="${target.slotId}"]`);
+            }
+
+            if (targetCell) {
+                targetCell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+
+                document.querySelectorAll('.cell-flash-highlight').forEach(el => {
+                    el.classList.remove('cell-flash-highlight');
+                });
+
+                targetCell.classList.add('cell-flash-highlight');
+
+                setTimeout(() => {
+                    targetCell.classList.remove('cell-flash-highlight');
+                }, 2500);
+            }
+        }, 120);
+    };
+
+    function streamLogsToConsole(logsList) {
+        const consolePre = document.getElementById('console-output-text');
+        if (!consolePre || !logsList || logsList.length === 0) return;
+
+        const outputTab = document.querySelector('.console-tab[data-tab="console-tab-output"]');
+        if (outputTab) outputTab.click();
+
+        consolePre.textContent = '';
+        let lineIdx = 0;
+
+        function printNextLine() {
+            if (lineIdx < logsList.length) {
+                consolePre.textContent += logsList[lineIdx] + '\n';
+                consolePre.scrollTop = consolePre.scrollHeight;
+                lineIdx++;
+                setTimeout(printNextLine, 20);
+            }
+        }
+
+        printNextLine();
+    }
+
+    // ──────────────────────────────────────────────────────────
     // Auto-Alocação Automática
     // ──────────────────────────────────────────────────────────
 
@@ -735,7 +958,15 @@
             if (!data.success) {
                 closeAutoAlocar();
                 Toast.error(data.message || 'Erro ao gerar alocação');
+                const consolePre = document.getElementById('console-output-text');
+                if (consolePre) {
+                    consolePre.textContent = `[ERRO] Falha ao alocar automaticamente: ${data.message || 'Erro desconhecido'}`;
+                }
                 return;
+            }
+
+            if (data.logs && data.logs.length > 0) {
+                streamLogsToConsole(data.logs);
             }
 
             renderAutoAlocarResult(data);
