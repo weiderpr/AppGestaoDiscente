@@ -343,13 +343,30 @@ class SomativaService extends Service {
         foreach ($byDisc as $cod => $turmaRows) {
             if (count($turmaRows) > 1) {
                 $discNome  = $turmaRows[0]['disc_nome'];
-                $turmaDesc = implode(', ', array_column($turmaRows, 'turma_desc'));
+                $somDiscIds = array_column($turmaRows, 'som_disc_id');
+                $somativaTurmaIds = array_column($turmaRows, 'som_turma_id');
+
+                $placeholders = implode(',', array_fill(0, count($somDiscIds), '?'));
+                $alocados = $this->fetchAll(
+                    "SELECT somativa_turma_id, data_prova FROM somativa_grade
+                     WHERE somativa_id = ? AND somativa_disciplina_id IN ($placeholders) AND tipo = 'Normal'",
+                    array_merge([$somativaId], $somDiscIds)
+                );
+
+                $datasDistintas = array_unique(array_column($alocados, 'data_prova'));
+                $totalAlocado = count($alocados);
+                $totalTurmas = count($somativaTurmaIds);
+                $atendida = ($totalAlocado === $totalTurmas && count($datasDistintas) === 1);
+
+                $turmaList = implode(', ', array_column($turmaRows, 'turma_desc'));
+
                 $suggestions[] = [
-                    'tipo'        => 'mesmo_dia',
-                    'disciplina'  => $cod,
-                    'disc_nome'   => $discNome,
-                    'mensagem'    => "Agendar {$discNome} no mesmo dia em todas as turmas ({$turmaDesc}), o professor pode ser volante nas demais.",
-                    'som_disc_ids' => array_column($turmaRows, 'som_disc_id'),
+                    'id'                 => 'logistica_mesmo_dia_' . $cod,
+                    'categoria'          => 'logistica',
+                    'mensagem'           => "Agendar {$discNome} no mesmo dia em todas as turmas participantes.",
+                    'detalhes'           => "💡 <strong>Como atender:</strong> Aloque a disciplina <strong>{$discNome}</strong> na mesma data em todas as turmas parceiras: {$turmaList}. Isso permite ao professor titular ser o volante de corredor e dar suporte a todas as turmas no mesmo dia.",
+                    'somativa_turma_ids' => $somativaTurmaIds,
+                    'atendida'           => $atendida,
                 ];
             }
         }
@@ -357,16 +374,140 @@ class SomativaService extends Service {
         // Sugestão de data para segunda chamada (apenas se configurada)
         $som = $this->fetchOne('SELECT data_fim, segunda_chamada_data FROM somativas WHERE id = ?', [$somativaId]);
         if ($som && !empty($som['segunda_chamada_data'])) {
+            $hasNormal = (bool)$this->fetchOne(
+                "SELECT id FROM somativa_grade WHERE somativa_id = ? AND data_prova = ? AND tipo = 'Normal' LIMIT 1",
+                [$somativaId, $som['segunda_chamada_data']]
+            );
+            $atendida = !$hasNormal;
+
             $suggestions[] = [
-                'tipo'      => 'segunda_chamada',
-                'mensagem'  => 'Reservar o dia (' . date('d/m/Y', strtotime($som['segunda_chamada_data'])) . ') para Segundas Chamadas.',
-                'data'      => $som['segunda_chamada_data'],
+                'id'                 => 'logistica_segunda_chamada',
+                'categoria'          => 'logistica',
+                'mensagem'           => 'Reservar o dia ' . date('d/m/Y', strtotime($som['segunda_chamada_data'])) . ' para Segundas Chamadas.',
+                'detalhes'           => '💡 <strong>Como atender:</strong> Não aloque nenhuma prova regular (tipo "Normal") no dia ' . date('d/m/Y', strtotime($som['segunda_chamada_data'])) . '. Use este dia para colocar apenas o card "Segunda Chamada".',
+                'somativa_turma_ids' => null,
+                'atendida'           => $atendida,
             ];
         }
 
         // Sugestões de disciplinas com baixo rendimento (não alocar no mesmo dia)
         foreach ($this->getLowGradeSuggestions($somativaId) as $s) {
             $suggestions[] = $s;
+        }
+
+        // Distribuição de Professores: Sobrecarga Diária (slots distintos trabalhados no mesmo dia)
+        $alocProfs = $this->fetchAll(
+            "SELECT data_prova, slot_config_id, aplicador_id, volante_id, naapi_aplicador_id FROM somativa_grade WHERE somativa_id = ?",
+            [$somativaId]
+        );
+        $slotsPorProfDia = [];
+        foreach ($alocProfs as $ap) {
+            $data = $ap['data_prova'];
+            $slot = $ap['slot_config_id'];
+            if ($ap['aplicador_id']) {
+                $slotsPorProfDia[$data][(int)$ap['aplicador_id']][$slot] = true;
+            }
+            if ($ap['volante_id']) {
+                $slotsPorProfDia[$data][(int)$ap['volante_id']][$slot] = true;
+            }
+            if ($ap['naapi_aplicador_id']) {
+                $slotsPorProfDia[$data][(int)$ap['naapi_aplicador_id']][$slot] = true;
+            }
+        }
+
+        foreach ($slotsPorProfDia as $data => $profs) {
+            foreach ($profs as $profId => $slotsTrabalhados) {
+                $qtdSlots = count($slotsTrabalhados);
+                if ($qtdSlots > 2) {
+                    $profName = $this->fetchOne("SELECT name FROM users WHERE id = ?", [$profId])['name'] ?? 'Professor';
+                    $suggestions[] = [
+                        'id'                 => 'professores_sobrecarga_' . $profId . '_' . $data,
+                        'categoria'          => 'professores',
+                        'mensagem'           => "Evitar sobrecarga para o professor {$profName} em " . date('d/m/Y', strtotime($data)) . ".",
+                        'detalhes'           => "💡 <strong>Como atender:</strong> O professor <strong>{$profName}</strong> está alocado em {$qtdSlots} slots/horários diferentes no dia " . date('d/m/Y', strtotime($data)) . ". Considere redistribuir suas alocações nesse dia para evitar desgaste excessivo.",
+                        'somativa_turma_ids' => null,
+                        'atendida'           => false,
+                    ];
+                }
+            }
+        }
+
+        // Distribuição de Professores: Professor Titular Disponível
+        $somativa = $this->fetchOne('SELECT institution_id, data_inicio, data_fim FROM somativas WHERE id = ?', [$somativaId]);
+        if ($somativa) {
+            $dates = $this->getDatesInRange($somativa['data_inicio'], $somativa['data_fim']);
+            $slots = $this->getSlotsConfig($somativaId);
+            $availability = $this->getTeacherAvailability((int)$somativa['institution_id'], $dates, $slots);
+
+            $alocGrade = $this->fetchAll(
+                "SELECT sg.*, sd.disciplina_codigo, d.descricao AS disc_nome, sc.ordem AS slot_ordem, t.id AS turma_real_id
+                 FROM somativa_grade sg
+                 JOIN somativa_disciplinas sd ON sd.id = sg.somativa_disciplina_id
+                 JOIN disciplinas d ON d.codigo = sd.disciplina_codigo
+                 JOIN somativa_slots_config sc ON sc.id = sg.slot_config_id
+                 JOIN somativa_turmas st ON st.id = sg.somativa_turma_id
+                 JOIN turmas t ON t.id = st.turma_id
+                 WHERE sg.somativa_id = ? AND sg.tipo = 'Normal'",
+                [$somativaId]
+            );
+
+            foreach ($alocGrade as $aloc) {
+                $titulares = $this->fetchAll(
+                    "SELECT u.id, u.name
+                     FROM turma_disciplinas td
+                     JOIN turma_disciplina_professores tdp ON tdp.turma_disciplina_id = td.id
+                     JOIN users u ON u.id = tdp.professor_id
+                     WHERE td.turma_id = ? AND td.disciplina_codigo = ?",
+                    [$aloc['turma_real_id'], $aloc['disciplina_codigo']]
+                );
+
+                if (empty($titulares)) continue;
+
+                $titularAlocado = false;
+                $titularAlocadoNome = '';
+                foreach ($titulares as $tit) {
+                    if ((int)$aloc['aplicador_id'] === (int)$tit['id'] || (int)$aloc['volante_id'] === (int)$tit['id']) {
+                        $titularAlocado = true;
+                        $titularAlocadoNome = $tit['name'];
+                        break;
+                    }
+                }
+
+                if ($titularAlocado) {
+                    $suggestions[] = [
+                        'id'                 => 'professores_titular_disponivel_' . $aloc['somativa_turma_id'] . '_' . $aloc['somativa_disciplina_id'],
+                        'categoria'          => 'professores',
+                        'mensagem'           => "Alocar professor titular na prova de {$aloc['disc_nome']}.",
+                        'detalhes'           => "💡 <strong>Como atender:</strong> O professor titular <strong>{$titularAlocadoNome}</strong> já está alocado nesta prova. Muito bem!",
+                        'somativa_turma_ids' => [(int)$aloc['somativa_turma_id']],
+                        'atendida'           => true,
+                    ];
+                } else {
+                    $keyAvail = $aloc['data_prova'] . '_' . $aloc['slot_config_id'];
+                    $profsLivresNoSlot = $availability[$keyAvail] ?? [];
+
+                    $titularLivre = null;
+                    foreach ($titulares as $tit) {
+                        foreach ($profsLivresNoSlot as $pl) {
+                            if ((int)$pl['id'] === (int)$tit['id']) {
+                                $titularLivre = $pl;
+                                break 2;
+                            }
+                        }
+                    }
+
+                    if ($titularLivre) {
+                        $suggestions[] = [
+                            'id'                 => 'professores_titular_disponivel_' . $aloc['somativa_turma_id'] . '_' . $aloc['somativa_disciplina_id'],
+                            'categoria'          => 'professores',
+                            'mensagem'           => "Alocar professor titular na prova de {$aloc['disc_nome']}.",
+                            'detalhes'           => "💡 <strong>Como atender:</strong> O professor titular da matéria, <strong>{$titularLivre['name']}</strong>, está livre na instituição no dia " . date('d/m/Y', strtotime($aloc['data_prova'])) . " (Slot {$aloc['slot_ordem']}). Aloque-o como aplicador ou volante desta prova.",
+                            'somativa_turma_ids' => [(int)$aloc['somativa_turma_id']],
+                            'atendida'           => false,
+                        ];
+                    }
+                }
+            }
         }
 
         return $suggestions;
@@ -564,14 +705,15 @@ class SomativaService extends Service {
             $aprovacao = (float)($row['media_aprovacao'] ?: 6.0);
             if ((float)$row['media_nota'] < $aprovacao) {
                 $byTurma[$stId]['baixo'][] = [
-                    'disc_nome'  => $row['disc_nome'],
-                    'media_nota' => $row['media_nota'],
+                    'disciplina_codigo' => $row['disciplina_codigo'],
+                    'disc_nome'         => $row['disc_nome'],
+                    'media_nota'        => $row['media_nota'],
                 ];
             }
         }
 
         $suggestions = [];
-        foreach ($byTurma as $info) {
+        foreach ($byTurma as $stId => $info) {
             $baixo = $info['baixo'];
             if (count($baixo) < 2) continue;
 
@@ -579,11 +721,30 @@ class SomativaService extends Service {
                 return $d['disc_nome'] . ' (' . number_format((float)$d['media_nota'], 1, ',', '') . ')';
             }, $baixo);
 
+            $codigos = array_column($baixo, 'disciplina_codigo');
+
+            // Verifica se está atendida
+            // Busca as alocações na grade para esta turma e estas disciplinas
+            $placeholders = implode(',', array_fill(0, count($codigos), '?'));
+            $alocados = $this->fetchAll(
+                "SELECT sd.disciplina_codigo, sg.data_prova FROM somativa_grade sg
+                 JOIN somativa_disciplinas sd ON sd.id = sg.somativa_disciplina_id
+                 WHERE sg.somativa_turma_id = ? AND sd.disciplina_codigo IN ($placeholders) AND sg.tipo = 'Normal'",
+                array_merge([$stId], $codigos)
+            );
+
+            $datasAlocadas = array_column($alocados, 'data_prova');
+            $datasUnicas = array_unique($datasAlocadas);
+            // Satisfeito se não houver datas duplicadas (ou seja, se estiverem em dias diferentes)
+            $atendida = (count($datasAlocadas) === count($datasUnicas));
+
             $suggestions[] = [
-                'tipo'     => 'evitar_mesmo_dia',
-                'mensagem' => 'Turma ' . $info['turma_desc'] . ': '
-                            . implode(', ', $nomes)
-                            . ' têm baixo rendimento — distribua em dias diferentes.',
+                'id'                 => 'pedagogica_evitar_mesmo_dia_' . $stId . '_' . substr(md5(implode(',', $codigos)), 0, 8),
+                'categoria'          => 'pedagogica',
+                'mensagem'           => 'Evitar provas de disciplinas com notas baixas no mesmo dia.',
+                'detalhes'           => '💡 <strong>Como atender:</strong> As disciplinas <strong>' . implode(', ', $nomes) . '</strong> têm baixo rendimento histórico na turma. Distribua-as em datas diferentes para dar maior intervalo de estudos para os alunos.',
+                'somativa_turma_ids' => [$stId],
+                'atendida'           => $atendida,
             ];
         }
 
@@ -1917,7 +2078,7 @@ class SomativaService extends Service {
             "SELECT sg.id AS grade_id, sg.data_prova, sg.slot_config_id, sg.somativa_turma_id,
                     sg.somativa_disciplina_id,
                     sc.horario_inicio, sc.horario_fim, sc.label AS slot_label,
-                    t.id AS turma_id, t.description AS turma_desc,
+                    t.id AS turma_id, t.description AS turma_desc, t.course_id,
                     d.descricao AS disc_nome, sd.disciplina_codigo
              FROM somativa_grade sg
              JOIN somativa_slots_config sc ON sc.id = sg.slot_config_id
@@ -1947,9 +2108,9 @@ class SomativaService extends Service {
             $teacherMap[(int)$t['id']] = $t['name'];
         }
 
-        // Aulas regulares agrupadas por professor → dia_semana → [{turma_id, inicio, fim}]
+        // Aulas regulares agrupadas por professor → dia_semana → [{turma_id, course_id, inicio, fim}]
         $regularClasses = $this->fetchAll(
-            "SELECT DISTINCT tdp.professor_id, gta.turma_id, gta.dia_semana,
+            "SELECT DISTINCT tdp.professor_id, gta.turma_id, tr.course_id, gta.dia_semana,
                     gta.horario_inicio, gta.horario_fim
              FROM gestao_turma_aulas gta
              JOIN turmas tr ON tr.id = gta.turma_id
@@ -1965,9 +2126,10 @@ class SomativaService extends Service {
             $pid = (int)$rc['professor_id'];
             $dow = (int)$rc['dia_semana'];
             $byProfDay[$pid][$dow][] = [
-                'turma_id' => (int)$rc['turma_id'],
-                'inicio'   => $rc['horario_inicio'],
-                'fim'      => $rc['horario_fim'],
+                'turma_id'  => (int)$rc['turma_id'],
+                'course_id' => (int)$rc['course_id'],
+                'inicio'    => $rc['horario_inicio'],
+                'fim'       => $rc['horario_fim'],
             ];
         }
 
@@ -1989,7 +2151,7 @@ class SomativaService extends Service {
             $discTeachers[$turmaId][$cod][] = $pid;
         }
 
-        // Contador de carga acumulada nesta rodada (começa zerado — equalização pura)
+        // Contador de carga acumulada nesta rodada: aplicador + volante + naapi (equalização total)
         $runningLoad = [];
         foreach (array_keys($teacherMap) as $pid) {
             $runningLoad[$pid] = 0;
@@ -2007,6 +2169,7 @@ class SomativaService extends Service {
             $date      = $a['data_prova'];
             $slotId    = (int)$a['slot_config_id'];
             $turmaId   = (int)$a['turma_id'];
+            $courseId  = (int)$a['course_id'];
             $cod       = $a['disciplina_codigo'] ?? '';
             $dow       = (int)(new \DateTime($date))->format('N');
             $slotStart = $a['horario_inicio'];
@@ -2029,18 +2192,13 @@ class SomativaService extends Service {
                         break;
                     }
                 }
-                // Se todos os professores da disciplina já estão no slot, usa o primeiro mesmo assim
-                if ($volanteId === null && !empty($discTeachers[$turmaId][$cod])) {
-                    $pid = $discTeachers[$turmaId][$cod][0];
-                    if (isset($teacherMap[$pid])) {
-                        $volanteId   = $pid;
-                        $volanteName = $teacherMap[$pid];
-                    }
-                }
+                // Sem fallback forçado: se todos os professores da disciplina já estão
+                // ocupados neste slot, o volante fica nulo para evitar conflito de papéis.
             }
 
             if ($volanteId !== null) {
                 $slotOccupancy[$slotKey][$volanteId] = true;
+                $runningLoad[$volanteId] = ($runningLoad[$volanteId] ?? 0) + 1;
             }
 
             // ── Aplicador ──────────────────────────────────────────
@@ -2051,8 +2209,9 @@ class SomativaService extends Service {
             foreach ($teacherMap as $pid => $pname) {
                 if (isset($slotOccupancy[$slotKey][$pid])) continue;
 
-                $thisTurma = false;
-                $anyTurma  = false;
+                $thisTurma  = false;
+                $sameCourse = false;
+                $anyTurma   = false;
 
                 if (isset($byProfDay[$pid][$dow])) {
                     foreach ($byProfDay[$pid][$dow] as $cls) {
@@ -2060,23 +2219,29 @@ class SomativaService extends Service {
                             $anyTurma = true;
                             if ($cls['turma_id'] === $turmaId) {
                                 $thisTurma = true;
+                            } elseif ($cls['course_id'] === $courseId) {
+                                $sameCourse = true;
                             }
                         }
                     }
                 }
 
                 $apCandidates[$pid] = [
-                    'turma_match' => $thisTurma,
-                    'any_class'   => $anyTurma,
-                    'load'        => $runningLoad[$pid] ?? 0,
-                    'name'        => $pname,
+                    'turma_match'  => $thisTurma,
+                    'course_match' => $sameCourse,
+                    'any_class'    => $anyTurma,
+                    'load'         => $runningLoad[$pid] ?? 0,
+                    'name'         => $pname,
                 ];
             }
 
-            // Ordena: turma_match ↓ → any_class ↓ → load ↑
+            // Ordena: turma_match ↓ → course_match ↓ → any_class ↓ → load ↑
             uasort($apCandidates, function ($x, $y) {
                 if ($x['turma_match'] !== $y['turma_match']) {
                     return $y['turma_match'] <=> $x['turma_match'];
+                }
+                if ($x['course_match'] !== $y['course_match']) {
+                    return $y['course_match'] <=> $x['course_match'];
                 }
                 if ($x['any_class'] !== $y['any_class']) {
                     return $y['any_class'] <=> $x['any_class'];
@@ -2106,8 +2271,9 @@ class SomativaService extends Service {
                     foreach ($teacherMap as $pid => $pname) {
                         if (isset($slotOccupancy[$slotKey][$pid])) continue;
 
-                        $thisTurma = false;
-                        $anyTurma  = false;
+                        $thisTurma  = false;
+                        $sameCourse = false;
+                        $anyTurma   = false;
 
                         if (isset($byProfDay[$pid][$dow])) {
                             foreach ($byProfDay[$pid][$dow] as $cls) {
@@ -2115,21 +2281,27 @@ class SomativaService extends Service {
                                     $anyTurma = true;
                                     if ($cls['turma_id'] === $turmaId) {
                                         $thisTurma = true;
+                                    } elseif ($cls['course_id'] === $courseId) {
+                                        $sameCourse = true;
                                     }
                                 }
                             }
                         }
 
                         $naCandidates[$pid] = [
-                            'turma_match' => $thisTurma,
-                            'any_class'   => $anyTurma,
-                            'load'        => $runningLoad[$pid] ?? 0,
+                            'turma_match'  => $thisTurma,
+                            'course_match' => $sameCourse,
+                            'any_class'    => $anyTurma,
+                            'load'         => $runningLoad[$pid] ?? 0,
                         ];
                     }
 
                     uasort($naCandidates, function ($x, $y) {
                         if ($x['turma_match'] !== $y['turma_match']) {
                             return $y['turma_match'] <=> $x['turma_match'];
+                        }
+                        if ($x['course_match'] !== $y['course_match']) {
+                            return $y['course_match'] <=> $x['course_match'];
                         }
                         if ($x['any_class'] !== $y['any_class']) {
                             return $y['any_class'] <=> $x['any_class'];

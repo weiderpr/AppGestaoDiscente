@@ -23,6 +23,8 @@
         initSmartSearchAll();
         initSuggestionsToggle();
         initAnalysisModal();
+        initSidebarToggle();
+        renderSuggestions(currentStId);
     });
 
     // ──────────────────────────────────────────────────────────
@@ -60,6 +62,95 @@
         });
         document.querySelectorAll('.gs-turma-disc').forEach(d => {
             d.classList.toggle('active', parseInt(d.id.replace('gs-disc-', '')) === stId);
+        });
+
+        renderSuggestions(stId);
+    }
+
+    function renderSuggestions(stId) {
+        const listContainer = document.getElementById('gs-suggestions-container');
+        const panel = document.getElementById('gs-suggestions-panel');
+        const btn = document.getElementById('btn-suggestions');
+        const countSpan = document.getElementById('sug-count');
+
+        if (!listContainer || !panel) return;
+
+        const allSug = window.GradeSuggestions || [];
+        const filtered = allSug.filter(s => {
+            if (!s.somativa_turma_ids || s.somativa_turma_ids.length === 0) {
+                return true;
+            }
+            return s.somativa_turma_ids.includes(parseInt(stId));
+        });
+
+        if (btn) {
+            if (filtered.length > 0) {
+                btn.style.display = 'inline-block';
+                if (countSpan) countSpan.textContent = filtered.length;
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+
+        if (filtered.length === 0) {
+            panel.hidden = true;
+            listContainer.innerHTML = '';
+            return;
+        }
+
+        const categoriasMap = {
+            'logistica': '🚚 Logística',
+            'pedagogica': '🧠 Pedagógica',
+            'professores': '👤 Professores'
+        };
+
+        listContainer.innerHTML = filtered.map(s => {
+            const satisf = s.atendida ? 'satisfied' : '';
+            const star = s.atendida ? '<span class="gs-suggestion-star" title="Sugestão atendida! ⭐">⭐</span>' : '';
+            const badgeClass = `gs-badge-${s.categoria || 'logistica'}`;
+            const categoryLabel = categoriasMap[s.categoria] || '💡 Sugestão';
+
+            const helpIcon = (!s.atendida && s.detalhes) ? `
+                <span class="gs-suggestion-help">❓
+                    <span class="tooltip-content">${s.detalhes}</span>
+                </span>
+            ` : '';
+
+            return `
+                <div class="gs-suggestion-item ${satisf} gs-sug-${s.categoria || 'logistica'}">
+                    <div class="gs-suggestion-header">
+                        <span class="gs-suggestion-badge ${badgeClass}">${categoryLabel}</span>
+                        ${helpIcon}
+                    </div>
+                    <div class="gs-suggestion-body">
+                        <div class="gs-suggestion-text">${escHtml(s.mensagem)}</div>
+                        ${star}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        panel.hidden = false;
+    }
+
+    function initSidebarToggle() {
+        const toggleBtn = document.getElementById('btn-toggle-sidebar');
+        const sidebarWrapper = document.querySelector('.grade-sidebar-wrapper');
+
+        if (!toggleBtn || !sidebarWrapper) return;
+
+        const isCollapsed = sessionStorage.getItem('grade_sidebar_collapsed') === 'true';
+        if (isCollapsed) {
+            sidebarWrapper.classList.add('collapsed');
+            const span = toggleBtn.querySelector('span');
+            if (span) span.textContent = '‹';
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            const collapsed = sidebarWrapper.classList.toggle('collapsed');
+            sessionStorage.setItem('grade_sidebar_collapsed', collapsed ? 'true' : 'false');
+            const span = toggleBtn.querySelector('span');
+            if (span) span.textContent = collapsed ? '‹' : '›';
         });
     }
 
@@ -927,7 +1018,7 @@
 
                     return `
                         <tr>
-                            <td class="font-semibold-primary">${escHtml(c.professor_nome)}</td>
+                            <td class="font-semibold-primary">${escHtml(c.professor_name)}</td>
                             <td>${formatDate(c.data_prova)} (${c.dia_semana_br})</td>
                             <td><span class="badge badge-neutral">${escHtml(c.slot_label)}</span></td>
                             <td><span class="badge ${roleBadgeClass} badge-role">${escHtml(c.papel)}</span></td>

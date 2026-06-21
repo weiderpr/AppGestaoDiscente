@@ -36,75 +36,29 @@ require_once __DIR__ . '/../../includes/header.php';
 ?>
 
 <style>
-.som-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-    gap: 1.25rem;
+.somativas-table-wrap { overflow-x:auto; border-radius:var(--radius-lg); }
+.somativas-table { width:100%; border-collapse:collapse; font-size:.875rem; }
+.somativas-table th {
+    padding:.75rem 1rem; text-align:left; font-size:.75rem; font-weight:600;
+    text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted);
+    background:var(--bg-surface-2nd); border-bottom:1px solid var(--border-color);
+    white-space:nowrap;
 }
-.som-card {
-    display: flex;
-    flex-direction: column;
-    gap: .875rem;
+.somativas-table td { padding:.875rem 1rem; border-bottom:1px solid var(--border-color); vertical-align:middle; }
+.somativas-table tr:last-child td { border-bottom:none; }
+.somativas-table tr:hover td { background:var(--bg-hover); }
+
+.action-btn {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:32px; height:32px; border-radius:var(--radius-md);
+    border:1px solid var(--border-color); background:var(--bg-surface);
+    color:var(--text-muted); cursor:pointer; font-size:.875rem;
+    transition:all var(--transition-fast); text-decoration:none;
 }
-.som-card-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: .75rem;
-}
-.som-card-nome {
-    font-size: .9375rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0 0 .25rem;
-}
-.som-card-periodo {
-    font-size: .8125rem;
-    color: var(--text-muted);
-}
-.som-status-badge {
-    font-size: .72rem;
-    font-weight: 700;
-    padding: .2rem .625rem;
-    border-radius: 999px;
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    background: var(--bg-surface-2nd);
-    flex-shrink: 0;
-}
-.som-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
-    font-size: .8rem;
-    color: var(--text-secondary);
-}
-.som-meta-item {
-    display: flex;
-    align-items: center;
-    gap: .3rem;
-    background: var(--bg-surface-2nd);
-    border: 1px solid var(--border-color);
-    border-radius: 999px;
-    padding: .15rem .5rem;
-}
-.som-desc {
-    font-size: .8125rem;
-    color: var(--text-muted);
-    line-height: 1.5;
-    padding: .625rem .875rem;
-    background: var(--bg-surface-2nd);
-    border-radius: var(--radius-md);
-}
-.som-actions {
-    display: flex;
-    gap: .5rem;
-    flex-wrap: wrap;
-    padding-top: .75rem;
-    border-top: 1px solid var(--border-color);
-    margin-top: auto;
-}
+.action-btn:hover { background:var(--bg-hover); color:var(--text-primary); }
+.action-btn.danger:hover { background:#fef2f2; color:var(--color-danger); border-color:var(--color-danger); }
+[data-theme="dark"] .action-btn.danger:hover { background:#450a0a; }
+
 .som-empty {
     text-align: center;
     padding: 3rem 1rem;
@@ -166,61 +120,85 @@ require_once __DIR__ . '/../../includes/header.php';
 </div>
 
 <?php else: ?>
-<div class="som-grid fade-in">
-    <?php foreach ($somativas as $s):
-        $inicio = date('d/m/Y', strtotime($s['data_inicio']));
-        $fim    = date('d/m/Y', strtotime($s['data_fim']));
-        $podeGrade = $s['total_turmas'] > 0 && $s['total_slots'] > 0;
-        $stColor   = $statusColors[$s['status']] ?? 'color:var(--text-muted)';
-    ?>
-    <div class="card">
-        <div class="card-body som-card">
-            <div class="som-card-top">
-                <div>
-                    <h3 class="som-card-nome"><?= htmlspecialchars($s['nome']) ?></h3>
-                    <div class="som-card-periodo">📅 <?= $inicio ?> — <?= $fim ?></div>
-                </div>
-                <span class="som-status-badge" style="<?= $stColor ?>">
-                    <?= htmlspecialchars($s['status']) ?>
-                </span>
-            </div>
-
-            <div class="som-meta">
-                <span class="som-meta-item">🏫 <?= (int)$s['total_turmas'] ?> turma<?= $s['total_turmas'] != 1 ? 's' : '' ?></span>
-                <span class="som-meta-item">⏰ <?= (int)$s['total_slots'] ?> slot<?= $s['total_slots'] != 1 ? 's' : '' ?></span>
-                <span class="som-meta-item">📊 Máx <?= (int)$s['max_provas_por_dia'] ?> prova<?= $s['max_provas_por_dia'] != 1 ? 's' : '' ?>/dia</span>
-                <span class="som-meta-item">👤 <?= htmlspecialchars($s['criador_nome']) ?></span>
-            </div>
-
-            <?php if (!empty($s['descricao'])): ?>
-            <div class="som-desc"><?= htmlspecialchars($s['descricao']) ?></div>
-            <?php endif; ?>
-
-            <div class="som-actions">
-                <?php if ($podeGrade): ?>
-                <a href="grade.php?id=<?= $s['id'] ?>" class="btn btn-primary btn-sm">📅 Configurar Grade</a>
-                <?php else: ?>
-                <button type="button" class="btn btn-secondary btn-sm" disabled
-                        title="Configure turmas e slots de horário para habilitar">
-                    📅 Grade (incompleto)
-                </button>
-                <?php endif; ?>
-
-                <?php if (hasDbPermission('somativas.update', false)): ?>
-                <a href="edit.php?id=<?= $s['id'] ?>" class="btn btn-secondary btn-sm">✏️ Editar</a>
-                <?php endif; ?>
-
-                <?php if (hasDbPermission('somativas.delete', false)): ?>
-                <button type="button" class="btn btn-ghost btn-sm"
-                        style="color:var(--color-danger)"
-                        onclick="confirmDelete(<?= $s['id'] ?>, '<?= htmlspecialchars(addslashes($s['nome'])) ?>')">
-                    🗑️ Excluir
-                </button>
-                <?php endif; ?>
-            </div>
-        </div>
+<div class="card fade-in">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="card-title">Períodos de Avaliação</span>
+        <span style="font-size:.875rem;color:var(--text-muted);"><?= count($somativas) ?> registro(s)</span>
     </div>
-    <?php endforeach; ?>
+    <div class="somativas-table-wrap">
+        <table class="somativas-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Avaliação Somativa</th>
+                    <th>Período</th>
+                    <th>Turmas</th>
+                    <th>Slots</th>
+                    <th>Provas/Dia</th>
+                    <th>Criador</th>
+                    <th>Status</th>
+                    <th style="text-align:center;">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($somativas as $s):
+                    $inicio = date('d/m/Y', strtotime($s['data_inicio']));
+                    $fim    = date('d/m/Y', strtotime($s['data_fim']));
+                    $podeGrade = $s['total_turmas'] > 0 && $s['total_slots'] > 0;
+                    $stColor   = $statusColors[$s['status']] ?? 'color:var(--text-muted)';
+                ?>
+                <tr>
+                    <td style="color:var(--text-muted);font-size:.8125rem;"><?= (int)$s['id'] ?></td>
+                    <td>
+                        <div style="font-weight:600;color:var(--text-primary);"><?= htmlspecialchars($s['nome']) ?></div>
+                        <?php if (!empty($s['descricao'])): ?>
+                            <div style="font-size:.75rem;color:var(--text-muted);margin-top:2px;"><?= htmlspecialchars($s['descricao']) ?></div>
+                        <?php endif; ?>
+                    </td>
+                    <td style="color:var(--text-secondary);white-space:nowrap;">
+                        📅 <?= $inicio ?> — <?= $fim ?>
+                    </td>
+                    <td style="color:var(--text-secondary);">
+                        🏫 <?= (int)$s['total_turmas'] ?>
+                    </td>
+                    <td style="color:var(--text-secondary);">
+                        ⏰ <?= (int)$s['total_slots'] ?>
+                    </td>
+                    <td style="color:var(--text-secondary);">
+                        📊 <?= (int)$s['max_provas_por_dia'] ?>
+                    </td>
+                    <td style="color:var(--text-secondary);">
+                        👤 <?= htmlspecialchars($s['criador_nome']) ?>
+                    </td>
+                    <td>
+                        <span style="font-size:.8125rem;font-weight:600;<?= $stColor ?>;">
+                            ● <?= htmlspecialchars($s['status']) ?>
+                        </span>
+                    </td>
+                    <td>
+                        <div style="display:flex;align-items:center;justify-content:center;gap:.375rem;">
+                            <?php if ($podeGrade): ?>
+                            <a href="grade.php?id=<?= $s['id'] ?>" class="action-btn" title="Configurar Grade">📅</a>
+                            <?php else: ?>
+                            <button type="button" class="action-btn" disabled style="opacity:0.4;cursor:not-allowed;"
+                                    title="Configure turmas e slots de horário para habilitar">📅</button>
+                            <?php endif; ?>
+
+                            <?php if (hasDbPermission('somativas.update', false)): ?>
+                            <a href="edit.php?id=<?= $s['id'] ?>" class="action-btn" title="Editar">✏️</a>
+                            <?php endif; ?>
+
+                            <?php if (hasDbPermission('somativas.delete', false)): ?>
+                            <button type="button" class="action-btn danger" title="Excluir"
+                                    onclick="confirmDelete(<?= $s['id'] ?>, '<?= htmlspecialchars(addslashes($s['nome'])) ?>')">🗑️</button>
+                            <?php endif; ?>
+                        </div>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
 </div>
 <?php endif; ?>
 

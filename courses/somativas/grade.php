@@ -91,7 +91,7 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
     <link rel="stylesheet" href="/assets/css/components/toast.css">
     <link rel="stylesheet" href="/assets/css/components/loading.css">
     <link rel="stylesheet" href="/assets/css/components/modal.css?v=1.5">
-    <link rel="stylesheet" href="/assets/css/somativas.css?v=4">
+    <link rel="stylesheet" href="/assets/css/somativas.css?v=<?= time() ?>">
 
     <script src="/assets/js/main.js"></script>
     <script src="/assets/js/components/Toast.js"></script>
@@ -129,11 +129,9 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
         </span>
     </div>
     <div class="grade-topbar-right">
-        <?php if ($suggestions): ?>
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-suggestions">
-            💡 Sugestões (<?= count($suggestions) ?>)
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-suggestions" style="display: none;">
+            💡 Sugestões (<span id="sug-count">0</span>)
         </button>
-        <?php endif; ?>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-analisar-professores">
             📊 Analisar Professores
         </button>
@@ -392,88 +390,85 @@ $extraScripts = ['/assets/js/somativas_grade.js'];
 
     </div><!-- /grade-grid-wrap -->
 
-    <!-- ── Sidebar ────────────────────────────────────── -->
-    <aside class="grade-sidebar" id="grade-sidebar">
-        <div class="gs-section">
-            <h3 class="gs-title">📚 Disciplinas a Alocar</h3>
-            <div class="gs-subtitle">Arraste para um horário na grade</div>
-        </div>
+    <!-- ── Sidebar Wrapper ─────────────────────────────── -->
+    <div class="grade-sidebar-wrapper">
+        <button type="button" class="sidebar-toggle-btn" id="btn-toggle-sidebar" title="Recolher/Expandir barra lateral">
+            <span>›</span>
+        </button>
+        <aside class="grade-sidebar" id="grade-sidebar">
+            <div class="gs-section">
+                <h3 class="gs-title">📚 Disciplinas a Alocar</h3>
+                <div class="gs-subtitle">Arraste para um horário na grade</div>
+            </div>
 
-        <?php foreach ($turmas as $i => $t): ?>
-        <?php $stId = (int)$t['somativa_turma_id']; ?>
-        <div class="gs-turma-disc <?= $i === 0 ? 'active' : '' ?>"
-             id="gs-disc-<?= $stId ?>">
+            <?php foreach ($turmas as $i => $t): ?>
+            <?php $stId = (int)$t['somativa_turma_id']; ?>
+            <div class="gs-turma-disc <?= $i === 0 ? 'active' : '' ?>"
+                 id="gs-disc-<?= $stId ?>">
 
-            <div class="disc-cards-list" id="disc-cards-<?= $stId ?>">
-                <?php foreach ($naoAlocado[$stId] ?? [] as $nd): ?>
-                <div class="disc-drag-card"
-                     draggable="true"
-                     id="dcard-<?= $nd['som_disc_id'] ?>"
-                     data-som-disc-id="<?= $nd['som_disc_id'] ?>"
-                     data-disc-cod="<?= htmlspecialchars($nd['disciplina_codigo']) ?>"
-                     data-disc-nome="<?= htmlspecialchars($nd['disc_nome']) ?>"
-                     data-tipo="Normal"
-                     data-professores="<?= htmlspecialchars($nd['professores'] ?? '') ?>"
-                     data-professor-ids="<?= htmlspecialchars($nd['professor_ids'] ?? '') ?>">
-                    <div class="ddc-info">
-                        <span class="ddc-code"><?= htmlspecialchars($nd['disciplina_codigo']) ?></span>
-                        <span class="ddc-name"><?= htmlspecialchars($nd['disc_nome']) ?></span>
+                <div class="disc-cards-list" id="disc-cards-<?= $stId ?>">
+                    <?php foreach ($naoAlocado[$stId] ?? [] as $nd): ?>
+                    <div class="disc-drag-card"
+                         draggable="true"
+                         id="dcard-<?= $nd['som_disc_id'] ?>"
+                         data-som-disc-id="<?= $nd['som_disc_id'] ?>"
+                         data-disc-cod="<?= htmlspecialchars($nd['disciplina_codigo']) ?>"
+                         data-disc-nome="<?= htmlspecialchars($nd['disc_nome']) ?>"
+                         data-tipo="Normal"
+                         data-professores="<?= htmlspecialchars($nd['professores'] ?? '') ?>"
+                         data-professor-ids="<?= htmlspecialchars($nd['professor_ids'] ?? '') ?>">
+                        <div class="ddc-info">
+                            <span class="ddc-code"><?= htmlspecialchars($nd['disciplina_codigo']) ?></span>
+                            <span class="ddc-name"><?= htmlspecialchars($nd['disc_nome']) ?></span>
+                        </div>
+                        <?php if (!empty($nd['professores'])): ?>
+                        <div class="ddc-prof">👤 <?= htmlspecialchars($nd['professores']) ?></div>
+                        <?php endif; ?>
                     </div>
-                    <?php if (!empty($nd['professores'])): ?>
-                    <div class="ddc-prof">👤 <?= htmlspecialchars($nd['professores']) ?></div>
+                    <?php endforeach; ?>
+
+                    <?php if (empty($naoAlocado[$stId])): ?>
+                    <div class="disc-all-done" id="disc-all-done-<?= $stId ?>">
+                        ✅ Todas as disciplinas alocadas
+                    </div>
                     <?php endif; ?>
                 </div>
-                <?php endforeach; ?>
 
-                <?php if (empty($naoAlocado[$stId])): ?>
-                <div class="disc-all-done" id="disc-all-done-<?= $stId ?>">
-                    ✅ Todas as disciplinas alocadas
-                </div>
-                <?php endif; ?>
-            </div>
-
-            <!-- Cards especiais -->
-            <div class="gs-section gs-special">
-                <h4 class="gs-special-title">Especiais</h4>
-                <div class="disc-drag-card disc-special-card"
-                     draggable="true"
-                     data-som-disc-id=""
-                     data-disc-cod=""
-                     data-disc-nome="Segunda Chamada"
-                     data-tipo="Segunda Chamada">
-                    <div class="ddc-info">
-                        <span class="ddc-special-icon">📋</span>
-                        <span class="ddc-name">Segunda Chamada</span>
+                <!-- Cards especiais -->
+                <div class="gs-section gs-special">
+                    <h4 class="gs-special-title">Especiais</h4>
+                    <div class="disc-drag-card disc-special-card"
+                         draggable="true"
+                         data-som-disc-id=""
+                         data-disc-cod=""
+                         data-disc-nome="Segunda Chamada"
+                         data-tipo="Segunda Chamada">
+                        <div class="ddc-info">
+                            <span class="ddc-special-icon">📋</span>
+                            <span class="ddc-name">Segunda Chamada</span>
+                        </div>
                     </div>
+                    <?php if (!empty($somativa['naapi_ambiente_id'])): ?>
+                    <div class="naapi-config-info">
+                        <span class="gc-naapi-badge" style="font-size:.7rem;">NAAPI</span>
+                        <span style="font-size:.75rem;color:var(--text-secondary);">
+                            <?= htmlspecialchars($somativa['naapi_ambiente_desc'] ?? '') ?>
+                            &middot; +<?= (int)($somativa['naapi_tempo_extra_min'] ?? 60) ?> min
+                        </span>
+                    </div>
+                    <?php endif; ?>
                 </div>
-                <?php if (!empty($somativa['naapi_ambiente_id'])): ?>
-                <div class="naapi-config-info">
-                    <span class="gc-naapi-badge" style="font-size:.7rem;">NAAPI</span>
-                    <span style="font-size:.75rem;color:var(--text-secondary);">
-                        <?= htmlspecialchars($somativa['naapi_ambiente_desc'] ?? '') ?>
-                        &middot; +<?= (int)($somativa['naapi_tempo_extra_min'] ?? 60) ?> min
-                    </span>
-                </div>
-                <?php endif; ?>
             </div>
-        </div>
-        <?php endforeach; ?>
+            <?php endforeach; ?>
 
-        <!-- Sugestões compactas -->
-        <?php if ($suggestions): ?>
-        <details class="gs-suggestions" id="gs-suggestions-panel">
-            <summary class="gs-suggestions-title">💡 Sugestões</summary>
-            <ul class="gs-suggestions-list">
-                <?php foreach ($suggestions as $sg): ?>
-                <li class="gs-suggestion-item gs-sug-<?= $sg['tipo'] ?>">
-                    <?= htmlspecialchars($sg['mensagem']) ?>
-                </li>
-                <?php endforeach; ?>
-            </ul>
-        </details>
-        <?php endif; ?>
+            <!-- Sugestões compactas -->
+            <details class="gs-suggestions" id="gs-suggestions-panel" hidden>
+                <summary class="gs-suggestions-title">💡 Sugestões</summary>
+                <div class="gs-suggestions-container" id="gs-suggestions-container"></div>
+            </details>
 
-    </aside><!-- /grade-sidebar -->
+        </aside><!-- /grade-sidebar -->
+    </div><!-- /grade-sidebar-wrapper -->
 
 </div><!-- /grade-body -->
 
@@ -895,6 +890,7 @@ window.GradeData = {
     naapiAmbienteDesc: <?= json_encode($somativa['naapi_ambiente_desc'] ?? '') ?>,
     naapiTempoExtra:   <?= (int)($somativa['naapi_tempo_extra_min'] ?? 60) ?>,
 };
+window.GradeSuggestions = <?= json_encode($suggestions) ?>;
 </script>
 <script src="/assets/js/somativas_grade.js?v=<?= time() ?>"></script>
 

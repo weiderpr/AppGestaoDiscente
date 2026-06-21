@@ -763,15 +763,66 @@
 
 /* ── Sidebar ──────────────────────────────────────────────── */
 
+.grade-sidebar-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    flex-shrink: 0;
+}
+
 .grade-sidebar {
     width: 260px;
+    min-width: 260px;
     flex-shrink: 0;
     border-left: 1px solid var(--border-color);
     background: var(--bg-surface);
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    transition: background var(--transition-fast);
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color var(--transition-fast);
+}
+
+.grade-sidebar-wrapper.collapsed .grade-sidebar {
+    width: 0 !important;
+    min-width: 0 !important;
+    border-left: none;
+    overflow: hidden;
+}
+
+.sidebar-toggle-btn {
+    position: absolute;
+    top: 50%;
+    left: -15px;
+    transform: translateY(-50%);
+    width: 15px;
+    height: 50px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-right: none;
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    z-index: 100;
+    transition: all var(--transition-fast);
+    box-shadow: -2px 0 6px rgba(0,0,0,0.04);
+    padding: 0;
+}
+
+.sidebar-toggle-btn:hover {
+    background: var(--bg-hover);
+    color: var(--color-primary);
+}
+
+.grade-sidebar-wrapper.collapsed .sidebar-toggle-btn {
+    left: -16px;
+    border-right: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 0 6px rgba(0,0,0,0.06);
 }
 
 .grade-sidebar.drag-over {
@@ -929,19 +980,155 @@ details[open] .gs-suggestions-list {
     animation: slideDown var(--transition-fast) ease-out;
 }
 
+.gs-suggestions-container {
+    padding: 0 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
 .gs-suggestion-item {
     font-size: .75rem;
     color: var(--text-secondary);
     line-height: 1.4;
-    padding: .5rem .625rem;
+    padding: .625rem .75rem;
     background: var(--bg-hover);
     border-radius: var(--radius-sm);
-    border-left: 3px solid var(--color-warning, #f59e0b);
+    border-left: 3px solid var(--color-primary);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    position: relative;
+    transition: all var(--transition-fast) ease;
 }
 
-.gs-sug-segunda_chamada  { border-left-color: var(--color-warning, #f59e0b); }
-.gs-sug-mesmo_dia        { border-left-color: var(--color-primary); }
-.gs-sug-evitar_mesmo_dia { border-left-color: var(--color-danger, #ef4444); }
+.gs-sug-logistica   { border-left-color: var(--color-primary); }
+.gs-sug-pedagogica  { border-left-color: var(--color-danger, #ef4444); }
+.gs-sug-professores { border-left-color: var(--color-success, #10b981); }
+
+.gs-suggestion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 2px;
+}
+
+.gs-suggestion-badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 1px 4px;
+    border-radius: 3px;
+    letter-spacing: 0.03em;
+    width: fit-content;
+}
+
+.gs-badge-logistica {
+    background: rgba(79, 70, 229, 0.1);
+    color: var(--color-primary);
+}
+
+.gs-badge-pedagogica {
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--color-danger, #ef4444);
+}
+
+.gs-badge-professores {
+    background: rgba(16, 185, 129, 0.08);
+    color: var(--color-success, #10b981);
+}
+
+.gs-suggestion-body {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.375rem;
+}
+
+.gs-suggestion-text {
+    flex: 1;
+    font-weight: 500;
+}
+
+.gs-suggestion-star {
+    color: #eab308;
+    font-size: 0.95rem;
+    line-height: 1;
+    cursor: default;
+    user-select: none;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.gs-suggestion-help {
+    color: var(--text-muted);
+    font-size: .65rem;
+    cursor: help;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.04);
+    transition: all var(--transition-fast);
+}
+
+.gs-suggestion-help:hover {
+    background: rgba(0,0,0,0.08);
+    color: var(--text-primary);
+}
+
+/* Estado de sugestão atendida/satisfeita */
+.gs-suggestion-item.satisfied {
+    border-left-color: var(--color-success, #10b981) !important;
+    background: rgba(16, 185, 129, 0.04);
+    opacity: 0.75;
+}
+
+.gs-suggestion-item.satisfied .gs-suggestion-text {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+/* Tooltip nativo customizado usando CSS posicionado */
+.gs-suggestion-item .tooltip-content {
+    visibility: hidden;
+    width: 220px;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    color: var(--text-secondary);
+    text-align: left;
+    border-radius: var(--radius-md);
+    padding: 0.625rem;
+    position: absolute;
+    z-index: 100;
+    bottom: 105%;
+    right: 0;
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    transform: translateY(4px);
+    font-size: 0.7rem;
+    line-height: 1.35;
+    pointer-events: none;
+    font-weight: 400;
+}
+
+.gs-suggestion-item .tooltip-content strong {
+    color: var(--text-primary);
+}
+
+.gs-suggestion-item:hover .tooltip-content {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+@keyframes popIn {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
 
 /* ── Restrições (edit.php Tab 4) ──────────────────────────── */
 .restricao-item {
