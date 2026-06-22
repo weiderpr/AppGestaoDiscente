@@ -2166,9 +2166,9 @@ class SomativaService extends Service {
             ];
         }
 
-        // Professores por disciplina+turma (para determinar o volante)
+        // Professores por disciplina+turma (para determinar o volante e mapear por turma/curso)
         $dtRows = $this->fetchAll(
-            "SELECT tdp.professor_id, td.turma_id, td.disciplina_codigo
+            "SELECT tdp.professor_id, td.turma_id, td.disciplina_codigo, t.course_id
              FROM turma_disciplina_professores tdp
              JOIN turma_disciplinas td ON td.id = tdp.turma_disciplina_id
              JOIN turmas t ON t.id = td.turma_id
@@ -2177,11 +2177,16 @@ class SomativaService extends Service {
             [$instId]
         );
         $discTeachers = [];
+        $turmaTeachers = [];
+        $courseTeachers = [];
         foreach ($dtRows as $r) {
             $turmaId = (int)$r['turma_id'];
+            $courseId = (int)$r['course_id'];
             $cod     = $r['disciplina_codigo'];
             $pid     = (int)$r['professor_id'];
             $discTeachers[$turmaId][$cod][] = $pid;
+            $turmaTeachers[$turmaId][$pid] = true;
+            $courseTeachers[$courseId][$pid] = true;
         }
 
         // Contador de carga acumulada nesta rodada: aplicador + volante + naapi (equalização total)
@@ -2259,27 +2264,31 @@ class SomativaService extends Service {
                     }
                 }
 
+                $tier = 4;
+                if ($anyTurma && ($thisTurma || $sameCourse)) {
+                    $tier = 1;
+                } elseif ($anyTurma) {
+                    $tier = 2;
+                } elseif (isset($turmaTeachers[$turmaId][$pid]) || isset($courseTeachers[$courseId][$pid])) {
+                    $tier = 3;
+                }
+
                 $apCandidates[$pid] = [
-                    'turma_match'  => $thisTurma,
-                    'course_match' => $sameCourse,
-                    'any_class'    => $anyTurma,
-                    'load'         => $runningLoad[$pid] ?? 0,
-                    'name'         => $pname,
+                    'tier' => $tier,
+                    'load' => $runningLoad[$pid] ?? 0,
+                    'name' => $pname,
                 ];
             }
 
-            // Ordena: turma_match ↓ → course_match ↓ → any_class ↓ → load ↑
+            // Ordena: tier ↓ → load ↑ → name ↑
             uasort($apCandidates, function ($x, $y) {
-                if ($x['turma_match'] !== $y['turma_match']) {
-                    return $y['turma_match'] <=> $x['turma_match'];
+                if ($x['tier'] !== $y['tier']) {
+                    return $x['tier'] <=> $y['tier'];
                 }
-                if ($x['course_match'] !== $y['course_match']) {
-                    return $y['course_match'] <=> $x['course_match'];
+                if ($x['load'] !== $y['load']) {
+                    return $x['load'] <=> $y['load'];
                 }
-                if ($x['any_class'] !== $y['any_class']) {
-                    return $y['any_class'] <=> $x['any_class'];
-                }
-                return $x['load'] <=> $y['load'];
+                return strcmp($x['name'], $y['name']);
             });
 
             if (!empty($apCandidates)) {
@@ -2321,25 +2330,31 @@ class SomativaService extends Service {
                             }
                         }
 
+                        $tier = 4;
+                        if ($anyTurma && ($thisTurma || $sameCourse)) {
+                            $tier = 1;
+                        } elseif ($anyTurma) {
+                            $tier = 2;
+                        } elseif (isset($turmaTeachers[$turmaId][$pid]) || isset($courseTeachers[$courseId][$pid])) {
+                            $tier = 3;
+                        }
+
                         $naCandidates[$pid] = [
-                            'turma_match'  => $thisTurma,
-                            'course_match' => $sameCourse,
-                            'any_class'    => $anyTurma,
-                            'load'         => $runningLoad[$pid] ?? 0,
+                            'tier' => $tier,
+                            'load' => $runningLoad[$pid] ?? 0,
+                            'name' => $pname,
                         ];
                     }
 
+                    // Ordena: tier ↓ → load ↑ → name ↑
                     uasort($naCandidates, function ($x, $y) {
-                        if ($x['turma_match'] !== $y['turma_match']) {
-                            return $y['turma_match'] <=> $x['turma_match'];
+                        if ($x['tier'] !== $y['tier']) {
+                            return $x['tier'] <=> $y['tier'];
                         }
-                        if ($x['course_match'] !== $y['course_match']) {
-                            return $y['course_match'] <=> $x['course_match'];
+                        if ($x['load'] !== $y['load']) {
+                            return $x['load'] <=> $y['load'];
                         }
-                        if ($x['any_class'] !== $y['any_class']) {
-                            return $y['any_class'] <=> $x['any_class'];
-                        }
-                        return $x['load'] <=> $y['load'];
+                        return strcmp($x['name'], $y['name']);
                     });
 
                     if (!empty($naCandidates)) {

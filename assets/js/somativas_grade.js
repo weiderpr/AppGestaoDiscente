@@ -1346,6 +1346,30 @@
         document.getElementById('btn-processar-inteligente')?.addEventListener('click', processIntelligentAllocation);
         document.getElementById('btn-intel-reset')?.addEventListener('click', resetIntelligentTab);
         document.getElementById('btn-intel-confirm')?.addEventListener('click', confirmIntelligentAllocation);
+
+        // Toggle de expansão dos cards de carga de ocupação
+        const cargaGrid = document.getElementById('carga-grid');
+        if (cargaGrid) {
+            cargaGrid.addEventListener('click', (e) => {
+                const card = e.target.closest('.carga-card');
+                if (!card) return;
+
+                // Evita recolher se clicar dentro dos detalhes expandidos
+                if (e.target.closest('.carga-card-details-expand')) {
+                    return;
+                }
+
+                card.classList.toggle('expanded');
+                const container = card.querySelector('.carga-card-details-expand');
+                if (container) {
+                    if (card.classList.contains('expanded')) {
+                        container.style.maxHeight = container.scrollHeight + 'px';
+                    } else {
+                        container.style.maxHeight = '0px';
+                    }
+                }
+            });
+        }
     }
 
     window.openAnalysisModal = function () {
@@ -1495,10 +1519,57 @@
                         barClass = 'load-medium';
                     }
 
+                    // Encontra a agenda deste professor
+                    const profAgendaObj = agendas.find(ag => ag.professor_id === w.professor_id);
+                    const agendaItems = profAgendaObj ? (profAgendaObj.agenda || []) : [];
+
+                    let agendaHtml = '';
+                    if (agendaItems.length === 0) {
+                        agendaHtml = `<div class="carga-no-alloc">Nenhuma alocação registrada</div>`;
+                    } else {
+                        agendaHtml = `
+                            <table class="carga-alloc-table">
+                                <thead>
+                                    <tr>
+                                        <th>Papel</th>
+                                        <th>Data/Hora</th>
+                                        <th>Turma/Disc.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${agendaItems.map(a => {
+                                        let roleBadgeClass = 'badge-neutral';
+                                        if (a.papel.includes('Aplicador') && !a.papel.includes('Volante')) {
+                                            roleBadgeClass = 'badge-warning';
+                                        } else if (a.papel.includes('Volante') && !a.papel.includes('Aplicador')) {
+                                            roleBadgeClass = 'badge-success badge-volante';
+                                        }
+                                        return `
+                                            <tr>
+                                                <td><span class="badge ${roleBadgeClass} badge-role">${escHtml(a.papel)}</span></td>
+                                                <td>
+                                                    <strong>${formatDate(a.data_prova)}</strong><br>
+                                                    <span class="font-xs-muted" style="font-size:0.65rem;">${escHtml(a.slot_label)}</span>
+                                                </td>
+                                                <td>
+                                                    <span class="font-semibold-primary" style="font-size:0.7rem;">${escHtml(a.turma_desc)}</span><br>
+                                                    <span class="font-xs-muted" style="font-size:0.65rem;">${escHtml(a.disc_nome || 'Segunda Chamada')}</span>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        `;
+                    }
+
                     return `
                         <div class="carga-card">
                             <div class="carga-card-header">
-                                <span class="carga-prof-name">${escHtml(w.professor_name)}</span>
+                                <span class="carga-prof-name">
+                                    ${escHtml(w.professor_name)}
+                                    <span class="carga-card-chevron">▼</span>
+                                </span>
                                 <span class="carga-total-badge">${w.total} aloc.</span>
                             </div>
                             <div class="carga-bar-container">
@@ -1508,6 +1579,11 @@
                                 <span class="carga-detail-item">Aplicador: <strong>${w.aplicador}</strong></span>
                                 <span class="carga-detail-item">Volante: <strong>${w.volante}</strong></span>
                                 <span class="carga-detail-item">NAAPI: <strong>${w.naapi}</strong></span>
+                            </div>
+                            <div class="carga-card-details-expand">
+                                <div class="carga-card-details-expand-inner">
+                                    ${agendaHtml}
+                                </div>
                             </div>
                         </div>
                     `;

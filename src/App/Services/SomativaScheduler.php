@@ -94,6 +94,7 @@ class SomativaScheduler extends Service
             "SELECT st.id AS som_turma_id, st.turma_id,
                     t.description AS turma_desc,
                     t.ambiente_id AS turma_ambiente_id,
+                    t.course_id,
                     c.name AS course_name
              FROM somativa_turmas st
              JOIN turmas t  ON t.id  = st.turma_id
@@ -588,6 +589,9 @@ class SomativaScheduler extends Service
 
             $avisos[] = 'Aviso: Não foi possível encontrar uma grade 100% perfeita com as restrições atuais. ' . count($conflitos) . ' disciplinas não puderam ser alocadas automaticamente.';
         }
+
+        // Run post-processing to assign remaining teachers to cards without aplicadors
+        $this->assignRemainingTeachers($alocacoes, $data, (int)($data['som']['institution_id'] ?? 0));
 
         return ['alocacoes' => $alocacoes, 'conflitos' => $conflitos, 'avisos' => $avisos];
     }
@@ -2171,5 +2175,227 @@ class SomativaScheduler extends Service
             }
         }
         return $score;
+    }
+
+    private function assignRemainingTeachers(array &$alocacoes, array $data, int $instId): void
+    {
+        // 1. Fetch all active teachers
+        $allTeachers = $this->fetchAll(
+            "SELECT u.id, u.name FROM users u
+             JOIN user_institutions ui ON ui.user_id = u.id AND ui.institution_id = ?
+             WHERE u.is_active = 1 AND (u.is_teacher = 1 OR u.profile = 'Professor')
+             ORDER BY u.name",
+            [$instId]
+        );
+        $teacherMap = [];
+        foreach ($allTeachers as $t) {
+            $teacherMap[(int)$t['id']] = $t['name'];
+        }
+
+        // 2. Load turma-disciplinas to map teachers of turma/course
+        $dtRows = $this->fetchAll(
+            "SELECT tdp.professor_id, td.turma_id, t.course_id
+             FROM turma_disciplina_professores tdp
+             JOIN turma_disciplinas td ON td.id = tdp.turma_disciplina_id
+             JOIN turmas t ON t.id = td.turma_id
+             JOIN courses c ON c.id = t.course_id
+             WHERE c.institution_id = ?",
+            [$instId]
+        );
+        $turmaTeachers = [];
+        $courseTeachers = [];
+        foreach ($dtRows as $r) {
+            $tId = (int)$r['turma_id'];
+            $cId = (int)$r['course_id'];
+            $pId = (int)$r['professor_id'];
+            $turmaTeachers[$tId][$pId] = true;
+            $courseTeachers[$cId][$pId] = true;
+        }
+
+        // 3. Keep track of current slot occupancy in $alocacoes and calculate workloads
+        $slotOccupancy = [];
+        $runningLoad = [];
+        foreach (array_keys($teacherMap) as $pid) {
+            $runningLoad[$pid] = 0;
+        }
+
+        foreach ($alocacoes as $aloc) {
+            $slotKey = $aloc['data_prova'] . '_' . $aloc['slot_config_id'];
+            if ($aloc['aplicador_id']) {
+                $slotOccupancy[$slotKey][(int)$aloc['aplicador_id']] = true;
+                $runningLoad[(int)$aloc['aplicador_id']]++;
+            }
+            if ($aloc['volante_id']) {
+                $slotOccupancy[$slotKey][(int)$aloc['volante_id']] = true;
+                $runningLoad[(int)$aloc['volante_id']]++;
+            }
+            if (!empty($aloc['naapi_aplicador_id'])) {
+                $slotOccupancy[$slotKey][(int)$aloc['naapi_aplicador_id']] = true;
+                $runningLoad[(int)$aloc['naapi_aplicador_id']]++;
+            }
+        }
+
+        // Aulas regulares por professor-dia_semana
+        $byProfDay = [];
+        $regularClasses = $this->fetchAll(
+            "SELECT DISTINCT tdp.professor_id, gta.turma_id, tr.course_id, gta.dia_semana,
+                    gta.horario_inicio, gta.horario_fim
+             FROM gestao_turma_aulas gta
+             JOIN turmas tr ON tr.id = gta.turma_id
+             JOIN courses c ON c.id = tr.course_id
+             JOIN turma_disciplinas td ON td.turma_id = gta.turma_id
+                 AND td.disciplina_codigo = gta.disciplina_codigo
+             JOIN turma_disciplina_professores tdp ON tdp.turma_disciplina_id = td.id
+             WHERE c.institution_id = ? AND gta.is_active = 1",
+            [$instId]
+        );
+        foreach ($regularClasses as $rc) {
+            $pid = (int)$rc['professor_id'];
+            $dow = (int)$rc['dia_semana'];
+            $byProfDay[$pid][$dow][] = [
+                'turma_id'  => (int)$rc['turma_id'],
+                'course_id' => (int)$rc['course_id'],
+                'inicio'    => $rc['horario_inicio'],
+                'fim'       => $rc['horario_fim'],
+            ];
+        }
+
+        // Find the som_turma_id to course_id/turma_id mapping
+        $somTurmaMap = [];
+        foreach ($data['turmas'] as $t) {
+            $somTurmaMap[(int)$t['som_turma_id']] = [
+                'turma_id' => (int)$t['turma_id'],
+                'course_id' => (int)($t['course_id'] ?? 0)
+            ];
+        }
+
+        $naapiAtivo = !empty($data['som']['naapi_ambiente_id']);
+
+        // 4. Fill in missing aplicador_id and naapi_aplicador_id
+        foreach ($alocacoes as &$aloc) {
+            $stId = (int)$aloc['somativa_turma_id'];
+            $turmaId = $somTurmaMap[$stId]['turma_id'] ?? 0;
+            $courseId = $somTurmaMap[$stId]['course_id'] ?? 0;
+            $slotKey = $aloc['data_prova'] . '_' . $aloc['slot_config_id'];
+            $date = $aloc['data_prova'];
+            $dow = (int)(new \DateTime($date))->format('N');
+            $slotStart = $aloc['horario_inicio'];
+            $slotEnd = $aloc['horario_fim'];
+
+            // Fill aplicador_id if null
+            if (empty($aloc['aplicador_id'])) {
+                $candidates = [];
+                foreach ($teacherMap as $pid => $pname) {
+                    if (isset($slotOccupancy[$slotKey][$pid])) continue;
+
+                    $thisTurma  = false;
+                    $sameCourse = false;
+                    $anyTurma   = false;
+
+                    if (isset($byProfDay[$pid][$dow])) {
+                        foreach ($byProfDay[$pid][$dow] as $cls) {
+                            if ($cls['inicio'] < $slotEnd && $cls['fim'] > $slotStart) {
+                                $anyTurma = true;
+                                if ($cls['turma_id'] === $turmaId) {
+                                    $thisTurma = true;
+                                } elseif ($cls['course_id'] === $courseId) {
+                                    $sameCourse = true;
+                                }
+                            }
+                        }
+                    }
+
+                    $tier = 4;
+                    if ($anyTurma && ($thisTurma || $sameCourse)) {
+                        $tier = 1;
+                    } elseif ($anyTurma) {
+                        $tier = 2;
+                    } elseif (isset($turmaTeachers[$turmaId][$pid]) || isset($courseTeachers[$courseId][$pid])) {
+                        $tier = 3;
+                    }
+
+                    $candidates[$pid] = [
+                        'tier' => $tier,
+                        'load' => $runningLoad[$pid] ?? 0,
+                        'name' => $pname,
+                    ];
+                }
+
+                uasort($candidates, function ($x, $y) {
+                    if ($x['tier'] !== $y['tier']) {
+                        return $x['tier'] <=> $y['tier'];
+                    }
+                    if ($x['load'] !== $y['load']) {
+                        return $x['load'] <=> $y['load'];
+                    }
+                    return strcmp($x['name'], $y['name']);
+                });
+
+                if (!empty($candidates)) {
+                    $bestPid = (int)array_key_first($candidates);
+                    $aloc['aplicador_id'] = $bestPid;
+                    $slotOccupancy[$slotKey][$bestPid] = true;
+                    $runningLoad[$bestPid]++;
+                }
+            }
+
+            // Fill naapi_aplicador_id if null and active
+            if ($naapiAtivo && empty($aloc['naapi_aplicador_id'])) {
+                $candidates = [];
+                foreach ($teacherMap as $pid => $pname) {
+                    if (isset($slotOccupancy[$slotKey][$pid])) continue;
+
+                    $thisTurma  = false;
+                    $sameCourse = false;
+                    $anyTurma   = false;
+
+                    if (isset($byProfDay[$pid][$dow])) {
+                        foreach ($byProfDay[$pid][$dow] as $cls) {
+                            if ($cls['inicio'] < $slotEnd && $cls['fim'] > $slotStart) {
+                                $anyTurma = true;
+                                if ($cls['turma_id'] === $turmaId) {
+                                    $thisTurma = true;
+                                } elseif ($cls['course_id'] === $courseId) {
+                                    $sameCourse = true;
+                                }
+                            }
+                        }
+                    }
+
+                    $tier = 4;
+                    if ($anyTurma && ($thisTurma || $sameCourse)) {
+                        $tier = 1;
+                    } elseif ($anyTurma) {
+                        $tier = 2;
+                    } elseif (isset($turmaTeachers[$turmaId][$pid]) || isset($courseTeachers[$courseId][$pid])) {
+                        $tier = 3;
+                    }
+
+                    $candidates[$pid] = [
+                        'tier' => $tier,
+                        'load' => $runningLoad[$pid] ?? 0,
+                        'name' => $pname,
+                    ];
+                }
+
+                uasort($candidates, function ($x, $y) {
+                    if ($x['tier'] !== $y['tier']) {
+                        return $x['tier'] <=> $y['tier'];
+                    }
+                    if ($x['load'] !== $y['load']) {
+                        return $x['load'] <=> $y['load'];
+                    }
+                    return strcmp($x['name'], $y['name']);
+                });
+
+                if (!empty($candidates)) {
+                    $bestPid = (int)array_key_first($candidates);
+                    $aloc['naapi_aplicador_id'] = $bestPid;
+                    $slotOccupancy[$slotKey][$bestPid] = true;
+                    $runningLoad[$bestPid]++;
+                }
+            }
+        }
+        unset($aloc);
     }
 }
